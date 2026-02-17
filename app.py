@@ -18,66 +18,74 @@ STAFF_PWD = "fb123"      # 财务录入数据的密码
 # --- 3. 逻辑判断 ---
 if role == "数据录入":
     if password == STAFF_PWD:
-        st.title("📝 财务日常录入")
+        st.title("📝 财务收支记账录入")
         
-        # --- 重新填回的表单代码开始 ---
-        with st.form("entry_form"):
-            col1, col2 = st.columns(2)
+        with st.form("entry_form", clear_on_submit=True):
+            # 第一行：基础信息
+            col1, col2, col3 = st.columns(3)
             with col1:
-                report_date = st.date_input("报备日期")
-                income = st.number_input("昨日收款金额 (元)", min_value=0.0, step=100.0)
+                report_date = st.date_input("日期", help="列B")
             with col2:
-                balance = st.number_input("当前现金余额 (元)", min_value=0.0, step=100.0)
-                user_name = st.text_input("填报人姓名")
+                account_type = st.selectbox("账户", ["现金", "银行存款", "微信", "支付宝", "其他"], help="列D")
+            with col3:
+                trans_type = st.radio("收支类型", ["收入", "支出"], horizontal=True, help="列F")
 
-            st.markdown("---")
-            st.subheader("🧾 发票明细录入")
-            
-            # 使用文本框让用户输入，每行一条：发票号,客户,金额
-            invoice_raw = st.text_area("格式：发票号,客户名称,金额 (每行一条)", help="例如：INV001,某某公司,5000")
-            
-            submitted = st.form_submit_button("🚀 提交数据并同步至云端")
-            
+            # 第二行：核心金额
+            col4, col5, col6 = st.columns(3)
+            with col4:
+                income_val = st.number_input("收入金额", min_value=0.0, step=100.0) if trans_type == "收入" else 0.0
+            with col5:
+                expense_val = st.number_input("支出金额", min_value=0.0, step=100.0) if trans_type == "支出" else 0.0
+            with col6:
+                current_balance = st.number_input("当前账户余额", min_value=0.0, step=100.0, help="列I")
+
+            # 第三行：单据与经手人
+            col7, col8 = st.columns(2)
+            with col7:
+                ref_no = st.text_input("审批/发票编号", help="列E")
+            with col8:
+                handler = st.text_input("经手人", help="列J")
+
+            # 第四行：文字描述
+            summary = st.text_input("摘要 (必填)", help="列C")
+            note = st.text_area("备注", help="列K")
+
+            submitted = st.form_submit_button("🚀 提交并同步至云端")
+
             if submitted:
-                if not user_name:
-                    st.error("请输入填报人姓名！")
+                if not summary or not handler:
+                    st.error("❌ 请填写‘摘要’和‘经手人’！")
                 else:
                     try:
-                        # 处理发票数据
-                        invoice_list = []
-                        if invoice_raw.strip():
-                            for line in invoice_raw.strip().split('\n'):
-                                parts = line.split(',')
-                                if len(parts) == 3:
-                                    invoice_list.append({
-                                        "对应日期": report_date.strftime('%Y-%m-%d'),
-                                        "发票号": parts[0].strip(),
-                                        "客户名称": parts[1].strip(),
-                                        "金额": float(parts[2].strip())
-                                    })
-
-                        # 执行同步逻辑
-                        summary_df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-                        new_summary = pd.DataFrame([{"日期": report_date.strftime('%Y-%m-%d'), "收款金额": income, "现金余额": balance, "填报人": user_name}])
-                        updated_summary = pd.concat([summary_df, new_summary], ignore_index=True).fillna("")
-                        conn.update(worksheet="Summary", data=updated_summary)
+                        # 1. 读取现有数据获取当前最大序号
+                        df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
+                        next_id = 1 if df.empty else len(df) + 1
                         
-                        if invoice_list:
-                            invoice_df = conn.read(worksheet="Invoices", ttl=0).dropna(how="all")
-                            new_inv_df = pd.DataFrame(invoice_list)
-                            updated_invoices = pd.concat([invoice_df, new_inv_df], ignore_index=True).fillna("")
-                            conn.update(worksheet="Invoices", data=updated_invoices)
-                            
-                        st.success("✅ 同步成功！数据已写入 Google Sheets。")
+                        # 2. 构造新行 (严格对应 A-K 列顺序)
+                        new_row = {
+                            "序号": next_id, # 列A
+                            "日期": report_date.strftime('%Y-%m-%d'), # 列B
+                            "摘要": summary, # 列C
+                            "账户": account_type, # 列D
+                            "审批/发票编号": ref_no, # 列E
+                            "收支类型": trans_type, # 列F
+                            "收入": income_val, # 列G
+                            "支出": expense_val, # 列H
+                            "余额": current_balance, # 列I
+                            "经手人": handler, # 列J
+                            "备注": note # 列K
+                        }
+                        
+                        new_df = pd.DataFrame([new_row])
+                        updated_df = pd.concat([df, new_df], ignore_index=True).fillna("")
+                        
+                        # 3. 写入 Google Sheets
+                        conn.update(worksheet="Summary", data=updated_df)
+                        
+                        st.success(f"✅ 第 {next_id} 号记录已成功同步！")
                         st.balloons()
                     except Exception as e:
                         st.error(f"同步失败: {e}")
-        # --- 重新填回的表单代码结束 ---
-
-    elif password == "":
-        st.info("💡 请在左侧边栏输入‘录入密码’以开启表单")
-    else:
-        st.error("❌ 密码错误")
 
 elif role == "管理看板":
     if password == ADMIN_PWD:
@@ -125,4 +133,5 @@ elif role == "管理看板":
 
         except Exception as e:
             st.error(f"计算看板指标时出错: {e}")
+
 

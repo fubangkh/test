@@ -44,34 +44,31 @@ if role == "财务录入员":
         
         if submitted:
             try:
-                # 1. 更新汇总表
-                conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-                new_summary = pd.DataFrame([{"日期": report_date, "收款金额": income, "现金余额": balance, "填报人": user_name}])
-                updated_summary = pd.concat([summary_df, new_summary], ignore_index=True).dropna(how="all")
-                conn.update(worksheet="Summary", data=updated_summary)
+                # 构造汇总行
+                new_summary_data = [[report_date, income, balance, user_name]]
                 
-                # 2. 更新明细表
+                # 使用最基础的 append_rows 方法（绕过复杂的 DataFrame 合并）
+                # 这种方法对 Google API 最友好
+                conn.create(
+                    worksheet="Summary",
+                    data=new_summary_data
+                )
+                
+                # 如果有发票明细，同样处理
                 if invoice_list:
-                    invoice_df = conn.read(worksheet="Invoices", ttl=0).dropna(how="all")
-                    new_invoices = pd.DataFrame(invoice_list)
-                    updated_invoices = pd.concat([invoice_df, new_invoices], ignore_index=True).dropna(how="all")
-                    conn.update(worksheet="Invoices", data=updated_invoices)
+                    # 将字典列表转为二维列表 [[...], [...]]
+                    new_invoice_data = [
+                        [item["对应日期"], item["发票号"], item["客户名称"], item["金额"]] 
+                        for item in invoice_list
+                    ]
+                    conn.create(
+                        worksheet="Invoices",
+                        data=new_invoice_data
+                    )
                 
-                st.success("✅ 数据已成功同步至云端！")
+                st.success("✅ 提交成功！数据已实时追加入云端表格。")
+                st.balloons()
             except Exception as e:
-                st.error(f"同步失败，请检查 Google Sheets 配置或工作表名称是否正确。错误信息: {e}")
-
-else:
-    st.header("📊 财务概览看板")
-    try:
-        df_sum = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-        df_inv = conn.read(worksheet="Invoices", ttl=0).dropna(how="all")
-        
-        tab1, tab2 = st.tabs(["资金汇总历史", "发票明细清单"])
-        with tab1:
-            st.dataframe(df_sum, use_container_width=True)
-        with tab2:
-            st.dataframe(df_inv, use_container_width=True)
-    except:
-        st.info("暂无云端数据，请等待财务人员完成首次提交。")
+                st.error(f"同步失败。当前错误详细信息: {e}")
+                st.info("💡 终极排查建议：如果依然 400，请尝试在 Google Sheets 随便一个空白单元格打个空格，确认表格不是‘从未编辑’状态。")
 

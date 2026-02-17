@@ -44,31 +44,25 @@ if role == "财务录入员":
         
         if submitted:
             try:
-                # 构造汇总行
-                new_summary_data = [[report_date, income, balance, user_name]]
+                # 1. 读取现有数据（明确指定工作表）
+                # ttl=0 保证每次拿到的都是最新数据，不走缓存
+                summary_df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
                 
-                # 使用最基础的 append_rows 方法（绕过复杂的 DataFrame 合并）
-                # 这种方法对 Google API 最友好
-                conn.create(
-                    worksheet="Summary",
-                    data=new_summary_data
-                )
+                # 2. 构造新行
+                new_summary = pd.DataFrame([{"日期": report_date, "收款金额": income, "现金余额": balance, "填报人": user_name}])
                 
-                # 如果有发票明细，同样处理
+                # 3. 合并并更新（使用 update 而不是 create）
+                updated_summary = pd.concat([summary_df, new_summary], ignore_index=True).fillna("")
+                conn.update(worksheet="Summary", data=updated_summary)
+                
+                # 4. 如果有发票，同理操作
                 if invoice_list:
-                    # 将字典列表转为二维列表 [[...], [...]]
-                    new_invoice_data = [
-                        [item["对应日期"], item["发票号"], item["客户名称"], item["金额"]] 
-                        for item in invoice_list
-                    ]
-                    conn.create(
-                        worksheet="Invoices",
-                        data=new_invoice_data
-                    )
+                    invoice_df = conn.read(worksheet="Invoices", ttl=0).dropna(how="all")
+                    new_invoices = pd.DataFrame(invoice_list)
+                    updated_invoices = pd.concat([invoice_df, new_invoices], ignore_index=True).fillna("")
+                    conn.update(worksheet="Invoices", data=updated_invoices)
                 
-                st.success("✅ 提交成功！数据已实时追加入云端表格。")
+                st.success("✅ 数据同步成功！机器人已将数据写入表格。")
                 st.balloons()
             except Exception as e:
-                st.error(f"同步失败。当前错误详细信息: {e}")
-                st.info("💡 终极排查建议：如果依然 400，请尝试在 Google Sheets 随便一个空白单元格打个空格，确认表格不是‘从未编辑’状态。")
-
+                st.error(f"同步失败。错误详情: {e}")

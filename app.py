@@ -84,84 +84,88 @@ elif role == "管理看板":
         st.title("📊 财务决策看板")
         
         try:
-            # 1. 实时读取数据并处理日期
+            # 1. 实时读取数据
             df_sum = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
             
             if not df_sum.empty:
+                # --- 数据预处理 ---
+                # 强制转换数值列，防止 nan 出现
+                for col in ["收入", "支出", "余额"]:
+                    df_sum[col] = pd.to_numeric(df_sum[col], errors='coerce').fillna(0)
+                
+                # 处理日期并排序
                 df_sum['日期'] = pd.to_datetime(df_sum['日期'])
                 df_sum = df_sum.sort_values('日期')
                 
                 # 获取当前月份和年份
-                current_month = pd.Timestamp.now().month
-                current_year = pd.Timestamp.now().year
+                now = pd.Timestamp.now()
+                current_month = now.month
+                current_year = now.year
                 
                 # 筛选本月数据
                 month_mask = (df_sum['日期'].dt.month == current_month) & (df_sum['日期'].dt.year == current_year)
                 df_month = df_sum[month_mask]
 
-                # --- 计算各项指标 ---
-                # A. 期初余额：本月第一笔记录之前的余额（若无则取本月第一笔的余额减去第一笔的收支）
+                # --- 核心指标计算 ---
                 if not df_month.empty:
-                    first_row = df_month.iloc[0]
-                    # 期初 = 第一笔的余额 - 第一笔收入 + 第一笔支出
-                    opening_balance = float(first_row["余额"]) - float(first_row["收入"]) + float(first_row["支出"])
+                    # 获取本月第一笔记录
+                    first_row_month = df_month.iloc[0]
+                    # 期初 = 第一笔余额 - 第一笔收入 + 第一笔支出
+                    opening_balance = float(first_row_month["余额"]) - float(first_row_month["收入"]) + float(first_row_month["支出"])
                     month_income = df_month["收入"].sum()
                     month_expense = df_month["支出"].sum()
                     current_balance = df_month.iloc[-1]["余额"]
                 else:
-                    opening_balance = df_sum.iloc[-1]["余额"] if not df_sum.empty else 0
-                    month_income = 0
-                    month_expense = 0
+                    # 如果本月完全没数据，期初就是总表的最后一笔余额
+                    opening_balance = float(df_sum.iloc[-1]["余额"])
+                    month_income = 0.0
+                    month_expense = 0.0
                     current_balance = opening_balance
 
-                # --- 显示第一排指标：当前状态 ---
+                # --- 布局显示：第一排 ---
                 st.subheader(f"📅 {current_year}年{current_month}月 财务概况")
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("期初余额", f"¥{opening_balance:,.2f}")
+                    st.metric("本月期初余额", f"¥{opening_balance:,.2f}")
                 with col2:
-                    st.metric("本月累计收入", f"¥{month_income:,.2f}", delta_color="normal")
+                    st.metric("本月累计收入", f"¥{month_income:,.2f}")
                 with col3:
                     st.metric("本月累计支出", f"¥{month_expense:,.2f}", delta=f"-{month_expense:,.2f}", delta_color="inverse")
 
-                # --- 显示第二排指标：最终结果 ---
+                # --- 布局显示：第二排 ---
                 st.markdown("---")
                 col4, col5 = st.columns(2)
                 with col4:
-                    # 计算本月净头寸
                     net_cash = month_income - month_expense
                     st.metric("本月收支净额", f"¥{net_cash:,.2f}", delta=f"{net_cash:,.2f}")
                 with col5:
                     st.metric("当前动态总余额", f"¥{current_balance:,.2f}")
 
-                # 4. 显示原始数据表
+                # --- 数据流水表 ---
                 st.markdown("---")
                 st.subheader("📋 详细收支流水 (按日期倒序)")
-                st.dataframe(df_sum.sort_values('日期', ascending=False), use_container_width=True)
-            else:
-                st.info("📊 暂无数据，请先完成首笔录入。")
-                # --- 增加：数据删除功能 ---
+                # 准备展示用的 DataFrame (克隆一份避免干扰计算)
+                df_display = df_sum.copy()
+                df_display['日期'] = df_display['日期'].dt.strftime('%Y-%m-%d')
+                # 倒序排列显示，让最新的在上面
+                st.dataframe(df_display.sort_index(ascending=False), use_container_width=True)
+
+                # --- 数据管理：按索引删除 ---
                 st.markdown("---")
                 with st.expander("🛠️ 数据管理（误填删除）"):
-                    st.warning("注意：删除操作不可撤销，请谨慎操作。")
-                    delete_id = st.number_input("输入要删除的‘序号’", min_value=1, step=1)
-                    if st.button("确认删除该行数据"):
+                    st.warning("⚠️ 删除操作不可撤销。请查看上方表格最左侧的【数字索引】进行删除。")
+                    delete_idx = st.number_input("输入要删除的行索引 (Index)", min_value=0, max_value=len(df_sum)-1, step=1)
+                    if st.button("确认删除该行"):
                         try:
-                            # 重新读取并过滤掉该序号
-                            df_current = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-                            if delete_id in df_current["序号"].values:
-                                df_new = df_current[df_current["序号"] != delete_id]
-                                # 重新整理序号，保持连续
-                                df_new["序号"] = range(1, len(df_new) + 1)
-                                conn.update(worksheet="Summary", data=df_new)
-                                st.success(f"✅ 序号 {delete_id} 已成功删除，其余序号已自动重排。")
-                                st.rerun() # 刷新页面看效果
-                            else:
-                                st.error("未找到该序号。")
+                            # 过滤掉选中的索引行
+                            df_new = df_sum.drop(delete_idx)
+                            # 重新计算删除后的余额逻辑（可选，建议管理员手动校对）
+                            conn.update(worksheet="Summary", data=df_new)
+                            st.success(f"✅ 索引为 {delete_idx} 的行已成功删除！")
+                            st.rerun()
                         except Exception as e:
-                            st.error(f"删除失败: {e}")
-        except Exception as e:
-            st.error(f"计算看板指标时出错: {e}")
+                            st.error
+
 
 
 

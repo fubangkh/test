@@ -147,14 +147,23 @@ def entry_dialog():
                 exp_val = converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0
                 new_rows.append(create_row(0, val_sum, val_proj, val_acc, val_inv, val_prop, inc_val, exp_val, val_hand, val_note))
 
-            # 合并并重算余额
+           # --- 3. 合并并重算余额 (全列强制保留2位小数显示) ---
             new_df = pd.DataFrame(new_rows, columns=current_df.columns)
             full_df = pd.concat([current_df, new_df], ignore_index=True)
-            full_df['收入'] = pd.to_numeric(full_df['收入'], errors='coerce').fillna(0).round(2)
-            full_df['支出'] = pd.to_numeric(full_df['支出'], errors='coerce').fillna(0).round(2)
-            full_df['余额'] = (full_df['收入'].cumsum() - full_df['支出'].cumsum()).round(2)
             
-            # 更新云端
+            # 确保数据是数值类型进行计算
+            full_df['收入'] = pd.to_numeric(full_df['收入'], errors='coerce').fillna(0)
+            full_df['支出'] = pd.to_numeric(full_df['支出'], errors='coerce').fillna(0)
+            
+            # 重新计算余额流水
+            full_df['余额'] = (full_df['收入'].cumsum() - full_df['支出'].cumsum())
+
+            # --- 核心修正：将金额列转换为带2位小数的字符串 ---
+            # 这样上传到 Google Sheets 后，即使是 .00 也会被强制显示
+            for col in ['收入', '支出', '余额']:
+                full_df[col] = full_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+            
+            # --- 4. 同步 Google Sheets ---
             conn.update(worksheet="Summary", data=full_df)
             return True
         except Exception as e:
@@ -236,6 +245,7 @@ if pwd == ADMIN_PWD:
         st.dataframe(df_main.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

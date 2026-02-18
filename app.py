@@ -20,7 +20,7 @@ def get_now_str():
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 2. 核心数据函数 ---
+# --- 2. 核心函数 ---
 @st.cache_data(ttl=2)
 def load_all_data():
     try:
@@ -33,7 +33,6 @@ def load_all_data():
         return pd.DataFrame()
 
 def handle_currency_change():
-    """实时切换汇率逻辑"""
     st.session_state.input_rate = float(get_reference_rate(st.session_state.sel_curr))
 
 def get_reference_rate(currency):
@@ -51,7 +50,6 @@ def get_unique_list(df, col_name):
     if df.empty or col_name not in df.columns: return []
     return sorted([str(x) for x in df[col_name].unique() if x and str(x)!='nan' and "🔍" not in str(x)])
 
-# 初始化数据
 df_latest = load_all_data()
 if 'input_rate' not in st.session_state: 
     st.session_state.input_rate = 1.0
@@ -60,20 +58,22 @@ if 'input_rate' not in st.session_state:
 role = st.sidebar.radio("📋 功能选择", ["数据录入", "汇总统计"])
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 
-# --- 4. 页面 A：数据录入 (实时联动增强版) ---
+# --- 4. 页面 A：数据录入 (录入习惯优化版) ---
 if role == "数据录入" and pwd == STAFF_PWD:
     st.title("📝 财务数据录入")
     last_bal = df_latest["余额"].iloc[-1] if not df_latest.empty else 0.0
     st.info(f"💵 总结余：**${last_bal:,.2f}** | 柬埔寨时间：{get_now_str()}")
 
-    # --- 实时联动区 (不在 Form 内) ---
-    st.markdown("### 1️⃣ 业务基础与金额")
+    # --- 第一部分：摘要与时间 ---
+    st.markdown("### 1️⃣ 业务基础")
     r1_c1, r1_c2 = st.columns([2, 1])
     with r1_c1:
-        val_summary = st.text_input("摘要内容", placeholder="请手动输入描述...", key="ui_summary")
+        val_summary = st.text_input("摘要内容", placeholder="例如：支付2月办公室租金", key="ui_summary")
     with r1_c2:
         val_biz_time = st.datetime_input("业务时间 (UTC+7)", value=get_now_local())
 
+    # --- 第二部分：金额与账户 (这是你最关心的录入流) ---
+    st.markdown("### 2️⃣ 金额与结算账户")
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     with r2_c1:
         val_raw_amt = st.number_input("录入金额", min_value=0.0, step=0.01, key="ui_raw_amt")
@@ -81,16 +81,26 @@ if role == "数据录入" and pwd == STAFF_PWD:
         val_curr = st.selectbox("录入币种", ["USD", "RMB", "VND", "HKD"], key="sel_curr", on_change=handle_currency_change)
     with r2_c3:
         val_rate = st.number_input("记账汇率", key="input_rate", format="%.4f")
+    
+    # 紧接着金额，选择结算账户
+    acc_list = get_unique_list(df_latest, "账户")
+    r3_c1, r3_c2 = st.columns([1, 1])
+    with r3_c1:
+        a_sel = st.selectbox("结算账户", ["🔍 选择历史账户"] + acc_list + ["➕ 新增账户"], key="ui_a_sel")
+        val_acc = st.text_input("✍️ 输入新账户名称", key="ui_acc_new") if a_sel == "➕ 新增账户" else a_sel
+    with r3_c2:
+        val_est_usd = round(val_raw_amt / val_rate, 2) if val_rate > 0 else 0.0
+        st.markdown(f"<br><p style='font-size:20px; color:#008000;'><b>当前金额预估：${val_est_usd:,.2f} USD</b></p>", unsafe_allow_html=True)
 
-    # 资金性质 (移出 Form)
+    # --- 第三部分：性质与项目 (联动区) ---
+    st.markdown("### 3️⃣ 资金性质与归属")
     ALL_PROPS = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "期初结存", "内部调拨-转入", "内部调拨-转出", "借款", "往来款收回", "押金收回", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
     val_prop = st.selectbox("资金性质", ALL_PROPS, key="ui_prop")
 
-    # 核心联动：性质触发项目信息
     val_project = ""
     PROJECT_TRIGGER = ["工程收入", "施工收入", "产品销售收入", "服务收入", "网络收入", "预收款", "工程成本", "施工成本"]
     if val_prop in PROJECT_TRIGGER:
-        st.info("🔎 检测到收入/成本类科目，请完善项目信息：")
+        st.info("🔎 需关联项目/客户信息：")
         pc1, pc2 = st.columns(2)
         with pc1:
             p_list = get_unique_list(df_latest, "客户/项目名称")
@@ -101,32 +111,25 @@ if role == "数据录入" and pwd == STAFF_PWD:
             else:
                 val_project = p_sel if p_sel != "🔍 请选择" else ""
 
-    val_est_usd = round(val_raw_amt / val_rate, 2) if val_rate > 0 else 0.0
-    st.success(f"📊 **当前换算金额预估：${val_est_usd:,.2f} USD**")
-
-    # --- 结算与提交区 (在 Form 内) ---
-    with st.form("remaining_info_form", clear_on_submit=True):
-        st.markdown("### 2️⃣ 结算与备注")
+    # --- 第四部分：次要信息与提交 (Form 内) ---
+    with st.form("final_submit_form", clear_on_submit=True):
+        st.markdown("### 4️⃣ 经手人与备注")
         f1, f2 = st.columns(2)
         with f1:
-            acc_list = get_unique_list(df_latest, "账户")
-            a_sel = st.selectbox("结算账户", ["🔍 选择历史账户"] + acc_list + ["➕ 新增账户"])
-            val_acc = st.text_input("✍️ 输入新账户名称") if a_sel == "➕ 新增账户" else a_sel
-        with f2:
             h_list = get_unique_list(df_latest, "经手人")
             h_sel = st.selectbox("经手人", ["🔍 选择历史人员"] + h_list + ["➕ 新增人员"])
-            val_handler = st.text_input("✍️ 输入新姓名") if h_sel == "➕ 新增人员" else h_sel
-
-        val_ref = st.text_input("审批/发票编号")
+            val_handler = st.text_input("✍️ 输入经手人姓名") if h_sel == "➕ 新增人员" else h_sel
+        with f2:
+            val_ref = st.text_input("审批/发票编号")
+        
         val_note = st.text_area("备注详情")
-
         submit_btn = st.form_submit_button("🚀 确认提交账目流水", use_container_width=True)
 
     if submit_btn:
         if not val_summary or not val_acc or "🔍" in str(val_acc) or not val_handler or "🔍" in str(val_handler):
-            st.error("❌ 摘要、账户和经手人不能为空！")
+            st.error("❌ 请检查：摘要、账户、经手人均不能为空！")
         elif val_prop in PROJECT_TRIGGER and not val_project:
-            st.error("❌ 此类资金性质必须填写【项目名称】！")
+            st.error("❌ 当前资金性质需要选择或输入【项目名称】！")
         else:
             final_usd = round(val_raw_amt / val_rate, 2)
             is_inc = val_prop in ["期初结存", "内部调拨-转入", "工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
@@ -144,49 +147,38 @@ if role == "数据录入" and pwd == STAFF_PWD:
             }
             conn.update(worksheet="Summary", data=pd.concat([df_latest, pd.DataFrame([row])], ignore_index=True))
             st.balloons()
-            st.success("✅ 提交成功！")
+            st.success("✅ 账目已成功录入并存入 Google Sheets！")
             st.cache_data.clear()
             time.sleep(1)
             st.rerun()
 
-# --- 5. 页面 B：汇总统计 ---
+# --- 5. 页面 B：汇总统计 (保持之前的优化列宽逻辑) ---
 elif role == "汇总统计" and pwd == ADMIN_PWD:
     st.title("📊 财务实时汇总统计")
     if not df_latest.empty:
-        # 当日快报
         today_date = get_now_local().strftime('%Y-%m-%d')
         df_today = df_latest[df_latest['日期'].astype(str).str.startswith(today_date)]
-        st.markdown(f"### 📅 今日收支概览 ({today_date})")
+        st.markdown(f"### 📅 今日快报 ({today_date})")
         m1, m2, m3 = st.columns(3)
-        m1.metric("今日总收入", f"${df_today['收入'].sum():,.2f}")
-        m2.metric("今日总支出", f"${df_today['支出'].sum():,.2f}", delta_color="inverse")
-        m3.metric("当前实时总结余", f"${df_latest['余额'].iloc[-1]:,.2f}")
+        m1.metric("今日收入合计", f"${df_today['收入'].sum():,.2f}")
+        m2.metric("今日支出合计", f"${df_today['支出'].sum():,.2f}", delta_color="inverse")
+        m3.metric("当前总结余", f"${df_latest['余额'].iloc[-1]:,.2f}")
         
         st.divider()
-        # 月度账户表 (含合计行)
+        st.subheader("🏦 分账户统计 (本月)")
         this_month = get_now_local().strftime('%Y-%m')
-        st.subheader(f"🏦 {this_month} 分账户统计 (USD)")
         acc_summary = []
         for acc in sorted(df_latest["账户"].unique()):
             if not acc: continue
             df_acc = df_latest[df_latest["账户"] == acc]
-            # 计算期初 (本月1号之前)
-            df_pre = df_acc[df_acc["日期"].astype(str) < f"{this_month}-01"]
-            open_bal = round(df_pre["余额"].iloc[-1], 2) if not df_pre.empty else 0
-            # 本月发生
             df_m = df_acc[df_acc["日期"].astype(str).str.contains(this_month)]
-            acc_summary.append({"账户名称": acc, "期初余额": open_bal, "本月收入": df_m["收入"].sum(), "本月支出": df_m["支出"].sum(), "实时结余": df_acc["余额"].iloc[-1]})
+            acc_summary.append({"账户": acc, "月收入": df_m["收入"].sum(), "月支出": df_m["支出"].sum(), "结余": df_acc["余额"].iloc[-1]})
         
         df_s = pd.DataFrame(acc_summary)
         if not df_s.empty:
-            total_row = pd.DataFrame([{
-                "账户名称": "✨ 总计 (Total)", "期初余额": df_s["期初余额"].sum(), 
-                "本月收入": df_s["本月收入"].sum(), "本月支出": df_s["本月支出"].sum(), "实时结余": df_s["实时结余"].sum()
-            }])
-            st.table(pd.concat([df_s, total_row], ignore_index=True).style.format({"期初余额": "${:,.2f}", "本月收入": "${:,.2f}", "本月支出": "${:,.2f}", "实时结余": "${:,.2f}"}))
+            st.table(df_s.style.format({"月收入": "${:,.2f}", "月支出": "${:,.2f}", "结余": "${:,.2f}"}))
 
         st.divider()
-        # 流水明细 (优化列宽显示)
         st.subheader("📑 原始流水明细")
         st.dataframe(
             df_latest.sort_values("录入编号", ascending=False), 
@@ -200,20 +192,19 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                 "余额": st.column_config.NumberColumn(format="$%.2f")
             }
         )
-
-        # 修正模块
-        with st.expander("🛠️ 账目快速修正"):
-            target = st.selectbox("请选择要修改的【录入编号】", ["-- 请选择 --"] + df_latest["录入编号"].tolist()[::-1], key="edit_select")
+        
+        with st.expander("🛠️ 快速数据修正"):
+            target = st.selectbox("选择要修改的编号", ["-- 请选择 --"] + df_latest["录入编号"].tolist()[::-1])
             if target != "-- 请选择 --":
                 old = df_latest[df_latest["录入编号"] == target].iloc[0]
-                with st.form("edit_form", clear_on_submit=True):
+                with st.form("edit_form"):
                     u_sum = st.text_input("修正摘要", value=old["摘要"])
                     u_inc = st.number_input("修正收入", value=float(old["收入"]))
                     u_exp = st.number_input("修正支出", value=float(old["支出"]))
-                    if st.form_submit_button("💾 保存更新并重置"):
+                    if st.form_submit_button("保存"):
                         idx = df_latest[df_latest["录入编号"] == target].index[0]
-                        df_latest.at[idx, "摘要"], df_latest.at[idx, "收入"], df_latest.at[idx, "支出"] = u_sum, round(u_inc, 2), round(u_exp, 2)
+                        df_latest.at[idx, "摘要"], df_latest.at[idx, "收入"], df_latest.at[idx, "支出"] = u_sum, u_inc, u_exp
                         conn.update(worksheet="Summary", data=df_latest)
-                        st.balloons(); st.success("更新成功！"); st.cache_data.clear(); time.sleep(1); st.rerun()
+                        st.cache_data.clear(); st.rerun()
 else:
-    st.warning("🔒 权限验证：请输入正确密码。")
+    st.warning("🔒 权限验证：请输入正确密码访问。")

@@ -174,7 +174,7 @@ elif role == "数据修改" and password == ADMIN_PWD:
     st.dataframe(df_latest.sort_index(ascending=False), use_container_width=True)
 
 # --- 3. 管理看板 ---
-elif role == "汇总统计" and password == ADMIN_PWD:
+elif role == "管理看板" and password == ADMIN_PWD:
     st.title("📊 汇总统计")
     if not df_latest.empty:
         df_vis = df_latest.copy()
@@ -205,4 +205,5 @@ elif role == "汇总统计" and password == ADMIN_PWD:
         st.divider()
         st.subheader("📝 完整审计流水明细")
         st.dataframe(df_latest.sort_index(ascending=False), use_container_width=True)
+
 

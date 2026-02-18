@@ -12,56 +12,67 @@ role = st.sidebar.selectbox("选择操作模式", ["数据录入", "管理看板
 password = st.sidebar.text_input("请输入访问密码", type="password")
 
 # 这里设置你的密码
-ADMIN_PWD = "admin888"  # 管理员看报表的密码
-STAFF_PWD = "fb123"      # 财务录入数据的密码
+ADMIN_PWD = "888"  # 管理员看报表的密码
+STAFF_PWD = "123"  # 财务录入数据的密码
 
 # --- 3. 逻辑判断 ---
 if role == "数据录入":
     if password == STAFF_PWD:
-        st.title("📝 财务收支记账录入")
+        st.title("📝 出纳日记账录入")
         
+        # 1. 放在 form 外面，确保点选时页面能实时重绘标签
+        trans_type = st.radio("收支类型", ["收入", "支出"], horizontal=True)
+
         with st.form("entry_form", clear_on_submit=True):
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             with col1:
                 report_date = st.date_input("日期")
+                account_type = st.selectbox("账户类型", ["银行存款", "现金", "微信", "支付宝"])
             with col2:
-                account_type = st.selectbox("账户", ["银行存款", "现金", "微信", "支付宝"])
-            with col3:
-                trans_type = st.radio("收支类型", ["收入", "支出"], horizontal=True)
-
-            # 💡 动态显示：根据收支类型只显示一个输入框
-            amount = st.number_input(f"请输入{trans_type}金额", min_value=0.0, step=100.0)
-            
-            col4, col5 = st.columns(2)
-            with col4:
+                # 💡 这里的标签会跟随上面的 radio 实时变动
+                amount = st.number_input(f"请输入【{trans_type}】金额", min_value=0.0, step=100.0)
                 current_balance = st.number_input("当前账户总余额", min_value=0.0, step=100.0)
-            with col5:
-                handler = st.text_input("经手人")
 
-            ref_no = st.text_input("审批/发票编号")
+            col3, col4 = st.columns(2)
+            with col3:
+                handler = st.text_input("经手人")
+            with col4:
+                ref_no = st.text_input("审批/发票编号")
+            
             summary = st.text_input("摘要 (必填)")
             note = st.text_area("备注")
 
-            if st.form_submit_button("🚀 提交并同步"):
+            if st.form_submit_button("🚀 提交并同步至云端"):
                 if not summary or not handler:
-                    st.error("❌ 摘要和经手人为必填项")
+                    st.error("❌ 请填写摘要和经手人！")
                 else:
                     try:
+                        # 读取现有数据
                         df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-                        # 转换金额逻辑
+                        
+                        # 核心转换逻辑：根据选中的类型，把金额填进对应的列
                         inc = amount if trans_type == "收入" else 0.0
                         exp = amount if trans_type == "支出" else 0.0
                         
                         new_row = {
                             "序号": len(df) + 1,
                             "日期": report_date.strftime('%Y-%m-%d'),
-                            "摘要": summary, "账户": account_type, "审批/发票编号": ref_no,
-                            "收支类型": trans_type, "收入": inc, "支出": exp,
-                            "余额": current_balance, "经手人": handler, "备注": note
+                            "摘要": summary,
+                            "账户": account_type,
+                            "审批/发票编号": ref_no,
+                            "收支类型": trans_type,
+                            "收入": inc,
+                            "支出": exp,
+                            "余额": current_balance,
+                            "经手人": handler,
+                            "备注": note
                         }
-                        updated_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+                        
+                        # 合并并更新
+                        updated_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True).fillna("")
                         conn.update(worksheet="Summary", data=updated_df)
-                        st.success("✅ 录入成功！")
+                        
+                        st.success(f"✅ {trans_type}记录已成功同步！")
                         st.balloons()
                     except Exception as e:
                         st.error(f"同步失败: {e}")
@@ -149,6 +160,7 @@ elif role == "管理看板":
                             st.error(f"删除失败: {e}")
         except Exception as e:
             st.error(f"计算看板指标时出错: {e}")
+
 
 
 

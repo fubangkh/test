@@ -252,16 +252,15 @@ if pwd == ADMIN_PWD:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
-   # 1. 准备显示数据：保持为“纯数字”，不要 map 成字符串
+   # 1. 确保金额列是纯数字（float）
     df_display = df_main.sort_values("录入编号", ascending=False).copy()
-    
-    # 确保金额列是纯数字（float），去掉之前可能产生的干扰
     money_cols = ['收入', '支出', '余额']
     for col in money_cols:
-        if col in df_display.columns:
-            df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
+        df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
 
-    # 2. 最终显示：利用 NumberColumn 自动实现【右对齐】+【逗号】+【小数点】
+    # 2. 核心修正：利用 NumberColumn 的 format 属性
+    # 注意：在某些版本中，使用 format="%f" 配合特定的 locale 
+    # 或者尝试这个写法：format="USD %.2f" (有时带上前缀会触发浏览器的会计格式)
     st.dataframe(
         df_display, 
         use_container_width=True, 
@@ -269,25 +268,18 @@ if pwd == ADMIN_PWD:
         column_config={
             "收入": st.column_config.NumberColumn(
                 "收入",
-                format="%.2f",  # 网页会自动根据数字类型右对齐
+                format="%.2f",  # 保持 2 位小数，右对齐
                 width="medium",
             ),
-            "支出": st.column_config.NumberColumn(
-                "支出",
-                format="%.2f",
-                width="medium",
-            ),
-            "余额": st.column_config.NumberColumn(
-                "余额",
-                format="$%.2f",
-                width="medium",
-            ),
+            "支出": st.column_config.NumberColumn("支出", format="%.2f"),
+            "余额": st.column_config.NumberColumn("余额", format="%.2f"),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small")
         }
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

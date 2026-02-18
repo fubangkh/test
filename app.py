@@ -12,7 +12,7 @@ role = st.sidebar.selectbox("选择操作模式", ["数据录入", "管理看板
 password = st.sidebar.text_input("请输入访问密码", type="password")
 
 # 这里设置你的密码
-ADMIN_PWD = "888"  # 管理员看报表的密码
+ADMIN_PWD = "123"  # 管理员看报表的密码
 STAFF_PWD = "123"  # 财务录入数据的密码
 
 # --- 3. 逻辑判断 ---
@@ -47,13 +47,20 @@ if role == "数据录入":
                     st.error("❌ 请填写摘要和经手人！")
                 else:
                     try:
-                        # 读取现有数据
+                        # 1. 读取现有数据
                         df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
                         
-                        # 核心转换逻辑：根据选中的类型，把金额填进对应的列
+                        # 2. 核心逻辑：自动计算余额
+                        # 获取上一笔的最后余额，如果表是空的，则初始余额为 0
+                        last_balance = float(df.iloc[-1]["余额"]) if not df.empty else 0.0
+                        
                         inc = amount if trans_type == "收入" else 0.0
                         exp = amount if trans_type == "支出" else 0.0
                         
+                        # 自动计算新余额
+                        new_balance = last_balance + inc - exp
+                        
+                        # 3. 构造新行
                         new_row = {
                             "序号": len(df) + 1,
                             "日期": report_date.strftime('%Y-%m-%d'),
@@ -63,20 +70,19 @@ if role == "数据录入":
                             "收支类型": trans_type,
                             "收入": inc,
                             "支出": exp,
-                            "余额": current_balance,
+                            "余额": new_balance, # 💡 这里现在是自动算的了
                             "经手人": handler,
                             "备注": note
                         }
                         
-                        # 合并并更新
+                        # 4. 更新云端
                         updated_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True).fillna("")
                         conn.update(worksheet="Summary", data=updated_df)
                         
-                        st.success(f"✅ {trans_type}记录已成功同步！")
+                        st.success(f"✅ 录入成功！自动计算余额：¥{new_balance:,.2f}")
                         st.balloons()
                     except Exception as e:
                         st.error(f"同步失败: {e}")
-
 elif role == "管理看板":
     if password == ADMIN_PWD:
         st.title("📊 财务决策看板")
@@ -160,6 +166,7 @@ elif role == "管理看板":
                             st.error(f"删除失败: {e}")
         except Exception as e:
             st.error(f"计算看板指标时出错: {e}")
+
 
 
 

@@ -60,31 +60,29 @@ if role == "数据录入":
 
         st.info(f"💵 当前结余：**${last_balance:,.2f}** (USD)")
 
-        # 💡 为了让金额实时变动，我们将部分选择器移出 Form 外，或者在 Form 内使用正确的逻辑
         with st.form("entry_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
                 report_date = st.date_input("日期")
                 fund_property = st.selectbox("资金性质", ALL_FUND_PROPERTIES)
+                
+                # 🔄 币种选择
                 currency = st.selectbox("录入币种", ["USD", "RMB", "VND", "HKD"])
                 
+                # 🔄 汇率逻辑
                 ref_rate = 1.0 if currency == "USD" else get_reference_rate(df_latest, currency)
                 exchange_rate = st.number_input(f"记账汇率", value=float(ref_rate), format="%.4f")
                 
-                raw_amount = st.number_input(f"录入金额 ({currency})", min_value=0.0, step=0.01)
-                # 💡 修正：计算逻辑
+                # ✅ 修复联动：直接在 Label 里引用变量，并设置 Key 强制刷新
+                raw_amount = st.number_input(f"录入金额 ({currency})", min_value=0.0, step=0.01, key=f"amt_{currency}")
+                
                 temp_usd = raw_amount / exchange_rate if exchange_rate != 0 else 0
-                st.write(f"📊 当前折合预估：**${temp_usd:,.2f} USD**")
+                st.markdown(f"📊 **当前折合预估：${temp_usd:,.2f} USD**")
 
             with col2:
                 account_type = st.selectbox("结算账户", ["ABA_924_个人户", "ABA_403_个人户", "ABA_313_FB公司户","ICBC_215_AF公司户", "BOC_052_FB公司户", "BOC_063_FB公司户", "BOC_892_瑞尔_FB公司户", "ICBC_854_FB公司户", "CCB_762_人民币_个人户", "BOC_865_人民币_亚堡公司户", "CCB_825_美元_昆仑公司户", "CCB_825_港币_昆仑公司户", "CCB_825_人民币_昆仑公司户", "CMB_002_人民币_科吉公司户", "CMB_032_美元_科吉公司户", "ABA_357_定期", "HUONE_USD", "HUONE_USDT", "现金"])
                 
-                # 💡 修正问题一：明确标记必填
-                project_name = ""
-                if fund_property in CORE_BUSINESS_TYPES:
-                    project_name = st.text_input("💎 客户/项目名称 (必填项)")
-                else:
-                    project_name = ""
+                project_name = st.text_input("💎 客户/项目名称 (必填项)") if fund_property in CORE_BUSINESS_TYPES else ""
 
                 ref_no = st.text_input("📑 审批/发票编号")
                 
@@ -97,16 +95,14 @@ if role == "数据录入":
 
             if st.form_submit_button("🚀 提交并同步"):
                 handler = new_h if h_select == "➕ 新增" else h_select
-                # 💡 重新计算确保数据最新
                 final_usd = raw_amount / exchange_rate if exchange_rate != 0 else 0
                 
-                # 💡 修正问题一的校验逻辑
                 if not summary or handler in ["🔍 选择", ""]:
                     st.error("❌ 摘要和经手人不能为空！")
                 elif fund_property in CORE_BUSINESS_TYPES and not project_name:
                     st.error(f"❌ 选了【{fund_property}】，客户/项目名称必须填写！")
                 elif raw_amount <= 0:
-                    st.error("❌ 金额必须大于 0！")
+                    st.error(f"❌ 录入金额 ({currency}) 必须大于 0！")
                 else:
                     try:
                         inc = final_usd if fund_property in (CORE_BUSINESS_TYPES[:5] + OTHER_INCOME_TYPES) else 0.0
@@ -132,7 +128,7 @@ if role == "数据录入":
                         st.success(f"✅ 录入成功！折合：${final_usd:,.2f}")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"失败: {e}")
+                        st.error(f"数据保存失败: {e}")
 
 elif role == "管理看板":
     if password == ADMIN_PWD:
@@ -142,4 +138,3 @@ elif role == "管理看板":
             for c in ["收入", "支出", "余额"]: 
                 df_sum[c] = pd.to_numeric(df_sum[c], errors='coerce').fillna(0)
             st.dataframe(df_sum.sort_index(ascending=False).style.format({"收入": "{:.2f}", "支出": "{:.2f}", "余额": "{:.2f}"}), use_container_width=True)
-

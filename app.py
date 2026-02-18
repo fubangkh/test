@@ -276,17 +276,17 @@ if pwd == ADMIN_PWD:
         column_config={
             "收入": st.column_config.NumberColumn(
                 "收入",
-                format="%.2f",  # 强制保留2位小数
+                format="%,.2f",  # 强制保留2位小数
                 width="medium",
             ),
             "支出": st.column_config.NumberColumn(
                 "支出",
-                format="%.2f",  # 强制保留2位小数
+                format="%,.2f",  # 强制保留2位小数
                 width="medium",
             ),
             "余额": st.column_config.NumberColumn(
                 "余额",
-                format="%.2f",  # 强制保留2位小数
+                format="%,.2f",  # 强制保留2位小数
                 width="medium",
             ),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
@@ -295,6 +295,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

@@ -127,8 +127,28 @@ elif role == "管理看板":
                 st.dataframe(df_sum.sort_values('日期', ascending=False), use_container_width=True)
             else:
                 st.info("📊 暂无数据，请先完成首笔录入。")
-
+                # --- 增加：数据删除功能 ---
+                st.markdown("---")
+                with st.expander("🛠️ 数据管理（误填删除）"):
+                    st.warning("注意：删除操作不可撤销，请谨慎操作。")
+                    delete_id = st.number_input("输入要删除的‘序号’", min_value=1, step=1)
+                    if st.button("确认删除该行数据"):
+                        try:
+                            # 重新读取并过滤掉该序号
+                            df_current = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
+                            if delete_id in df_current["序号"].values:
+                                df_new = df_current[df_current["序号"] != delete_id]
+                                # 重新整理序号，保持连续
+                                df_new["序号"] = range(1, len(df_new) + 1)
+                                conn.update(worksheet="Summary", data=df_new)
+                                st.success(f"✅ 序号 {delete_id} 已成功删除，其余序号已自动重排。")
+                                st.rerun() # 刷新页面看效果
+                            else:
+                                st.error("未找到该序号。")
+                        except Exception as e:
+                            st.error(f"删除失败: {e}")
         except Exception as e:
             st.error(f"计算看板指标时出错: {e}")
+
 
 

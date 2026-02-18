@@ -6,7 +6,7 @@ from datetime import datetime
 import time
 import pytz
 
-# --- 1. 基础配置 ---
+# --- 1. 基础配置 (保持不变) ---
 st.set_page_config(page_title="富邦日记账系统", layout="wide")
 STAFF_PWD = "123"
 ADMIN_PWD = "123"
@@ -17,7 +17,7 @@ def get_now_str():
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 2. 核心逻辑 (汇率与联想) ---
+# --- 2. 核心逻辑 (保持不变) ---
 def handle_currency_change():
     new_curr = st.session_state.sel_curr
     st.session_state.input_rate = float(get_reference_rate(df_latest, new_curr))
@@ -40,18 +40,15 @@ def get_reference_rate(df_history, currency):
     except: pass
     return rates.get(currency, 1.0)
 
-# --- 3. 数据加载 (带强力列名容错) ---
+# --- 3. 数据加载 (保持不变) ---
 @st.cache_data(ttl=2)
 def load_all_data():
     try:
         df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
         df.columns = df.columns.str.strip()
-        
-        # 补全缺失列名，防止 KeyError
         cols = ["录入编号", "日期", "摘要", "客户/项目名称", "账户", "资金性质", "收入", "支出", "余额", "经手人", "备注", "审批/发票编号"]
         for c in cols:
             if c not in df.columns: df[c] = ""
-            
         history_summaries = sorted([str(x) for x in df["摘要"].unique() if x and str(x)!='nan'])
         return df, history_summaries
     except:
@@ -59,7 +56,6 @@ def load_all_data():
 
 df_latest, SUMMARY_HISTORY = load_all_data()
 
-# 初始化汇率状态
 if 'input_rate' not in st.session_state: st.session_state.input_rate = 1.0
 
 def get_unique_list(df, col_name):
@@ -75,21 +71,21 @@ if role == "数据录入" and pwd == STAFF_PWD:
     last_bal = pd.to_numeric(df_latest["余额"], errors='coerce').iloc[-1] if not df_latest.empty else 0.0
     st.info(f"💵 总结余：**${last_bal:,.2f}** | {get_now_str()}")
     
-    # --- 模块 1：业务摘要 ---
+    # --- 模块 1：业务摘要 (修复为真正的二合一) ---
     st.markdown("### 1️⃣ 业务摘要")
     c1, c2 = st.columns([3, 1])
     with c1:
-        final_summary = st.selectbox(
-            "摘要内容",
-            options=SUMMARY_HISTORY,
-            index=None,
-            placeholder="打字搜索历史或直接输入新内容...",
-            label_visibility="collapsed"
-        )
+        # 使用 datalist 概念的二合一框：datalist 参数在原生 st 无法直接用，
+        # 这里用 selectbox 的 placeholder 引导，但增加一个输入逻辑。
+        # 最稳妥的自由输入二合一实现：
+        hist_s = [""] + SUMMARY_HISTORY
+        sel_s = st.selectbox("搜索历史摘要", options=hist_s, index=0, label_visibility="collapsed")
+        final_summary = st.text_input("✍️ 摘要内容 (若搜索库没有，请直接在此打字输入)", value=sel_s)
+
     with c2:
         biz_date = st.date_input("业务日期", value=datetime.now(LOCAL_TZ), label_visibility="collapsed")
 
-    # --- 模块 2：金额与结算 ---
+    # --- 模块 2：金额与结算 (账户修复) ---
     st.markdown("### 2️⃣ 金额与结算")
     cc1, cc2, cc3 = st.columns(3)
     with cc1:
@@ -102,35 +98,21 @@ if role == "数据录入" and pwd == STAFF_PWD:
         if ex_rate > 0 and currency != "USD":
             st.metric("📊 换算美元", f"${(raw_amt/ex_rate):,.2f}")
     with cc3:
-        accs_list = get_unique_list(df_latest, "账户")
-        final_acc = st.selectbox(
-            "结算账户",
-            options=accs_list,
-            index=None,
-            placeholder="搜索历史账户或输入新账户..."
-        )
+        accs_list = [""] + get_unique_list(df_latest, "账户")
+        sel_a = st.selectbox("搜索历史账户", options=accs_list, index=0)
+        final_acc = st.text_input("✍️ 结算账户确认/新增", value=sel_a)
 
-    # --- 模块 3：相关方信息 (二合一重构) ---
+    # --- 模块 3：相关方信息 (修复) ---
     st.markdown("### 3️⃣ 相关方信息")
     hc1, hc2, hc3 = st.columns(3)
     with hc1:
-        # 客户/项目名称二合一
-        projs_list = get_unique_list(df_latest, "客户/项目名称")
-        f_p = st.selectbox(
-            "项目/客户 (搜索或输入)",
-            options=projs_list,
-            index=None,
-            placeholder="搜索或输入新项目..."
-        )
+        projs_list = [""] + get_unique_list(df_latest, "客户/项目名称")
+        sel_p = st.selectbox("搜索历史项目", options=projs_list, index=0)
+        f_p = st.text_input("✍️ 项目/客户确认/新增", value=sel_p)
     with hc2:
-        # 经手人二合一
-        hands_list = get_unique_list(df_latest, "经手人")
-        f_h = st.selectbox(
-            "经手人 (搜索或输入)",
-            options=hands_list,
-            index=None,
-            placeholder="搜索或输入新经手人..."
-        )
+        hands_list = [""] + get_unique_list(df_latest, "经手人")
+        sel_h = st.selectbox("搜索历史经手人", options=hands_list, index=0)
+        f_h = st.text_input("✍️ 经手人确认/新增", value=sel_h)
     with hc3:
         ref_no = st.text_input("审批/发票编号")
         note = st.text_area("备注信息", height=68)
@@ -150,7 +132,7 @@ if role == "数据录入" and pwd == STAFF_PWD:
             
             row = {
                 "录入编号": sn, "提交时间": get_now_str(), "日期": biz_date.strftime('%Y-%m-%d'),
-                "摘要": final_summary, "客户/项目名称": f_p if f_p else "", "账户": final_acc, 
+                "摘要": final_summary, "客户/项目名称": f_p, "账户": final_acc, 
                 "资金性质": fund_p, "收入": inc_v, "支出": exp_v, "余额": last_bal + inc_v - exp_v, 
                 "经手人": f_h, "备注": f"{note} {rate_tag}", "审批/发票编号": ref_no
             }

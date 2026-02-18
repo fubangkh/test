@@ -57,23 +57,14 @@ def entry_dialog():
     live_rates = get_live_rates()
     st.write(f"💡 当前系统总结余: **${df['余额'].iloc[-1] if not df.empty else 0:,.2f}**")
     
-    # 定义提交动作 (解决气球和刷新不行的问题)
-    def do_submit():
-        st.balloons()
-        st.success("🎉 数据录入成功！正在刷新主表...")
-        # 此处应有 conn.update 写入逻辑
-        time.sleep(1.2) # 留出气球飞舞的时间
-        st.cache_data.clear() # 强制清理缓存，确保主表刷新
-        st.rerun()
-
     # 第一行
     c1, c2 = st.columns(2)
-    val_sum = c1.text_input("摘要内容")
+    val_sum = c1.text_input("摘要内容") # 必填项 1
     val_time = c2.datetime_input("业务时间", value=datetime.now(LOCAL_TZ))
     
     # 第二行
     r2_c1, r2_c2, r2_c3 = st.columns(3)
-    val_amt = r2_c1.number_input("金额", min_value=0.0, step=100.0)
+    val_amt = r2_c1.number_input("金额", min_value=0.0, step=100.0) # 必填项 2
     val_curr = r2_c2.selectbox("币种", list(live_rates.keys()))
     val_rate = r2_c3.number_input("实时汇率 (API获取)", value=float(live_rates[val_curr]), format="%.4f")
     
@@ -100,12 +91,41 @@ def entry_dialog():
     
     st.divider()
     b1, b2, b3 = st.columns(3)
+
+    # --- 核心修改：定义带有校验的提交逻辑 ---
+    def validate_and_submit(stay_open):
+        # 1. 检查摘要
+        if not val_sum.strip():
+            st.error("⚠️ 请填写摘要内容！")
+            return
+        # 2. 检查金额
+        if val_amt <= 0:
+            st.error("⚠️ 金额必须大于 0！")
+            return
+        # 3. 检查工程性质下的项目必填
+        if is_req and (not val_proj or val_proj.strip() == ""):
+            st.error("⚠️ 工程性质业务，必须填写/选择项目名称！")
+            return
+        
+        # 校验通过，执行气球和刷新逻辑
+        st.balloons()
+        st.success("🎉 数据录入成功！")
+        time.sleep(1.2) 
+        st.cache_data.clear() 
+        if not stay_open:
+            st.rerun()
+        else:
+            st.rerun() # 重新加载弹窗以达到清空页面的效果
+
     if b1.button("📥 提交并继续", type="primary", use_container_width=True):
-        do_submit()
+        validate_and_submit(stay_open=True)
+
     if b2.button("✅ 提交并返回", type="primary", use_container_width=True):
-        do_submit()
+        validate_and_submit(stay_open=False)
+
     st.markdown('<div class="red-btn">', unsafe_allow_html=True)
-    if b3.button("❌ 取消录入", use_container_width=True): st.rerun()
+    if b3.button("❌ 取消录入", use_container_width=True): 
+        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 5. 修正弹窗 (修复报错与对齐) ---
@@ -163,3 +183,4 @@ if pwd == ADMIN_PWD:
         st.dataframe(df_main.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
 else:
     st.info("请输入密码解锁系统")
+

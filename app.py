@@ -252,31 +252,43 @@ if pwd == ADMIN_PWD:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
-   # 1. 准备显示数据
+   # 1. 准备显示数据：保持为“纯数字”，不要 map 成字符串
     df_display = df_main.sort_values("录入编号", ascending=False).copy()
     
-    # 2. 预处理金额（保持您现在的逻辑：带逗号和2位小数的字符串）
+    # 确保金额列是纯数字（float），去掉之前可能产生的干扰
     money_cols = ['收入', '支出', '余额']
     for col in money_cols:
         if col in df_display.columns:
-            df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
+            df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
 
-    # 3. 最终显示：使用 .style 强制指定金额列右对齐
+    # 2. 最终显示：利用 NumberColumn 自动实现【右对齐】+【逗号】+【小数点】
     st.dataframe(
-        # 核心改动：在 df_display 后面加上样式设置
-        df_display.style.set_properties(subset=money_cols, **{'text-align': 'right'}), 
+        df_display, 
         use_container_width=True, 
         hide_index=True,
         column_config={
-            "收入": st.column_config.TextColumn("收入", width="medium"),
-            "支出": st.column_config.TextColumn("支出", width="medium"),
-            "余额": st.column_config.TextColumn("余额", width="medium"),
+            "收入": st.column_config.NumberColumn(
+                "收入",
+                format="%.2f",  # 网页会自动根据数字类型右对齐
+                width="medium",
+            ),
+            "支出": st.column_config.NumberColumn(
+                "支出",
+                format="%.2f",
+                width="medium",
+            ),
+            "余额": st.column_config.NumberColumn(
+                "余额",
+                format="%.2f",
+                width="medium",
+            ),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small")
         }
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

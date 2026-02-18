@@ -75,11 +75,10 @@ if role == "数据录入" and pwd == STAFF_PWD:
     last_bal = pd.to_numeric(df_latest["余额"], errors='coerce').iloc[-1] if not df_latest.empty else 0.0
     st.info(f"💵 总结余：**${last_bal:,.2f}** | {get_now_str()}")
     
-    # --- 模块 1：业务摘要 (二合一按要求重构，其余不动) ---
+    # --- 模块 1：业务摘要 ---
     st.markdown("### 1️⃣ 业务摘要")
     c1, c2 = st.columns([3, 1])
     with c1:
-        # 下拉与输入合并：支持模糊搜索历史，输入新内容直接打字
         final_summary = st.selectbox(
             "摘要内容",
             options=SUMMARY_HISTORY,
@@ -90,7 +89,7 @@ if role == "数据录入" and pwd == STAFF_PWD:
     with c2:
         biz_date = st.date_input("业务日期", value=datetime.now(LOCAL_TZ), label_visibility="collapsed")
 
-    # --- 模块 2：财务金额 (严禁变动字母) ---
+    # --- 模块 2：金额与结算 ---
     st.markdown("### 2️⃣ 金额与结算")
     cc1, cc2, cc3 = st.columns(3)
     with cc1:
@@ -104,32 +103,42 @@ if role == "数据录入" and pwd == STAFF_PWD:
             st.metric("📊 换算美元", f"${(raw_amt/ex_rate):,.2f}")
     with cc3:
         accs_list = get_unique_list(df_latest, "账户")
-        a_sel = st.selectbox("结算账户 (🔍搜索)", ["🔍 选择历史账户"] + accs_list + ["➕ 新增账户"])
-        new_a = st.text_input("✍️ 输入新账户名") if a_sel == "➕ 新增账户" else ""
+        final_acc = st.selectbox(
+            "结算账户",
+            options=accs_list,
+            index=None,
+            placeholder="搜索历史账户或输入新账户..."
+        )
 
-    # --- 模块 3：相关方信息 (严禁变动字母) ---
+    # --- 模块 3：相关方信息 (二合一重构) ---
     st.markdown("### 3️⃣ 相关方信息")
     hc1, hc2, hc3 = st.columns(3)
     with hc1:
+        # 客户/项目名称二合一
         projs_list = get_unique_list(df_latest, "客户/项目名称")
-        p_sel = st.selectbox("项目/客户 (🔍搜索)", ["🔍 选择历史项目"] + projs_list + ["➕ 新增项目"])
-        new_p = st.text_input("✍️ 输入新项目名") if p_sel == "➕ 新增项目" else (p_sel if "🔍" not in str(p_sel) else "")
+        f_p = st.selectbox(
+            "项目/客户 (搜索或输入)",
+            options=projs_list,
+            index=None,
+            placeholder="搜索或输入新项目..."
+        )
     with hc2:
+        # 经手人二合一
         hands_list = get_unique_list(df_latest, "经手人")
-        h_sel = st.selectbox("经手人 (🔍搜索)", ["🔍 选择历史经手人"] + hands_list + ["➕ 新增经手人"])
-        new_h = st.text_input("✍️ 输入新经手人姓名") if h_sel == "➕ 新增经手人" else h_sel
+        f_h = st.selectbox(
+            "经手人 (搜索或输入)",
+            options=hands_list,
+            index=None,
+            placeholder="搜索或输入新经手人..."
+        )
     with hc3:
         ref_no = st.text_input("审批/发票编号")
         note = st.text_area("备注信息", height=68)
 
     st.divider()
     if st.button("🚀 提交账目流水", use_container_width=True):
-        f_a = new_a if a_sel == "➕ 新增账户" else a_sel
-        f_h = new_h if h_sel == "➕ 新增经手人" else h_sel
-        f_p = (new_p if p_sel == "➕ 新增项目" else p_sel) if "🔍" not in str(p_sel) else ""
-        
-        if not final_summary or "🔍" in str(f_a) or "🔍" in str(f_h):
-            st.error("❌ 必填项缺失：请检查摘要、账户和经手人！")
+        if not final_summary or not final_acc or not f_h:
+            st.error("❌ 必填项缺失：请检查摘要、结算账户和经手人！")
         else:
             final_usd = raw_amt / st.session_state.input_rate if st.session_state.input_rate > 0 else 0
             is_inc = fund_p in ["期初结存", "内部调拨-转入", "工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
@@ -141,7 +150,7 @@ if role == "数据录入" and pwd == STAFF_PWD:
             
             row = {
                 "录入编号": sn, "提交时间": get_now_str(), "日期": biz_date.strftime('%Y-%m-%d'),
-                "摘要": final_summary, "客户/项目名称": f_p, "账户": f_a, 
+                "摘要": final_summary, "客户/项目名称": f_p if f_p else "", "账户": final_acc, 
                 "资金性质": fund_p, "收入": inc_v, "支出": exp_v, "余额": last_bal + inc_v - exp_v, 
                 "经手人": f_h, "备注": f"{note} {rate_tag}", "审批/发票编号": ref_no
             }

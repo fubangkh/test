@@ -158,7 +158,7 @@ if role == "数据录入" and pwd == STAFF_PWD:
 
 # --- 6. 页面 B：汇总统计 (已将“放弃并返回”移至底部并更名) ---
 elif role == "汇总统计" and pwd == ADMIN_PWD:
-    st.title("📊 财务实时汇总统计")
+    st.title("📊 汇总统计")
     if not df_latest.empty:
         # 今日统计
         today_date = get_now_local().strftime('%Y-%m-%d')
@@ -275,4 +275,5 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                     st.rerun()
 else:
     st.warning("🔒 权限验证：请输入正确密码访问。")
+
 

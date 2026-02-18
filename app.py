@@ -263,10 +263,13 @@ if pwd == ADMIN_PWD:
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
     # 3. 最终显示：通过 column_config 强制右对齐
+    # 强制右对齐样式补丁
+    styled_df = df_display.style.set_properties(subset=['收入', '支出', '余额'], **{'text-align': 'right'})
     st.dataframe(
-        df_display, 
+        styled_df, 
         use_container_width=True, 
-        hide_index=True,
+        hide_index=True
+    )
         column_config={
             "收入": st.column_config.Column("收入", width="medium", help="右对齐文本"),
             "支出": st.column_config.Column("支出", width="medium"),
@@ -277,6 +280,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

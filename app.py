@@ -144,18 +144,23 @@ if role == "数据录入" and pwd == STAFF_PWD:
                 "收入": inc_v, "支出": exp_v, "余额": round(last_bal + inc_v - exp_v, 2), 
                 "经手人": val_handler, "备注": f"{val_note} {tag}", "审批/发票编号": val_ref
             }
-            conn.update(worksheet="Summary", data=pd.concat([df_latest, pd.DataFrame([row])], ignore_index=True))
-            st.balloons()
-            st.success("✅ 账目已成功录入！页面正在复位...")
-            st.cache_data.clear()
             
-            # --- 复位逻辑：手动清除 session_state 中的 UI 组件值 ---
-            for k in ["ui_summary", "ui_raw_amt", "ui_acc_new", "ui_prop", "ui_p_sel", "ui_p_new"]:
-                if k in st.session_state:
+            # 保存到表格
+            conn.update(worksheet="Summary", data=pd.concat([df_latest, pd.DataFrame([row])], ignore_index=True))
+            
+            # --- 🚀 核心复位逻辑：强制清空所有关键 Key ---
+            for k in st.session_state.keys():
+                # 排除掉不需要重置的（比如密码、汇率、功能选择）
+                if k not in ["input_rate", "sel_curr"]: 
                     del st.session_state[k]
             
-            time.sleep(1)
-            st.rerun() # 强制重新运行以彻底重置所有字段
+            st.balloons()
+            st.success("✅ 账目已存入 Google 表格！系统已自动复位。")
+            st.cache_data.clear()
+            
+            # 停顿一下让用户看到气球，然后刷新
+            time.sleep(1.5)
+            st.rerun()
 
 # --- 5. 页面 B：汇总统计 ---
 elif role == "汇总统计" and pwd == ADMIN_PWD:
@@ -213,3 +218,4 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                         st.cache_data.clear(); st.rerun()
 else:
     st.warning("🔒 权限验证：请输入正确密码访问。")
+

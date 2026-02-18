@@ -2,24 +2,30 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import time
 
 # --- 1. 页面基础配置 ---
 st.set_page_config(page_title="富邦日记账系统", layout="wide")
 
-# --- 2. 权限配置 ---
+# --- 2. 权限与时区配置 ---
 STAFF_PWD = "123"
 ADMIN_PWD = "123"
+# 强制定义本地时区（UTC+7 为柬埔寨，UTC+8 为中国）
+LOCAL_TZ = timezone(timedelta(hours=7)) 
+
+def get_now_str():
+    """获取校准后的本地时间字符串"""
+    return datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
 # --- 3. 初始化连接 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- 4. 核心辅助函数 ---
 def get_reference_rate(df_history, currency):
-    now = datetime.now()
+    now_local = datetime.now(LOCAL_TZ)
     if not df_history.empty and "备注" in df_history.columns:
-        this_month_str = now.strftime('%Y-%m')
+        this_month_str = now_local.strftime('%Y-%m')
         df_this_month = df_history[df_history['日期'].astype(str).str.contains(this_month_str)]
         for note in df_this_month['备注'].iloc[::-1]:
             if "【原币" in str(note) and f"{currency}" in str(note):
@@ -35,14 +41,18 @@ def get_reference_rate(df_history, currency):
     return rates.get(currency, 1.0)
 
 def generate_serial_no(df_history, offset=0):
-    today_prefix = "R" + datetime.now().strftime("%Y%m%d")
+    today_prefix = "R" + datetime.now(LOCAL_TZ).strftime("%Y%m%d")
     if df_history.empty or "录入编号" not in df_history.columns:
         return today_prefix + f"{1 + offset:03d}"
-    today_records = df_history[df_history["录入编号"].astype(str).str.startswith(today_prefix)]
+    
+    # 确保列是字符串且清理空格
+    ids = df_history["录入编号"].astype(str).str.strip()
+    today_records = ids[ids.str.startswith(today_prefix)]
+    
     if today_records.empty:
         return today_prefix + f"{1 + offset:03d}"
     try:
-        last_no = today_records["录入编号"].astype(str).max()
+        last_no = today_records.max()
         next_val = int(last_no[-3:]) + 1 + offset
         return today_prefix + f"{next_val:03d}"
     except: return today_prefix + f"{1 + offset:03d}"
@@ -53,11 +63,18 @@ INC_PROPS = ["期初结转", "内部调拨-转入", "工程收入", "施工收�
 EXP_PROPS = ["内部调拨-转出", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
 ALL_FUND_PROPS = INC_PROPS + EXP_PROPS
 
-# --- 6. 数据加载 ---
+# --- 6. 数据加载与列名清洗 ---
 try:
     df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-except:
+    # 关键修复：清理列名中的空格
+    df_latest.columns = df_latest.columns.str.strip()
+except Exception as e:
+    st.error(f"表格读取失败: {e}")
     df_latest = pd.DataFrame(columns=["录入编号", "提交时间", "修改时间", "日期", "摘要", "客户/项目名称", "账户", "审批/发票编号", "资金性质", "收入", "支出", "余额", "经手人", "备注"])
+
+# 补全缺失列
+for col in ["录入编号", "提交时间", "修改时间"]:
+    if col not in df_latest.columns: df_latest[col] = "--"
 
 # --- 7. 侧边栏 ---
 st.sidebar.title("🏮 富邦日记账系统")
@@ -66,49 +83,46 @@ password = st.sidebar.text_input("请输入密码访问", type="password")
 
 # --- 8. 功能逻辑 ---
 
-# A. 数据录入
+# A. 数据录入 (支持提交后清空)
 if role == "数据录入" and password == STAFF_PWD:
     st.title("📝 数据录入")
     last_bal = float(df_latest.iloc[-1]["余额"]) if not df_latest.empty else 0.0
-    st.info(f"💵 账户总结余：**${last_bal:,.2f}** (USD)")
+    st.info(f"💵 账户总结余：**${last_bal:,.2f}** (USD) | 当前本地时间：{get_now_str()}")
 
-    # 使用表单 (Form) 配合 clear_on_submit=True 实现自动清空
     with st.form("entry_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
-            report_date = st.date_input("选择日期")
+            report_date = st.date_input("选择业务日期")
             fund_prop = st.selectbox("资金性质", ALL_FUND_PROPS)
             currency = st.selectbox("录入币种", ["USD", "RMB", "VND", "HKD"])
             ex_rate = st.number_input("实时汇率", value=float(get_reference_rate(df_latest, currency)), format="%.4f")
         with c2:
             summary = st.text_input("摘要内容 (必填)")
-            acc_type = st.selectbox("选择结算账户", ACCOUNTS_LIST)
+            acc_type = st.selectbox("结算账户", ACCOUNTS_LIST)
             raw_amt = st.number_input("录入原币金额", min_value=0.0, step=0.01)
             proj_name = st.text_input("客户/项目名称")
 
         col_h1, col_h2 = st.columns(2)
         with col_h1:
-            handlers = sorted([h for h in df_latest["经手人"].unique().tolist() if h]) if not df_latest.empty else []
-            handler = st.text_input("经手人 (必填)") # 改为直接输入，方便表单清空
+            handler = st.text_input("经手人 (必填)") 
         with col_h2:
             ref_no = st.text_input("凭证编号")
             
         note = st.text_area("备注信息")
         
-        # 调拨选项放在表单内
         st.write("---")
-        auto_transfer = st.checkbox("如果是【内部调拨-转出】，自动生成对应的【转入】账目")
-        target_acc = st.selectbox("调拨目标账户 (非调拨请忽略)", ["无"] + ACCOUNTS_LIST)
+        auto_transfer = st.checkbox("如果是调拨，同步生成【转入】账目")
+        target_acc = st.selectbox("调拨目标账户", ["无"] + ACCOUNTS_LIST)
 
-        submit_btn = st.form_submit_button("🚀 确认提交录入", use_container_width=True)
-
-        if submit_btn:
+        if st.form_submit_button("🚀 确认提交录入", use_container_width=True):
             if not summary or not handler:
                 st.error("❌ 摘要和经手人不能为空")
             else:
                 final_usd = raw_amt / ex_rate if ex_rate > 0 else 0.0
                 serial1 = generate_serial_no(df_latest)
-                now_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # 使用校准后的本地时间
+                now_time = get_now_str()
+                
                 inc1 = final_usd if fund_prop in INC_PROPS else 0.0
                 exp1 = final_usd if fund_prop in EXP_PROPS else 0.0
                 
@@ -120,16 +134,13 @@ if role == "数据录入" and password == STAFF_PWD:
                 }
                 rows = [row1]
                 
-                # 处理自动调拨逻辑
                 if auto_transfer and target_acc != "无":
                     row2 = row1.copy()
                     row2.update({
                         "录入编号": generate_serial_no(df_latest, 1), 
                         "摘要": f"{summary} (关联调入)",
-                        "账户": target_acc, 
-                        "资金性质": "内部调拨-转入", 
-                        "收入": exp1, "支出": 0.0, 
-                        "余额": last_bal + inc1 
+                        "账户": target_acc, "资金性质": "内部调拨-转入", 
+                        "收入": exp1, "支出": 0.0, "余额": last_bal + inc1 
                     })
                     rows.append(row2)
                 
@@ -137,18 +148,17 @@ if role == "数据录入" and password == STAFF_PWD:
                 conn.update(worksheet="Summary", data=new_df)
                 
                 st.balloons()
-                st.success(f"✅ 录入成功！流水号：{serial1}")
+                st.success(f"✅ 录入成功！本地时间：{now_time}")
                 time.sleep(1.5)
                 st.rerun()
 
-# B. 数据修改
+# B. 数据修改 (修复 KeyError 问题)
 elif role == "数据修改" and password == ADMIN_PWD:
     st.title("🛠️ 数据修改")
-    if not df_latest.empty:
-        # 反转显示，方便选择最新的记录
-        ids = [s for s in df_latest["录入编号"].tolist() if s != "--"][::-1]
+    if not df_latest.empty and "录入编号" in df_latest.columns:
+        ids = df_latest["录入编号"].astype(str).tolist()[::-1]
         selected_id = st.selectbox("请选择要修改的流水编号", ids)
-        idx = df_latest[df_latest["录入编号"] == selected_id].index[0]
+        idx = df_latest[df_latest["录入编号"].astype(str) == selected_id].index[0]
         
         with st.form("edit_form"):
             st.warning(f"正在编辑记录: {selected_id}")
@@ -156,40 +166,31 @@ elif role == "数据修改" and password == ADMIN_PWD:
             with c1:
                 e_date = st.date_input("日期", value=pd.to_datetime(df_latest.at[idx, "日期"]))
                 e_sum = st.text_input("摘要", value=df_latest.at[idx, "摘要"])
-                e_acc = st.selectbox("结算账户", ACCOUNTS_LIST, index=ACCOUNTS_LIST.index(df_latest.at[idx, "账户"]) if df_latest.at[idx, "账户"] in ACCOUNTS_LIST else 0)
-                e_inc = st.number_input("收入金额 (USD)", value=float(df_latest.at[idx, "收入"]))
+                e_inc = st.number_input("收入 (USD)", value=float(df_latest.at[idx, "收入"]))
             with c2:
-                e_prop = st.selectbox("资金性质", ALL_FUND_PROPS, index=ALL_FUND_PROPS.index(df_latest.at[idx, "资金性质"]) if df_latest.at[idx, "资金性质"] in ALL_FUND_PROPS else 0)
                 e_h = st.text_input("经手人", value=df_latest.at[idx, "经手人"])
-                e_exp = st.number_input("支出金额 (USD)", value=float(df_latest.at[idx, "支出"]))
+                e_exp = st.number_input("支出 (USD)", value=float(df_latest.at[idx, "支出"]))
                 e_proj = st.text_input("客户/项目", value=df_latest.at[idx, "客户/项目名称"])
 
             if st.form_submit_button("💾 保存修改并重算余额", use_container_width=True):
-                # 更新对应行
-                df_latest.at[idx, "日期"] = e_date.strftime('%Y-%m-%d')
-                df_latest.at[idx, "摘要"], df_latest.at[idx, "账户"] = e_sum, e_acc
+                df_latest.at[idx, "摘要"] = e_sum
                 df_latest.at[idx, "收入"], df_latest.at[idx, "支出"] = e_inc, e_exp
-                df_latest.at[idx, "经手人"], df_latest.at[idx, "资金性质"] = e_h, e_prop
-                df_latest.at[idx, "客户/项目名称"] = e_proj
-                df_latest.at[idx, "修改时间"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                df_latest.at[idx, "经手人"], df_latest.at[idx, "客户/项目名称"] = e_h, e_proj
+                df_latest.at[idx, "修改时间"] = get_now_str()
                 
-                # 核心逻辑：重新计算全表余额
+                # 重算余额
                 bal = 0.0
                 for i in range(len(df_latest)):
                     bal += (float(df_latest.at[i, "收入"]) - float(df_latest.at[i, "支出"]))
                     df_latest.at[i, "余额"] = bal
                 
                 conn.update(worksheet="Summary", data=df_latest)
-                
-                # 修改成功的反馈
                 st.balloons()
-                st.success(f"✅ 修改成功！流水 {selected_id} 已更新。")
+                st.success("✅ 修改成功且余额已重算！")
                 time.sleep(1.5)
                 st.rerun()
-        
-        st.divider()
-        st.markdown("##### 🔍 数据预览")
-        st.dataframe(df_latest.sort_index(ascending=False), use_container_width=True)
+    else:
+        st.error("数据列加载异常，请检查 Google Sheets 表头是否包含 '录入编号'")
 
 # C. 汇总统计
 elif role == "汇总统计" and password == ADMIN_PWD:
@@ -201,17 +202,14 @@ elif role == "汇总统计" and password == ADMIN_PWD:
         
         months = df_v['日期_dt'].dt.strftime('%Y-%m').unique().tolist()
         months.sort(reverse=True)
-        selected_month = st.sidebar.selectbox("📅 选择月份", ["全部历史"] + months)
+        selected_month = st.sidebar.selectbox("📅 筛选月份", ["全部历史"] + months)
         
-        if selected_month == "全部历史":
-            df_filtered = df_v
-        else:
-            df_filtered = df_v[df_v['日期_dt'].dt.strftime('%Y-%m') == selected_month]
+        df_filtered = df_v if selected_month == "全部历史" else df_v[df_v['日期_dt'].dt.strftime('%Y-%m') == selected_month]
         
         m1, m2, m3 = st.columns(3)
-        m1.metric("💰 结余 (USD)", f"${df_filtered.iloc[-1]['余额'] if not df_filtered.empty else 0:,.2f}")
-        m2.metric("📥 本期累计收入", f"${df_filtered['收入'].sum():,.2f}")
-        m3.metric("📤 本期累计支出", f"${df_filtered['支出'].sum():,.2f}")
+        m1.metric("💰 期末结余", f"${df_filtered.iloc[-1]['余额'] if not df_filtered.empty else 0:,.2f}")
+        m2.metric("📥 累计收入", f"${df_filtered['收入'].sum():,.2f}")
+        m3.metric("📤 累计支出", f"${df_filtered['支出'].sum():,.2f}")
         
         st.divider()
         st.dataframe(df_filtered.drop(columns=['日期_dt']).sort_index(ascending=False), use_container_width=True)

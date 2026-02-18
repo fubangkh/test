@@ -270,7 +270,7 @@ if pwd == ADMIN_PWD:
         use_container_width=True, 
         hide_index=True
     )
-        column_config={
+    column_config={
             "收入": st.column_config.Column("收入", width="medium", help="右对齐文本"),
             "支出": st.column_config.Column("支出", width="medium"),
             "余额": st.column_config.Column("余额", width="medium"),
@@ -280,6 +280,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

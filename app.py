@@ -260,33 +260,33 @@ if pwd == ADMIN_PWD:
         if col in df_display.columns:
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
-   # 1. 准备显示用的数据 (注意：这里不要用 .map('{:,.2f}'))
-    # 因为 NumberColumn 需要真正的“数字”才能完美右对齐并格式化
+   # 1. 准备显示用的数据
     df_display = df_main.sort_values("录入编号", ascending=False).copy()
     
-    # 确保这几列是纯数字类型，去掉可能干扰的逗号
-    for col in ['收入', '支出', '余额']:
-        df_display[col] = pd.to_numeric(df_display[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+    # 2. 手动进行财务格式化（带逗号 + 2位小数）
+    # 这一步会生成像 "344,343.00" 这样的字符串
+    money_cols = ['收入', '支出', '余额']
+    for col in money_cols:
+        if col in df_display.columns:
+            df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
-    # 2. 最终显示：通过 NumberColumn 同时搞定【右对齐】和【小数点】
+    # 3. 最终显示：使用通用的 Column 配置
     st.dataframe(
         df_display, 
         use_container_width=True, 
         hide_index=True,
         column_config={
-            "收入": st.column_config.NumberColumn(
+            "收入": st.column_config.Column(
                 "收入",
-                format="%,.2f",  # 强制保留2位小数
                 width="medium",
+                help="千分位已开启",
             ),
-            "支出": st.column_config.NumberColumn(
+            "支出": st.column_config.Column(
                 "支出",
-                format="%,.2f",  # 强制保留2位小数
                 width="medium",
             ),
-            "余额": st.column_config.NumberColumn(
+            "余额": st.column_config.Column(
                 "余额",
-                format="%,.2f",  # 强制保留2位小数
                 width="medium",
             ),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
@@ -295,6 +295,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

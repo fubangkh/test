@@ -252,52 +252,30 @@ if pwd == ADMIN_PWD:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
-    # 1. 准备显示用的数据
+   # 1. 准备显示数据
     df_display = df_main.sort_values("录入编号", ascending=False).copy()
     
-    # 2. 格式化金额列（保留小数点和千分位）
-    for col in ['收入', '支出', '余额']:
-        if col in df_display.columns:
-            df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
-
-   # 1. 准备显示用的数据
-    df_display = df_main.sort_values("录入编号", ascending=False).copy()
-    
-    # 2. 手动进行财务格式化（带逗号 + 2位小数）
-    # 这一步会生成像 "344,343.00" 这样的字符串
+    # 2. 预处理金额：确保有逗号和小数点（变成字符串）
     money_cols = ['收入', '支出', '余额']
     for col in money_cols:
         if col in df_display.columns:
+            # 这里的 {:,.2f} 会同时生成千分位逗号和2位小数
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
-    # 3. 最终显示：使用通用的 Column 配置
-    # 在 st.dataframe 内部使用 .style 来强制右对齐这三列
+    # 3. 最终显示：确保 column_config 和上面的参数对齐
+    # 注意：使用 .style 强制让字符串类型的金额列右对齐
     st.dataframe(
-        df_display.style.set_properties(subset=['收入', '支出', '余额'], **{'text-align': 'right'}), 
+        df_display.style.set_properties(subset=money_cols, **{'text-align': 'right'}), 
         use_container_width=True, 
         hide_index=True,
-        # 此时可以不写 column_config，或者只写非金额列的配置
-    )
         column_config={
-            "收入": st.column_config.Column(
-                "收入",
-                width="medium",
-                help="千分位已开启",
-            ),
-            "支出": st.column_config.Column(
-                "支出",
-                width="medium",
-            ),
-            "余额": st.column_config.Column(
-                "余额",
-                width="medium",
-            ),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small")
         }
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

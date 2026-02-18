@@ -59,22 +59,28 @@ def entry_dialog():
     
     # 第一行
     c1, c2 = st.columns(2)
-    val_sum = c1.text_input("摘要内容") # 必填项 1
+    val_sum = c1.text_input("摘要内容")
     val_time = c2.datetime_input("业务时间", value=datetime.now(LOCAL_TZ))
     
-    # 第二行
+    # 第二行：金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
-    val_amt = r2_c1.number_input("金额", min_value=0.0, step=100.0) # 必填项 2
+    val_amt = r2_c1.number_input("金额", min_value=0.0, step=100.0)
     val_curr = r2_c2.selectbox("币种", list(live_rates.keys()))
     val_rate = r2_c3.number_input("实时汇率 (API获取)", value=float(live_rates[val_curr]), format="%.4f")
+    
+    # --- 核心新增：换算后金额显示 ---
+    # 计算逻辑：如果汇率不为0，则计算金额/汇率
+    converted_usd = val_amt / val_rate if val_rate != 0 else 0
+    st.markdown(f"**💰 换算后金额：`${converted_usd:,.2f} USD`**") 
+    st.divider() # 加一条细线区分开
     
     # 第三行
     r3_c1, r3_c2 = st.columns(2)
     sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "账户"))
-    val_acc = st.text_input("✍️ 录入新账户") if sel_acc == "➕ 新增..." else sel_acc
+    val_acc = st.text_input("✍️ 录入新账户名称") if sel_acc == "➕ 新增..." else sel_acc
     
     sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
-    val_hand = st.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
+    val_hand = st.text_input("✍️ 录入新经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
     
     # 第四行 (含审批/发票编号)
     r4_c1, r4_c2 = st.columns(2)
@@ -85,37 +91,30 @@ def entry_dialog():
     is_req = val_prop in ["工程收入", "施工成本"]
     proj_label = "📍 客户/项目名称 (必填)" if is_req else "客户/项目名称 (选填)"
     sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目名称"))
-    val_proj = st.text_input("✍️ 录入新项目") if sel_proj == "➕ 新增..." else sel_proj
+    val_proj = st.text_input("✍️ 录入新项目名称") if sel_proj == "➕ 新增..." else sel_proj
 
     val_note = st.text_area("备注详情")
     
     st.divider()
     b1, b2, b3 = st.columns(3)
 
-    # --- 核心修改：定义带有校验的提交逻辑 ---
+    # 提交逻辑（含必填限制）
     def validate_and_submit(stay_open):
-        # 1. 检查摘要
         if not val_sum.strip():
             st.error("⚠️ 请填写摘要内容！")
             return
-        # 2. 检查金额
         if val_amt <= 0:
             st.error("⚠️ 金额必须大于 0！")
             return
-        # 3. 检查工程性质下的项目必填
         if is_req and (not val_proj or val_proj.strip() == ""):
-            st.error("⚠️ 工程性质业务，必须填写/选择项目名称！")
+            st.error("⚠️ 工程业务必须填写项目名称！")
             return
         
-        # 校验通过，执行气球和刷新逻辑
         st.balloons()
         st.success("🎉 数据录入成功！")
         time.sleep(1.2) 
         st.cache_data.clear() 
-        if not stay_open:
-            st.rerun()
-        else:
-            st.rerun() # 重新加载弹窗以达到清空页面的效果
+        st.rerun()
 
     if b1.button("📥 提交并继续", type="primary", use_container_width=True):
         validate_and_submit(stay_open=True)
@@ -183,4 +182,5 @@ if pwd == ADMIN_PWD:
         st.dataframe(df_main.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
 else:
     st.info("请输入密码解锁系统")
+
 

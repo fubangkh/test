@@ -255,22 +255,20 @@ if pwd == ADMIN_PWD:
    # 1. 准备显示数据
     df_display = df_main.sort_values("录入编号", ascending=False).copy()
     
-    # 2. 预处理金额：确保有逗号和小数点（变成字符串）
+    # 2. 预处理金额（保持您现在的逻辑：带逗号和2位小数的字符串）
     money_cols = ['收入', '支出', '余额']
     for col in money_cols:
         if col in df_display.columns:
-            # 这里的 {:,.2f} 会同时生成千分位逗号和2位小数
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
-    # 3. 最终显示：确保 column_config 和上面的参数对齐
-  # 如果 .style 方案失效，请尝试直接在 column_config 里利用 NumberColumn 的右对齐特性
-    # 但由于我们 map 过了字符串，这里要稍微绕一下
+    # 3. 最终显示：使用 .style 强制指定金额列右对齐
     st.dataframe(
-        df_display, 
+        # 核心改动：在 df_display 后面加上样式设置
+        df_display.style.set_properties(subset=money_cols, **{'text-align': 'right'}), 
         use_container_width=True, 
         hide_index=True,
         column_config={
-            "收入": st.column_config.TextColumn("收入", width="medium"), # 虽然是 Text，但 Streamlit 有时会根据内容对齐
+            "收入": st.column_config.TextColumn("收入", width="medium"),
             "支出": st.column_config.TextColumn("支出", width="medium"),
             "余额": st.column_config.TextColumn("余额", width="medium"),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
@@ -279,6 +277,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

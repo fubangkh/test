@@ -252,19 +252,20 @@ if pwd == ADMIN_PWD:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
-   # 1. 确保金额列是纯数字（float）
-    df_display = df_main.sort_values("录入编号", ascending=False).copy()
-    money_cols = ['收入', '支出', '余额']
+   # 1. 预处理：手动加逗号和 2 位小数，并在左侧填充空格
     for col in money_cols:
-        df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
+        # 格式化为字符串
+        df_display[col] = df_display[col].map('{:,.2f}'.format)
+        # 核心黑科技：在左侧填充空格，让它在左对齐的格子里看起来像右对齐
+        # 根据你的列宽调整 20 这个数字
+        df_display[col] = df_display[col].str.rjust(20)
 
-    # 2. 核心修正：利用 NumberColumn 的 format 属性
-    # 注意：在某些版本中，使用 format="%f" 配合特定的 locale 
-    # 或者尝试这个写法：format="USD %.2f" (有时带上前缀会触发浏览器的会计格式)
+    # 2. 显示
     st.dataframe(
-        df_display, 
-        use_container_width=True, 
-        hide_index=True,
+        df_display,
+        use_container_width=True,
+        hide_index=True
+    )
         column_config={
             "收入": st.column_config.NumberColumn(
                 "收入",
@@ -279,6 +280,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

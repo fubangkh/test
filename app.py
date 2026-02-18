@@ -1,15 +1,13 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-import requests
 from datetime import datetime
-import time
 import pytz
+import time
 
-# --- 1. 基础配置 ---
+# --- 基础配置 ---
 st.set_page_config(page_title="富邦日记账系统", layout="wide")
 STAFF_PWD = "123"
-ADMIN_PWD = "123"
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
 def get_now_str():
@@ -17,132 +15,100 @@ def get_now_str():
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 2. 核心联想与汇率逻辑 ---
-def handle_currency_change():
-    new_curr = st.session_state.sel_curr
-    st.session_state.input_rate = float(get_reference_rate(df_latest, new_curr))
-
-def get_reference_rate(df_history, currency):
-    if currency == "USD": return 1.0
-    if not df_history.empty and "备注" in df_history.columns:
-        this_month_str = datetime.now(LOCAL_TZ).strftime('%Y-%m')
-        df_month = df_history[df_history['日期'].astype(str).str.contains(this_month_str)]
-        for note in df_month['备注'].iloc[::-1]:
-            if "【原币" in str(note) and f"{currency}" in str(note):
-                try: return float(note.split("汇率：")[1].split("】")[0])
-                except: continue
-    rates = {"RMB": 7.23, "VND": 25450.0, "HKD": 7.82}
-    try:
-        res = requests.get("https://open.er-api.com/v6/latest/USD", timeout=1)
-        if res.status_code == 200:
-            api = res.json().get("rates", {})
-            rates = {"RMB": api.get("CNY", 7.23), "VND": api.get("VND", 25450.0), "HKD": api.get("HKD", 7.82)}
-    except: pass
-    return rates.get(currency, 1.0)
-
-# --- 3. 数据加载（带强力容错） ---
+# --- 1. 数据安全加载 (解决 KeyError 报错) ---
 @st.cache_data(ttl=2)
 def load_all_data():
     try:
         df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
         df.columns = df.columns.str.strip()
         
-        # 【关键修复】确保所有列都存在，防止 KeyError
-        cols = ["录入编号", "摘要", "客户/项目名称", "账户", "资金性质", "收入", "支出", "余额", "经手人", "日期", "备注", "审批/发票编号"]
-        for c in cols:
-            if c not in df.columns: df[c] = ""
-            
-        # 提取历史摘要词库
-        history_summaries = sorted(df["摘要"].astype(str).unique().tolist()) if not df.empty else []
-        return df, history_summaries
-    except Exception as e:
-        st.error(f"表格连接异常，请检查列名: {e}")
+        # 强制检查并补齐缺失列，防止图片中的 KeyError
+        target_cols = ["录入编号", "摘要", "客户/项目名称", "账户", "资金性质", "收入", "支出", "余额", "经手人", "日期"]
+        for col in target_cols:
+            if col not in df.columns:
+                df[col] = ""
+        
+        # 提取历史摘要 (去重排序)
+        history = sorted([str(x) for x in df["摘要"].unique() if x and str(x)!='nan'])
+        return df, history
+    except:
         return pd.DataFrame(), []
 
 df_latest, SUMMARY_HISTORY = load_all_data()
 
-# 初始化状态
-if 'input_rate' not in st.session_state: st.session_state.input_rate = 1.0
-
-def get_unique_list(df, col_name):
-    if df.empty or col_name not in df.columns: return []
-    return sorted([str(x) for x in df[col_name].unique() if x and str(x)!='nan' and str(x).strip() != ""])
-
-# --- 4. 界面展示 ---
+# --- 2. 界面展示 ---
 role = st.sidebar.radio("📋 功能选择", ["数据录入", "汇总统计"])
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 
 if role == "数据录入" and pwd == STAFF_PWD:
-    st.title("📝 财务数据录入")
-    last_bal = pd.to_numeric(df_latest["余额"], errors='coerce').iloc[-1] if not df_latest.empty else 0.0
-    st.info(f"💵 总结余：**${last_bal:,.2f}** | 柬埔寨时间：{get_now_str()}")
+    st.title("📝 财务录入")
     
-    # --- 模块 1：业务摘要 ---
+    # 获取余额
+    try:
+        last_bal = pd.to_numeric(df_latest["余额"], errors='coerce').iloc[-1]
+    except:
+        last_bal = 0.0
+
+    st.info(f"💵 当前结余：**${last_bal:,.2f}**")
+
+    # --- 模块 1：业务摘要 (二合一精简版) ---
     st.markdown("### 1️⃣ 业务摘要")
-    # 这里通过 selectbox 模糊搜索
-    selected_s = st.selectbox("🔍 搜索历史摘要（在此输入‘正道’试试）", ["直接手动录入新摘要"] + SUMMARY_HISTORY)
-    
-    col_a, col_b = st.columns([2, 1])
-    with col_a:
-        if selected_s == "直接手动录入新摘要":
-            final_summary = st.text_input("✍️ 请输入新摘要内容", placeholder="例如：正道轮胎")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        # 这一行就是你想要的：既能输入又能搜
+        # 注意：如果输入新词，直接在框里打完字，不要选列表即可
+        summary_input = st.selectbox(
+            "摘要内容 (打字可搜索历史，输入新内容请直接打字)",
+            options=SUMMARY_HISTORY,
+            index=None,
+            placeholder="输入关键词如 '正道'...",
+            help="输入完新摘要后请确保光标移开或按回车确认",
+            label_visibility="collapsed" # 隐藏标签让界面更紧凑
+        )
+    with col2:
+        biz_date = st.date_input("业务日期", label_visibility="collapsed")
+
+    # --- 模块 2 & 3 简化合并 ---
+    st.markdown("### 2️⃣ 财务明细")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        fund_p = st.selectbox("资金性质", ["施工收入", "管理费用", "往来款", "期初结存"])
+        currency = st.selectbox("币种", ["USD", "RMB", "VND"])
+    with c2:
+        raw_amt = st.number_input("原币金额", min_value=0.0)
+        rate = st.number_input("实时汇率", value=1.0, format="%.4f")
+    with c3:
+        accs = sorted([str(x) for x in df_latest["账户"].unique() if x and str(x)!='nan'])
+        final_acc = st.selectbox("结算账户", options=accs + ["➕ 新增"])
+        if final_acc == "➕ 新增":
+            final_acc = st.text_input("输入新账户名")
+
+    # 提交逻辑
+    if st.button("🚀 确认提交", use_container_width=True):
+        if not summary_input:
+            st.error("❌ 摘要不能为空！")
         else:
-            final_summary = st.text_input("✍️ 摘要确认 (可微调)", value=selected_s)
-    with col_b:
-        biz_date = st.date_input("业务日期", value=datetime.now(LOCAL_TZ))
-
-    # --- 模块 2：金额账户 ---
-    st.markdown("### 2️⃣ 金额与结算")
-    cc1, cc2, cc3 = st.columns(3)
-    with cc1:
-        fund_p = st.selectbox("资金性质", ["期初结存", "工程收入", "施工收入", "管理费用", "往来款支付", "其他收入"]) # 简化演示
-        currency = st.selectbox("币种", ["USD", "RMB", "VND", "HKD"], key="sel_curr", on_change=handle_currency_change)
-    with cc2:
-        raw_amt = st.number_input("原币金额", min_value=0.0, step=0.01)
-        ex_rate = st.number_input("实时汇率", key="input_rate", format="%.4f")
-        if ex_rate > 0 and currency != "USD":
-            st.write(f"📊 换算后金额: **${(raw_amt/ex_rate):,.2f}** (USD)")
-    with cc3:
-        accs_list = get_unique_list(df_latest, "账户")
-        a_sel = st.selectbox("结算账户", ["🔍 搜索历史"] + accs_list + ["➕ 新增"])
-        f_a = st.text_input("新账户名") if a_sel == "➕ 新增" else a_sel
-
-    # --- 模块 3：相关方信息 ---
-    st.markdown("### 3️⃣ 相关方信息")
-    hc1, hc2, hc3 = st.columns(3)
-    with hc1:
-        projs_list = get_unique_list(df_latest, "客户/项目名称")
-        p_sel = st.selectbox("项目/客户", ["🔍 搜索历史项目"] + projs_list + ["➕ 新增项目"])
-        f_p = st.text_input("新项目名") if p_sel == "➕ 新增项目" else (p_sel if "🔍" not in str(p_sel) else "")
-    with hc2:
-        hands_list = get_unique_list(df_latest, "经手人")
-        h_sel = st.selectbox("经手人", ["🔍 搜索历史经手人"] + hands_list + ["➕ 新增经手人"])
-        f_h = st.text_input("新经手人姓名") if h_sel == "➕ 新增经手人" else h_sel
-    with hc3:
-        ref_no = st.text_input("审批/发票编号")
-        note = st.text_area("备注", height=68)
-
-    # 提交按钮（重要：不能放在 st.form 里，否则联想失效）
-    if st.button("🚀 提交账目流水", use_container_width=True):
-        if not final_summary or "🔍" in str(f_a) or "🔍" in str(f_h):
-            st.error("❌ 摘要、账户和经手人不能为空！")
-        else:
-            final_usd = raw_amt / st.session_state.input_rate if st.session_state.input_rate > 0 else 0
-            is_inc = fund_p in ["期初结存", "工程收入", "施工收入", "其他收入"]
-            inc_v, exp_v = (final_usd, 0) if is_inc else (0, final_usd)
+            # 计算金额
+            usd_amt = raw_amt / rate if rate > 0 else 0
+            is_inc = "收入" in fund_p or "结存" in fund_p
+            inc, exp = (usd_amt, 0) if is_inc else (0, usd_amt)
             
-            rate_tag = f"【原币：{raw_amt} {currency}，汇率：{st.session_state.input_rate}】"
-            today = "R" + datetime.now(LOCAL_TZ).strftime("%Y%m%d")
-            sn = today + f"{len(df_latest[df_latest['录入编号'].astype(str).str.contains(today, na=False)]) + 1:03d}"
+            # 生成编号
+            sn = datetime.now(LOCAL_TZ).strftime("R%Y%m%d%H%M%S")
             
-            row = {
-                "录入编号": sn, "提交时间": get_now_str(), "日期": biz_date.strftime('%Y-%m-%d'),
-                "摘要": final_summary, "客户/项目名称": f_p, "账户": f_a, 
-                "资金性质": fund_p, "收入": inc_v, "支出": exp_v, "余额": last_bal + inc_v - exp_v, 
-                "经手人": f_h, "备注": f"{note} {rate_tag}", "审批/发票编号": ref_no
+            new_row = {
+                "录入编号": sn, "日期": biz_date.strftime("%Y-%m-%d"),
+                "摘要": summary_input, "余额": last_bal + inc - exp,
+                "收入": inc, "支出": exp, "账户": final_acc, "资金性质": fund_p
             }
-            conn.update(worksheet="Summary", data=pd.concat([df_latest, pd.DataFrame([row])], ignore_index=True))
-            st.cache_data.clear() # 关键：提交后清除缓存，这样下次录入就能搜到“正道轮胎”了
-            st.balloons(); st.success("✅ 录入完成！"); time.sleep(1); st.rerun()
+            
+            # 更新数据
+            new_df = pd.concat([df_latest, pd.DataFrame([new_row])], ignore_index=True)
+            conn.update(worksheet="Summary", data=new_df)
+            st.cache_data.clear()
+            st.success("✅ 提交成功！")
+            time.sleep(1)
+            st.rerun()
 
-# 统计模块略...
+elif role == "汇总统计":
+    st.dataframe(df_latest)

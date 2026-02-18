@@ -6,8 +6,8 @@ import pandas as pd
 st.set_page_config(page_title="富邦现金流水账", layout="wide")
 
 # --- 权限配置 (建议后期移至 secrets) ---
-STAFF_PWD = "fb123"      # 出纳录入密码
-ADMIN_PWD = "admin888"   # 管理看板密码
+STAFF_PWD = "123"      # 出纳录入密码
+ADMIN_PWD = "123"   # 管理看板密码
 
 # --- 初始化 Google Sheets 连接 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -172,3 +172,4 @@ elif role == "管理看板":
         st.info("💡 请输入管理密码以查看看板")
     else:
         st.error("❌ 密码错误")
+

@@ -21,7 +21,7 @@ def get_reference_rate(df_history, currency):
         this_month_str = now.strftime('%Y-%m')
         df_this_month = df_history[df_history['日期'].astype(str).str.contains(this_month_str)]
         for note in df_this_month['备注'].iloc[::-1]:
-            if f"【原币" in str(note) and f"{currency}" in str(note):
+            if "【原币" in str(note) and f"{currency}" in str(note):
                 try:
                     return float(note.split("汇率：")[1].split("】")[0])
                 except:
@@ -58,8 +58,9 @@ if role == "数据录入":
         else:
             last_balance = 0.0
 
-        st.info(f"💵 当前结余：**${last_balance:,.2f}** (折美元)")
+        st.info(f"💵 当前结余：**${last_balance:,.2f}** (USD)")
 
+        # 💡 为了让金额实时变动，我们将部分选择器移出 Form 外，或者在 Form 内使用正确的逻辑
         with st.form("entry_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
@@ -68,17 +69,23 @@ if role == "数据录入":
                 currency = st.selectbox("报备币种", ["USD", "RMB", "VND", "HKD"])
                 
                 ref_rate = 1.0 if currency == "USD" else get_reference_rate(df_latest, currency)
-                exchange_rate = st.number_input(f"记账汇率 (本月建议值)", value=float(ref_rate), format="%.4f")
+                exchange_rate = st.number_input(f"记账汇率", value=float(ref_rate), format="%.4f")
                 
                 raw_amount = st.number_input(f"原始金额 ({currency})", min_value=0.0, step=0.01)
-                final_usd = raw_amount / exchange_rate if exchange_rate != 0 else 0
-                st.markdown(f"### 📊 折合：**${final_usd:,.2f}**")
+                # 💡 修正：计算逻辑
+                temp_usd = raw_amount / exchange_rate if exchange_rate != 0 else 0
+                st.write(f"📊 当前折合预估：**${temp_usd:,.2f} USD**")
 
             with col2:
                 account_type = st.selectbox("结算账户", ["ABA_924_个人户", "ABA_403_个人户", "ABA_313_FB公司户","ICBC_215_AF公司户", "BOC_052_FB公司户", "BOC_063_FB公司户", "BOC_892_瑞尔_FB公司户", "ICBC_854_FB公司户", "CCB_762_人民币_个人户", "BOC_865_人民币_亚堡公司户", "CCB_825_美元_昆仑公司户", "CCB_825_港币_昆仑公司户", "CCB_825_人民币_昆仑公司户", "CMB_002_人民币_科吉公司户", "CMB_032_美元_科吉公司户", "ABA_357_定期", "HUONE_USD", "HUONE_USDT", "现金"])
-                project_name = st.text_input("💎 客户/项目名称") if fund_property in CORE_BUSINESS_TYPES else ""
                 
-                # ✅ 找回字段 1: 审批/发票编号
+                # 💡 修正问题一：明确标记必填
+                project_name = ""
+                if fund_property in CORE_BUSINESS_TYPES:
+                    project_name = st.text_input("💎 客户/项目名称 (必填项)")
+                else:
+                    project_name = ""
+
                 ref_no = st.text_input("📑 审批/发票编号")
                 
                 handlers = sorted([h for h in df_latest["经手人"].unique().tolist() if h]) if not df_latest.empty else []
@@ -90,35 +97,39 @@ if role == "数据录入":
 
             if st.form_submit_button("🚀 提交并同步"):
                 handler = new_h if h_select == "➕ 新增" else h_select
+                # 💡 重新计算确保数据最新
+                final_usd = raw_amount / exchange_rate if exchange_rate != 0 else 0
+                
+                # 💡 修正问题一的校验逻辑
                 if not summary or handler in ["🔍 选择", ""]:
-                    st.error("❌ 摘要和经手人不能为空")
+                    st.error("❌ 摘要和经手人不能为空！")
+                elif fund_property in CORE_BUSINESS_TYPES and not project_name:
+                    st.error(f"❌ 选了【{fund_property}】，客户/项目名称必须填写！")
+                elif raw_amount <= 0:
+                    st.error("❌ 金额必须大于 0！")
                 else:
                     try:
                         inc = final_usd if fund_property in (CORE_BUSINESS_TYPES[:5] + OTHER_INCOME_TYPES) else 0.0
                         exp = final_usd if fund_property in (CORE_BUSINESS_TYPES[5:] + OTHER_EXPENSE_TYPES) else 0.0
                         
-                        auto_note = note
+                        auto_note = note if note else ""
                         if currency != "USD":
-                            auto_note = f"【原币：{raw_amount} {currency}，汇率：{exchange_rate}】 " + (note if note else "")
+                            auto_note = f"【原币：{raw_amount} {currency}，汇率：{exchange_rate}】 " + auto_note
                         
-                        # ✅ 找回字段 2: 放入写入字典
                         new_row = {
                             "日期": report_date.strftime('%Y-%m-%d'),
                             "摘要": summary, 
                             "客户/项目名称": project_name,
                             "账户": account_type, 
-                            "审批/发票编号": ref_no, # 确保这里的 Key 和 Google Sheets 表头一致
+                            "审批/发票编号": ref_no,
                             "资金性质": fund_property,
-                            "收入": inc, 
-                            "支出": exp, 
-                            "余额": last_balance + inc - exp,
-                            "经手人": handler, 
-                            "备注": auto_note
+                            "收入": inc, "支出": exp, "余额": last_balance + inc - exp,
+                            "经手人": handler, "备注": auto_note
                         }
                         
                         updated_df = pd.concat([df_latest, pd.DataFrame([new_row])], ignore_index=True).fillna("")
                         conn.update(worksheet="Summary", data=updated_df)
-                        st.success("✅ 录入成功！")
+                        st.success(f"✅ 录入成功！折合：${final_usd:,.2f}")
                         st.rerun()
                     except Exception as e:
                         st.error(f"失败: {e}")
@@ -130,9 +141,4 @@ elif role == "管理看板":
         if not df_sum.empty:
             for c in ["收入", "支出", "余额"]: 
                 df_sum[c] = pd.to_numeric(df_sum[c], errors='coerce').fillna(0)
-            
-            # 看板美化显示
-            st.dataframe(
-                df_sum.sort_index(ascending=False).style.format({"收入": "{:.2f}", "支出": "{:.2f}", "余额": "{:.2f}"}), 
-                use_container_width=True
-            )
+            st.dataframe(df_sum.sort_index(ascending=False).style.format({"收入": "{:.2f}", "支出": "{:.2f}", "余额": "{:.2f}"}), use_container_width=True)

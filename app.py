@@ -5,7 +5,7 @@ import requests
 from datetime import datetime
 
 # --- 页面基础配置 ---
-st.set_page_config(page_title="富邦财务系统", layout="wide")
+st.set_page_config(page_title="富邦现金日记账", layout="wide")
 
 # --- 权限配置 ---
 STAFF_PWD = "123"      
@@ -43,13 +43,13 @@ OTHER_EXPENSE_TYPES = ["网络成本", "管理费用", "差旅费", "工资福�
 ALL_FUND_PROPERTIES = (CORE_BUSINESS_TYPES[:5] + OTHER_INCOME_TYPES) + (CORE_BUSINESS_TYPES[5:] + OTHER_EXPENSE_TYPES)
 
 # --- 侧边栏 ---
-st.sidebar.title("💰 富邦财务管理")
+st.sidebar.title("💰 富邦现金日记账")
 role = st.sidebar.radio("选择功能模块", ["数据录入", "管理看板"])
 password = st.sidebar.text_input("请输入访问密码", type="password")
 
 if role == "数据录入":
     if password == STAFF_PWD:
-        st.title("📝 财务报备")
+        st.title("📝 日记账录入")
         
         df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
         if not df_latest.empty:
@@ -66,12 +66,12 @@ if role == "数据录入":
             with col1:
                 report_date = st.date_input("日期")
                 fund_property = st.selectbox("资金性质", ALL_FUND_PROPERTIES)
-                currency = st.selectbox("报备币种", ["USD", "RMB", "VND", "HKD"])
+                currency = st.selectbox("录入币种", ["USD", "RMB", "VND", "HKD"])
                 
                 ref_rate = 1.0 if currency == "USD" else get_reference_rate(df_latest, currency)
                 exchange_rate = st.number_input(f"记账汇率", value=float(ref_rate), format="%.4f")
                 
-                raw_amount = st.number_input(f"原始金额 ({currency})", min_value=0.0, step=0.01)
+                raw_amount = st.number_input(f"录入金额 ({currency})", min_value=0.0, step=0.01)
                 # 💡 修正：计算逻辑
                 temp_usd = raw_amount / exchange_rate if exchange_rate != 0 else 0
                 st.write(f"📊 当前折合预估：**${temp_usd:,.2f} USD**")
@@ -142,3 +142,4 @@ elif role == "管理看板":
             for c in ["收入", "支出", "余额"]: 
                 df_sum[c] = pd.to_numeric(df_sum[c], errors='coerce').fillna(0)
             st.dataframe(df_sum.sort_index(ascending=False).style.format({"收入": "{:.2f}", "支出": "{:.2f}", "余额": "{:.2f}"}), use_container_width=True)
+

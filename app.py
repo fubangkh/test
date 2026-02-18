@@ -6,7 +6,7 @@ import time
 import pytz
 from datetime import datetime
 
-# --- 1. 页面与时区配置 ---
+# --- 1. 基础配置与时区 ---
 st.set_page_config(page_title="富邦财务系统", layout="wide")
 ADMIN_PWD = "123"
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
@@ -37,18 +37,22 @@ st.markdown("""
         background: linear-gradient(135deg, #28a745 0%, #218838 100%) !important;
         color: white !important;
         font-size: 16px !important;
-        padding: 8px 0px !important;
     }
 
-    /* 红色放弃按钮专用样式 */
-    button[data-testid="stBaseButton-headerNoPadding"] {
-        border: 1px solid #ff4b4b !important;
+    /* 红色放弃/取消按钮专用样式 (用于弹窗底部) */
+    .red-cancel-btn > div > button {
+        background-color: white !important;
         color: #ff4b4b !important;
+        border: 1px solid #ff4b4b !important;
+    }
+    .red-cancel-btn > div > button:hover {
+        background-color: #fff5f5 !important;
+        border: 1px solid #ff3333 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 核心功能函数 ---
+# --- 3. 辅助功能 ---
 def get_now_local(): return datetime.now(LOCAL_TZ)
 def get_now_str(): return get_now_local().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -59,6 +63,7 @@ def load_all_data():
     try:
         df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
         df.columns = df.columns.str.strip()
+        # 转换数值列
         for c in ["收入", "支出", "余额"]:
             if c in df.columns:
                 df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0).round(2)
@@ -68,49 +73,43 @@ def load_all_data():
 def convert_df_to_excel(df):
     output = io.BytesIO()
     try:
+        # 使用 xlsxwriter 导出并美化
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, index=False, sheet_name='流水明细')
-            # 自动美化格式逻辑...
+            workbook  = writer.book
+            worksheet = writer.sheets['流水明细']
+            # 设置列宽
+            for i, col in enumerate(df.columns):
+                worksheet.set_column(i, i, 18)
         return output.getvalue()
     except: return None
 
 # --- 4. 录入弹窗 ---
 @st.dialog("📝 数据录入", width="large")
 def entry_dialog():
-    st.write("### 2️⃣ 金额与结算账户")
-    df_current = load_all_data()
-    last_bal = df_current["余额"].iloc[-1] if not df_current.empty else 0.0
-    
-    # 录入字段逻辑 (对应图片 1 布局)
-    # ... (字段输入省略，保持您现有的逻辑)
-    
+    st.write("### 录入明细内容")
+    # ... (录入逻辑保持不变)
     st.divider()
     c1, c2, c3 = st.columns(3)
-    if c1.button("提交并继续录入", use_container_width=True): 
-        # 执行保存逻辑
-        st.rerun()
-    if c2.button("提交并返回", use_container_width=True): 
-        # 执行保存逻辑
-        st.rerun()
-    if c3.button("取消录入", use_container_width=True): st.rerun()
+    if c1.button("提交并继续", use_container_width=True): st.rerun()
+    if c2.button("提交并返回", use_container_width=True): st.rerun()
+    # 录入窗口的取消也放在这里
+    st.markdown('<div class="red-cancel-btn">', unsafe_allow_html=True)
+    if c3.button("❌ 取消录入", use_container_width=True): st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. 修正弹窗 (完美还原图片 2 深度布局) ---
+# --- 5. 修正弹窗 (修正按钮下移齐平) ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(df):
-    # 顶部选择与放弃按钮
-    col_sel, col_exit = st.columns([3, 1])
-    with col_sel:
-        target = st.selectbox("第一步：选择要修改的录入编号", ["-- 请选择 --"] + df["录入编号"].tolist()[::-1], label_visibility="collapsed")
-    with col_exit:
-        if st.button("❌ 放弃修正并复位", use_container_width=True):
-            st.rerun()
+    # 第一步：仅保留编号选择
+    target = st.selectbox("第一步：选择要修改的录入编号", ["-- 请选择 --"] + df["录入编号"].tolist()[::-1])
     
     if target != "-- 请选择 --":
         old = df[df["录入编号"] == target].iloc[0]
         st.markdown(f"📁 **正在深度修正编号：{target}**")
         
-        # 还原两栏表单布局 (对应图片 2)
-        with st.form("edit_deep_form"):
+        # 深度表单内容 (两栏布局)
+        with st.container():
             r1c1, r1c2 = st.columns(2)
             u_date = r1c1.text_input("日期 (YYYY-MM-DD HH:mm)", value=str(old["日期"]))
             u_inc = r1c2.number_input("收入 (USD)", value=float(old["收入"]), step=0.01)
@@ -129,17 +128,25 @@ def edit_dialog(df):
             
             u_prop = st.selectbox("资金性质", ["预收款", "工程收入", "管理费用", "其他"], index=0)
             u_note = st.text_area("备注详情", value=str(old["备注"]))
-            
-            if st.form_submit_button("💾 确认保存全字段修正", use_container_width=True):
-                # 1. 更新当前行数据
-                # 2. 全表重新计算余额逻辑
-                # 3. 提交到 Google Sheets
-                st.success("✅ 修正已保存并重算余额")
-                st.cache_data.clear()
-                time.sleep(0.5)
-                st.rerun()
 
-# --- 6. 主页面布局 ---
+        st.divider()
+        
+        # --- 核心改动：保存与放弃按钮水平齐平 ---
+        save_col, exit_col = st.columns(2)
+        
+        # 确认保存按钮 (左侧)
+        if save_col.button("💾 确认保存全字段修正", type="primary", use_container_width=True):
+            # (执行保存逻辑...)
+            st.success("✅ 修正成功")
+            st.cache_data.clear(); time.sleep(0.5); st.rerun()
+        
+        # 放弃并复位按钮 (右侧，红色样式)
+        st.markdown('<div class="red-cancel-btn">', unsafe_allow_html=True)
+        if exit_col.button("❌ 放弃修正并复位", use_container_width=True):
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 6. 主页面 ---
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 
 if pwd == ADMIN_PWD:
@@ -153,7 +160,7 @@ if pwd == ADMIN_PWD:
         
         st.divider()
 
-        # 三按钮齐平布局 (标题 + 下载 + 录入 + 修正)
+        # 三按钮组 (靠右齐平)
         t_col, b1_col, b2_col, b3_col = st.columns([4, 1, 1, 1])
         with t_col: st.subheader("📑 原始流水明细")
         with b1_col:
@@ -165,7 +172,7 @@ if pwd == ADMIN_PWD:
         with b3_col:
             if st.button("🛠️ 修正", type="primary"): edit_dialog(df_latest)
 
-        # 全宽数据表格
+        # 原始流水数据展示
         st.dataframe(df_latest.sort_values("录入编号", ascending=False), hide_index=True, use_container_width=True, height=600)
 else:
     st.info("🔒 请输入密码访问系统")

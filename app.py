@@ -5,9 +5,9 @@ import pandas as pd
 # --- 页面基础配置 ---
 st.set_page_config(page_title="富邦现金流水账", layout="wide")
 
-# --- 权限配置 (建议后期移至 secrets) ---
+# --- 权限配置 ---
 STAFF_PWD = "123"      # 出纳录入密码
-ADMIN_PWD = "123"   # 管理看板密码
+ADMIN_PWD = "123"      # 管理看板密码
 
 # --- 初始化 Google Sheets 连接 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -42,9 +42,16 @@ if role == "数据录入":
             col1, col2 = st.columns(2)
             with col1:
                 report_date = st.date_input("日期")
-                account_type = st.selectbox("账户类型", ["ABA_924_个人户", "ABA_403_个人户", "ABA_313_FB公司户","ICBC_215_AF公司户", "BOC_052_FB公司户", "BOC_063_FB公司户", "BOC_892_瑞尔_FB公司户", "ICBC_854_FB公司户", "CCB_762_人民币_个人户", "BOC_865_人民币_亚堡公司户", "CCB_825_美元_昆仑公司户", "CCB_825_港币_昆仑公司户", "CCB_825_人民币_昆仑公司户", "CMB_002_人民币_科吉公司户", "CMB_032_美元_科吉公司户", "ABA_357_定期", "HUONE_USD", "HUONE_USDT", "现金" ])
+                account_type = st.selectbox("账户类型", [
+                    "ABA_924_个人户", "ABA_403_个人户", "ABA_313_FB公司户",
+                    "ICBC_215_AF公司户", "BOC_052_FB公司户", "BOC_063_FB公司户", 
+                    "BOC_892_瑞尔_FB公司户", "ICBC_854_FB公司户", "CCB_762_人民币_个人户", 
+                    "BOC_865_人民币_亚堡公司户", "CCB_825_美元_昆仑公司户", 
+                    "CCB_825_港币_昆仑公司户", "CCB_825_人民币_昆仑公司户", 
+                    "CMB_002_人民币_科吉公司户", "CMB_032_美元_科吉公司户", 
+                    "ABA_357_定期", "HUONE_USD", "HUONE_USDT", "现金" 
+                ])
             with col2:
-                # 💡 强制 2 位小数，步长 0.01
                 amount = st.number_input(f"请输入【{trans_type}】金额 (USD)", min_value=0.0, step=0.01, format="%.2f")
                 st.text_input("当前结余 (系统自动计算)", value=f"${last_balance:,.2f}", disabled=True)
 
@@ -62,12 +69,10 @@ if role == "数据录入":
                     st.error("❌ 请填写摘要和经手人！")
                 else:
                     try:
-                        # 计算逻辑
                         inc = amount if trans_type == "收入" else 0.0
                         exp = amount if trans_type == "支出" else 0.0
                         new_balance = last_balance + inc - exp
                         
-                        # 构造新行 (对应你 Sheets 里的 10 列)
                         new_row = {
                             "日期": report_date.strftime('%Y-%m-%d'),
                             "摘要": summary, 
@@ -117,12 +122,13 @@ elif role == "管理看板":
                 # 计算本月指标
                 if not df_month.empty:
                     first_row_m = df_month.iloc[0]
-                    opening_bal = float(first_row_m["余额"]) - float(first_row_m["收入"]) + float(first_row_month = first_row_m["支出"])
+                    # ✅ 修复关键公式：期初 = 第一笔余额 - 第一笔收入 + 第一笔支出
+                    opening_bal = float(first_row_m["余额"]) - float(first_row_m["收入"]) + float(first_row_m["支出"])
                     m_income = df_month["收入"].sum()
                     m_expense = df_month["支出"].sum()
                     curr_bal = df_month.iloc[-1]["余额"]
                 else:
-                    opening_bal = float(df_sum.iloc[-1]["余额"])
+                    opening_bal = float(df_sum.iloc[-1]["余额"]) if not df_sum.empty else 0.0
                     m_income, m_expense = 0.0, 0.0
                     curr_bal = opening_bal
 
@@ -136,20 +142,17 @@ elif role == "管理看板":
                 st.markdown("---")
                 c4, c5 = st.columns(2)
                 net_cash = m_income - m_expense
-                c4.metric("本月收支净额", f"${net_cash:,.2f}", delta=f"${net_cash:,.2f}")
+                c4.metric("本月收支净额", f"${net_cash:,.2f}", delta=f"{net_cash:,.2f}")
                 c5.metric("当前动态总余额", f"${curr_bal:,.2f}")
 
-                # 流水表展示 (强制 2 位小数格式)
+                # 流水表展示
                 st.markdown("---")
                 st.subheader("📋 详细收支流水 (USD)")
                 df_display = df_sum.copy()
                 df_display['日期'] = df_display['日期'].dt.strftime('%Y-%m-%d')
                 
-                # 使用样式器美化金额列
                 styled_df = df_display.sort_index(ascending=False).style.format({
-                    "收入": "{:.2f}",
-                    "支出": "{:.2f}",
-                    "余额": "{:.2f}"
+                    "收入": "{:.2f}", "支出": "{:.2f}", "余额": "{:.2f}"
                 })
                 st.dataframe(styled_df, use_container_width=True)
 
@@ -172,4 +175,3 @@ elif role == "管理看板":
         st.info("💡 请输入管理密码以查看看板")
     else:
         st.error("❌ 密码错误")
-

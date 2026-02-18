@@ -156,11 +156,10 @@ if role == "数据录入" and pwd == STAFF_PWD:
             time.sleep(1.2)
             st.rerun()
 
-# --- 6. 页面 B：汇总统计 (针对修正功能全面升级) ---
+# --- 6. 页面 B：汇总统计 (增加返回按钮逻辑) ---
 elif role == "汇总统计" and pwd == ADMIN_PWD:
     st.title("📊 财务实时汇总统计")
     if not df_latest.empty:
-        # 今日统计
         today_date = get_now_local().strftime('%Y-%m-%d')
         df_today = df_latest[df_latest['日期'].astype(str).str.startswith(today_date)]
         st.markdown(f"### 📅 今日快报 ({today_date})")
@@ -185,10 +184,7 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
 
         st.divider()
         st.subheader("📑 原始流水明细")
-        
-        # 强制列排序：录入编号之后紧跟日期
         display_cols = ["录入编号", "日期", "摘要", "客户/项目名称", "账户", "资金性质", "收入", "支出", "余额", "经手人", "修正时间", "备注", "审批/发票编号"]
-        
         st.dataframe(
             df_latest.sort_values("录入编号", ascending=False), 
             hide_index=True, 
@@ -208,20 +204,30 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
         st.divider()
         st.subheader("🛠️ 全字段数据修正")
         e_itr = st.session_state.edit_iteration
-        target = st.selectbox("第一步：选择要修改的录入编号", ["-- 请选择 --"] + df_latest["录入编号"].tolist()[::-1], key=f"edit_target_{e_itr}")
+        
+        # 优化点：将选择框和放弃按钮并排
+        sc1, sc2 = st.columns([3, 1])
+        with sc1:
+            target = st.selectbox("第一步：选择要修改的录入编号", ["-- 请选择 --"] + df_latest["录入编号"].tolist()[::-1], key=f"edit_target_{e_itr}")
+        with sc2:
+            st.write("<br>", unsafe_allow_html=True) # 对齐高度
+            if target != "-- 请选择 --":
+                if st.button("❌ 放弃修正并复位", use_container_width=True):
+                    st.session_state.edit_iteration += 1
+                    st.rerun()
         
         if target != "-- 请选择 --":
             old_data = df_latest[df_latest["录入编号"] == target].iloc[0]
             with st.form(f"full_edit_form_{e_itr}_{target}"):
                 st.write(f"📂 正在深度修正编号：**{target}**")
-                
                 fe_c1, fe_c2 = st.columns(2)
                 with fe_c1:
                     u_date = st.text_input("日期 (YYYY-MM-DD HH:mm)", value=str(old_data["日期"]))
                     u_sum = st.text_input("摘要内容", value=str(old_data["摘要"]))
                     u_proj = st.text_input("客户/项目名称", value=str(old_data["客户/项目名称"]))
                     u_acc = st.text_input("结算账户", value=str(old_data["账户"]))
-                    u_prop = st.selectbox("资金性质", ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "期初结存", "内部调拨-转入", "内部调拨-转出", "借款", "往来款收回", "押金收回", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"], index=["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "期初结存", "内部调拨-转入", "内部调拨-转出", "借款", "往来款收回", "押金收回", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"].index(old_data["资金性质"]) if old_data["资金性质"] in ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "期初结存", "内部调拨-转入", "内部调拨-转出", "借款", "往来款收回", "押金收回", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"] else 0)
+                    props_list = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "期初结存", "内部调拨-转入", "内部调拨-转出", "借款", "往来款收回", "押金收回", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
+                    u_prop = st.selectbox("资金性质", props_list, index=props_list.index(old_data["资金性质"]) if old_data["资金性质"] in props_list else 0)
                 
                 with fe_c2:
                     u_inc = st.number_input("收入 (USD)", value=float(old_data["收入"]), step=0.01)
@@ -230,11 +236,8 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                     u_ref = st.text_input("审批/发票编号", value=str(old_data["审批/发票编号"]))
                     u_note = st.text_area("备注详情", value=str(old_data["备注"]))
 
-                st.warning("⚠️ 提示：保存后余额将重新计算，并自动盖上修正时间戳。")
-                
-                if st.form_submit_button("💾 确认保存全字段修正"):
+                if st.form_submit_button("💾 确认保存全字段修正", use_container_width=True):
                     idx = df_latest[df_latest["录入编号"] == target].index[0]
-                    # 批量更新数据
                     df_latest.at[idx, "日期"] = u_date
                     df_latest.at[idx, "摘要"] = u_sum
                     df_latest.at[idx, "客户/项目名称"] = u_proj
@@ -247,18 +250,16 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                     df_latest.at[idx, "备注"] = u_note
                     df_latest.at[idx, "修正时间"] = get_now_str()
                     
-                    # 自动重算整表余额 (逻辑：余额 = 上一行余额 + 收入 - 支出)
+                    # 自动重算整表余额
                     temp_bal = 0
                     for i in range(len(df_latest)):
                         temp_bal = round(temp_bal + df_latest.at[i, "收入"] - df_latest.at[i, "支出"], 2)
                         df_latest.at[i, "余额"] = temp_bal
                     
-                    # 推送云端
                     conn.update(worksheet="Summary", data=df_latest)
-                    
                     st.session_state.edit_iteration += 1
                     st.balloons()
-                    st.success(f"✅ 编号 {target} 修正成功并已重算余额！")
+                    st.success(f"✅ 编号 {target} 修正成功并重算余额！")
                     st.cache_data.clear()
                     time.sleep(1.2)
                     st.rerun()

@@ -193,4 +193,19 @@ if pwd == ADMIN_PWD:
         with t_col: st.subheader("📑 原始流水明细")
         
         with b1_col:
-            excel_
+            excel_bin = convert_df_to_excel(df_latest)
+            if excel_bin:
+                st.download_button("💾 下载表格", data=excel_bin, file_name="流水明细.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+        
+        with b2_col:
+            if st.button("➕ 录入", type="primary", use_container_width=True):
+                entry_dialog()
+        
+        with b3_col:
+            if st.button("🛠️ 修正", type="primary", use_container_width=True):
+                edit_dialog(df_latest)
+
+        # 全宽表格
+        st.dataframe(df_latest.sort_values("录入编号", ascending=False), hide_index=True, use_container_width=True, height=600)
+else:
+    st.info("🔒 请输入密码访问系统")

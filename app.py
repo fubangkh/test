@@ -19,8 +19,14 @@ STAFF_PWD = "123"  # 财务录入数据的密码
 if role == "数据录入":
     if password == STAFF_PWD:
         st.title("📝 出纳日记账录入")
+
+        # 1. 实时读取当前最新余额
+        df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
+        last_balance = float(df_latest.iloc[-1]["余额"]) if not df_latest.empty else 0.0
         
-        # 1. 放在 form 外面，确保点选时页面能实时重绘标签
+        # 2. 在显眼位置显示当前账面余额（只读）
+        st.info(f"💰 当前系统账面总余额：**¥{last_balance:,.2f}**")
+
         trans_type = st.radio("收支类型", ["收入", "支出"], horizontal=True)
 
         with st.form("entry_form", clear_on_submit=True):
@@ -29,9 +35,9 @@ if role == "数据录入":
                 report_date = st.date_input("日期")
                 account_type = st.selectbox("账户类型", ["银行存款", "现金", "微信", "支付宝"])
             with col2:
-                # 💡 这里的标签会跟随上面的 radio 实时变动
                 amount = st.number_input(f"请输入【{trans_type}】金额", min_value=0.0, step=100.0)
-                current_balance = st.number_input("当前账户总余额", min_value=0.0, step=100.0)
+                # 💡 这里不再提供余额输入框，仅作文字提示
+                st.text_input("当前余额 (系统自动计算)", value=f"¥{last_balance:,.2f}", disabled=True)
 
             col3, col4 = st.columns(2)
             with col3:
@@ -42,45 +48,32 @@ if role == "数据录入":
             summary = st.text_input("摘要 (必填)")
             note = st.text_area("备注")
 
-            if st.form_submit_button("🚀 提交并同步至云端"):
+            if st.form_submit_button("🚀 提交并同步"):
                 if not summary or not handler:
                     st.error("❌ 请填写摘要和经手人！")
                 else:
                     try:
-                        # 1. 读取现有数据
-                        df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-                        
-                        # 2. 核心逻辑：自动计算余额
-                        # 获取上一笔的最后余额，如果表是空的，则初始余额为 0
-                        last_balance = float(df.iloc[-1]["余额"]) if not df.empty else 0.0
-                        
+                        # 计算新余额
                         inc = amount if trans_type == "收入" else 0.0
                         exp = amount if trans_type == "支出" else 0.0
-                        
-                        # 自动计算新余额
                         new_balance = last_balance + inc - exp
                         
-                        # 3. 构造新行
+                        # 构造新行
                         new_row = {
-                            "序号": len(df) + 1,
+                            "序号": len(df_latest) + 1,
                             "日期": report_date.strftime('%Y-%m-%d'),
-                            "摘要": summary,
-                            "账户": account_type,
-                            "审批/发票编号": ref_no,
-                            "收支类型": trans_type,
-                            "收入": inc,
-                            "支出": exp,
-                            "余额": new_balance, # 💡 这里现在是自动算的了
-                            "经手人": handler,
-                            "备注": note
+                            "摘要": summary, "账户": account_type, "审批/发票编号": ref_no,
+                            "收支类型": trans_type, "收入": inc, "支出": exp,
+                            "余额": new_balance, "经手人": handler, "备注": note
                         }
                         
-                        # 4. 更新云端
-                        updated_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True).fillna("")
+                        updated_df = pd.concat([df_latest, pd.DataFrame([new_row])], ignore_index=True).fillna("")
                         conn.update(worksheet="Summary", data=updated_df)
                         
-                        st.success(f"✅ 录入成功！自动计算余额：¥{new_balance:,.2f}")
+                        st.success(f"✅ 录入成功！结余已更新为：¥{new_balance:,.2f}")
                         st.balloons()
+                        # 提交后强制刷新页面以更新顶部的“当前账面余额”显示
+                        st.rerun()
                     except Exception as e:
                         st.error(f"同步失败: {e}")
 elif role == "管理看板":
@@ -166,6 +159,7 @@ elif role == "管理看板":
                             st.error(f"删除失败: {e}")
         except Exception as e:
             st.error(f"计算看板指标时出错: {e}")
+
 
 
 

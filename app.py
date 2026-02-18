@@ -58,9 +58,9 @@ if 'input_rate' not in st.session_state:
 role = st.sidebar.radio("📋 功能选择", ["数据录入", "汇总统计"])
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 
-# --- 4. 页面 A：数据录入 (录入习惯优化版) ---
+# --- 4. 页面 A：数据录入 (已修改标题与复位逻辑) ---
 if role == "数据录入" and pwd == STAFF_PWD:
-    st.title("📝 财务数据录入")
+    st.title("📝 数据录入") # 已修改：财务数据录入 -> 数据录入
     last_bal = df_latest["余额"].iloc[-1] if not df_latest.empty else 0.0
     st.info(f"💵 总结余：**${last_bal:,.2f}** | 柬埔寨时间：{get_now_str()}")
 
@@ -72,7 +72,7 @@ if role == "数据录入" and pwd == STAFF_PWD:
     with r1_c2:
         val_biz_time = st.datetime_input("业务时间 (UTC+7)", value=get_now_local())
 
-    # --- 第二部分：金额与账户 (这是你最关心的录入流) ---
+    # --- 第二部分：金额与账户 ---
     st.markdown("### 2️⃣ 金额与结算账户")
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     with r2_c1:
@@ -82,7 +82,6 @@ if role == "数据录入" and pwd == STAFF_PWD:
     with r2_c3:
         val_rate = st.number_input("记账汇率", key="input_rate", format="%.4f")
     
-    # 紧接着金额，选择结算账户
     acc_list = get_unique_list(df_latest, "账户")
     r3_c1, r3_c2 = st.columns([1, 1])
     with r3_c1:
@@ -92,7 +91,7 @@ if role == "数据录入" and pwd == STAFF_PWD:
         val_est_usd = round(val_raw_amt / val_rate, 2) if val_rate > 0 else 0.0
         st.markdown(f"<br><p style='font-size:20px; color:#008000;'><b>当前金额预估：${val_est_usd:,.2f} USD</b></p>", unsafe_allow_html=True)
 
-    # --- 第三部分：性质与项目 (联动区) ---
+    # --- 第三部分：性质与项目 ---
     st.markdown("### 3️⃣ 资金性质与归属")
     ALL_PROPS = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "期初结存", "内部调拨-转入", "内部调拨-转出", "借款", "往来款收回", "押金收回", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
     val_prop = st.selectbox("资金性质", ALL_PROPS, key="ui_prop")
@@ -111,7 +110,7 @@ if role == "数据录入" and pwd == STAFF_PWD:
             else:
                 val_project = p_sel if p_sel != "🔍 请选择" else ""
 
-    # --- 第四部分：次要信息与提交 (Form 内) ---
+    # --- 第四部分：次要信息与提交 ---
     with st.form("final_submit_form", clear_on_submit=True):
         st.markdown("### 4️⃣ 经手人与备注")
         f1, f2 = st.columns(2)
@@ -147,12 +146,18 @@ if role == "数据录入" and pwd == STAFF_PWD:
             }
             conn.update(worksheet="Summary", data=pd.concat([df_latest, pd.DataFrame([row])], ignore_index=True))
             st.balloons()
-            st.success("✅ 账目已成功录入并存入 Google Sheets！")
+            st.success("✅ 账目已成功录入！页面正在复位...")
             st.cache_data.clear()
+            
+            # --- 复位逻辑：手动清除 session_state 中的 UI 组件值 ---
+            for k in ["ui_summary", "ui_raw_amt", "ui_acc_new", "ui_prop", "ui_p_sel", "ui_p_new"]:
+                if k in st.session_state:
+                    del st.session_state[k]
+            
             time.sleep(1)
-            st.rerun()
+            st.rerun() # 强制重新运行以彻底重置所有字段
 
-# --- 5. 页面 B：汇总统计 (保持之前的优化列宽逻辑) ---
+# --- 5. 页面 B：汇总统计 ---
 elif role == "汇总统计" and pwd == ADMIN_PWD:
     st.title("📊 财务实时汇总统计")
     if not df_latest.empty:

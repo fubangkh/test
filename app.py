@@ -78,7 +78,7 @@ password = st.sidebar.text_input("请输入访问密码", type="password")
 
 # --- 1. 数据录入 ---
 if role == "数据录入" and password == STAFF_PWD:
-    st.title("📝 专业账目录入")
+    st.title("📝 数据录入")
     last_bal = float(df_latest.iloc[-1]["余额"]) if not df_latest.empty else 0.0
     
     # 动态提示
@@ -138,7 +138,7 @@ if role == "数据录入" and password == STAFF_PWD:
 
 # --- 2. 数据修改 ---
 elif role == "数据修改" and password == ADMIN_PWD:
-    st.title("🛠️ 数据修正 (审计模式)")
+    st.title("🛠️ 数据修改")
     if not df_latest.empty:
         serial_list = [s for s in df_latest["录入编号"].tolist() if s != "--"][::-1]
         if serial_list:
@@ -174,8 +174,8 @@ elif role == "数据修改" and password == ADMIN_PWD:
     st.dataframe(df_latest.sort_index(ascending=False), use_container_width=True)
 
 # --- 3. 管理看板 ---
-elif role == "管理看板" and password == ADMIN_PWD:
-    st.title("📊 财务审计看板")
+elif role == "汇总统计" and password == ADMIN_PWD:
+    st.title("📊 汇总统计")
     if not df_latest.empty:
         df_vis = df_latest.copy()
         df_vis['日期'] = pd.to_datetime(df_vis['日期'])
@@ -205,3 +205,4 @@ elif role == "管理看板" and password == ADMIN_PWD:
         st.divider()
         st.subheader("📝 完整审计流水明细")
         st.dataframe(df_latest.sort_index(ascending=False), use_container_width=True)
+

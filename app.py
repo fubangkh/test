@@ -22,8 +22,7 @@ def get_reference_rate(df_history, currency):
         df_this_month = df_history[df_history['日期'].astype(str).str.contains(this_month_str)]
         for note in df_this_month['备注'].iloc[::-1]:
             if "【原币" in str(note) and f"{currency}" in str(note):
-                try:
-                    return float(note.split("汇率：")[1].split("】")[0])
+                try: return float(note.split("汇率：")[1].split("】")[0])
                 except: continue
     rates = {"RMB": 7.23, "VND": 25450.0, "HKD": 7.82}
     try:
@@ -40,14 +39,13 @@ def generate_serial_no(df_history):
     if df_history.empty or "录入编号" not in df_history.columns:
         return today_prefix + "001"
     
-    # 筛选出当天 R 开头的记录
+    # 筛选当天 R 开头的记录
     today_records = df_history[df_history["录入编号"].astype(str).str.startswith(today_prefix)]
     if today_records.empty:
         return today_prefix + "001"
     
-    # 取出当天最大的序号并递增
+    # 获取最大序号
     last_no = today_records["录入编号"].astype(str).max()
-    # 截取最后3位数字进行递增
     try:
         next_val = int(last_no[-3:]) + 1
     except:
@@ -61,11 +59,17 @@ OTHER_INC = ["网络收入", "其他收入", "借款", "往来款收回", "押�
 OTHER_EXP = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
 ALL_FUND_PROPS = (CORE_TYPES[:6] + OTHER_INC) + (CORE_TYPES[6:] + OTHER_EXP)
 
+# --- 数据安全预处理 ---
+df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
+# 自动修复缺失表头，防止 image_798a40.png 的 KeyError 再次发生
+for col in ["录入编号", "提交时间", "修改时间"]:
+    if col not in df_latest.columns:
+        df_latest[col] = "--"
+
 # --- 侧边栏 ---
 st.sidebar.title("💰 富邦现金日记账")
 role = st.sidebar.radio("功能选择", ["数据录入", "数据修改", "管理看板"])
 password = st.sidebar.text_input("请输入访问密码", type="password")
-df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
 
 # --- 1. 数据录入 ---
 if role == "数据录入" and password == STAFF_PWD:
@@ -85,8 +89,9 @@ if role == "数据录入" and password == STAFF_PWD:
         ref_rate = 1.0 if currency == "USD" else get_reference_rate(df_latest, currency)
         ex_rate = st.number_input("记账汇率", value=float(ref_rate), format="%.4f")
         raw_amt = st.number_input(f"录入金额 ({currency})", min_value=0.0, step=0.01)
+        # 修复逻辑：录入金额 / 汇率 = USD
         final_usd = raw_amt / ex_rate if ex_rate > 0 else 0.0
-        st.markdown(f"📊 **折合预估：${final_usd:,.2f} USD**")
+        st.markdown(f"📊 **当前折合预估：${final_usd:,.2f} USD**")
 
     with col2:
         acc_type = st.selectbox("结算账户", ACCOUNTS_LIST)
@@ -126,37 +131,42 @@ if role == "数据录入" and password == STAFF_PWD:
 elif role == "数据修改" and password == ADMIN_PWD:
     st.title("🛠️ 数据修正 (审计模式)")
     if not df_latest.empty:
-        serial_list = df_latest["录入编号"].tolist()[::-1]
-        edit_id = st.selectbox("请选择要修改的流水号", serial_list)
-        row_idx = df_latest[df_latest["录入编号"] == edit_id].index[0]
-        row_edit = df_latest.loc[row_idx]
-        
-        with st.form("edit_form"):
-            st.warning(f"正在修改: {edit_id} | 初始提交: {row_edit['提交时间']}")
-            c1, c2 = st.columns(2)
-            with c1:
-                new_date = st.date_input("日期", value=pd.to_datetime(row_edit["日期"]))
-                new_sum = st.text_input("摘要", value=row_edit["摘要"])
-                new_inc = st.number_input("收入 (USD)", value=float(row_edit["收入"]))
-            with c2:
-                new_exp = st.number_input("支出 (USD)", value=float(row_edit["支出"]))
-                new_acc = st.selectbox("账户", ACCOUNTS_LIST, index=ACCOUNTS_LIST.index(row_edit["账户"]) if row_edit["账户"] in ACCOUNTS_LIST else 0)
-                new_note = st.text_area("备注", value=row_edit["备注"])
+        # 下拉选择编号
+        serial_list = [s for s in df_latest["录入编号"].tolist() if s != "--"][::-1]
+        if not serial_list:
+            st.warning("暂无包含编号的历史记录")
+        else:
+            edit_id = st.selectbox("请选择要修改的流水号", serial_list)
+            row_idx = df_latest[df_latest["录入编号"] == edit_id].index[0]
+            row_edit = df_latest.loc[row_idx]
             
-            if st.form_submit_button("💾 保存修改"):
-                df_latest.at[row_idx, "日期"] = new_date.strftime('%Y-%m-%d')
-                df_latest.at[row_idx, "摘要"], df_latest.at[row_idx, "收入"] = new_sum, new_inc
-                df_latest.at[row_idx, "支出"], df_latest.at[row_idx, "账户"] = new_exp, new_acc
-                df_latest.at[row_idx, "备注"], df_latest.at[row_idx, "修改时间"] = new_note, datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with st.form("edit_form"):
+                st.warning(f"正在修改: {edit_id} | 初始提交: {row_edit['提交时间']}")
+                c1, c2 = st.columns(2)
+                with c1:
+                    new_date = st.date_input("日期", value=pd.to_datetime(row_edit["日期"]))
+                    new_sum = st.text_input("摘要", value=row_edit["摘要"])
+                    new_inc = st.number_input("收入 (USD)", value=float(row_edit["收入"]))
+                with c2:
+                    new_exp = st.number_input("支出 (USD)", value=float(row_edit["支出"]))
+                    new_acc = st.selectbox("账户", ACCOUNTS_LIST, index=ACCOUNTS_LIST.index(row_edit["账户"]) if row_edit["账户"] in ACCOUNTS_LIST else 0)
+                    new_note = st.text_area("备注", value=row_edit["备注"])
                 
-                cur_bal = 0.0
-                for i in range(len(df_latest)):
-                    cur_bal += (float(df_latest.at[i, "收入"]) - float(df_latest.at[i, "支出"]))
-                    df_latest.at[i, "余额"] = cur_bal
-                conn.update(worksheet="Summary", data=df_latest)
-                st.success("✅ 修改已保存。")
-                st.rerun()
-        st.dataframe(df_latest.sort_index(ascending=False), use_container_width=True)
+                if st.form_submit_button("💾 保存修改"):
+                    df_latest.at[row_idx, "日期"] = new_date.strftime('%Y-%m-%d')
+                    df_latest.at[row_idx, "摘要"], df_latest.at[row_idx, "收入"] = new_sum, new_inc
+                    df_latest.at[row_idx, "支出"], df_latest.at[row_idx, "账户"] = new_exp, new_acc
+                    df_latest.at[row_idx, "备注"], df_latest.at[row_idx, "修改时间"] = new_note, datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    
+                    # 全表重算余额
+                    cur_bal = 0.0
+                    for i in range(len(df_latest)):
+                        cur_bal += (float(df_latest.at[i, "收入"]) - float(df_latest.at[i, "支出"]))
+                        df_latest.at[i, "余额"] = cur_bal
+                    conn.update(worksheet="Summary", data=df_latest)
+                    st.success("✅ 修改成功！")
+                    st.rerun()
+    st.dataframe(df_latest.sort_index(ascending=False), use_container_width=True)
 
 # --- 3. 管理看板 ---
 elif role == "管理看板" and password == ADMIN_PWD:
@@ -168,11 +178,11 @@ elif role == "管理看板" and password == ADMIN_PWD:
         
         total_bal = df_vis.iloc[-1]['余额']
         m1, m2 = st.columns(2)
-        m1.metric("💰 账户总余额", f"${total_bal:,.2f}")
+        m1.metric("💰 账户当前总余额", f"${total_bal:,.2f}")
         m2.metric("📅 记录笔数", len(df_vis))
 
         st.divider()
-        st.subheader("🏦 银行账户结余汇总 (USD)")
+        st.subheader("🏦 各银行账户结余汇总 (USD)")
         acc_summary = []
         for acc in ACCOUNTS_LIST:
             d_acc = df_vis[df_vis['账户'] == acc]
@@ -184,5 +194,5 @@ elif role == "管理看板" and password == ADMIN_PWD:
             st.table(pd.DataFrame(acc_summary).sort_values(by="结余", ascending=False).style.format({"结余": "${:,.2f}"}))
 
         st.divider()
-        st.subheader("📝 全量审计明细表")
+        st.subheader("📝 完整审计流水明细")
         st.dataframe(df_latest.sort_index(ascending=False), use_container_width=True)

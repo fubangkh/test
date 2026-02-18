@@ -12,17 +12,13 @@ ADMIN_PWD = "123"
 # --- 初始化 Google Sheets 连接 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 定义资金性质分类 ---
-# 1. 主营业务相关（需要填写 客户/项目名称）
+# --- 定义分类常量 ---
 CORE_BUSINESS_TYPES = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本"]
-
-# 2. 其他收入类
 OTHER_INCOME_TYPES = ["网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
-# 3. 其他支出类
 OTHER_EXPENSE_TYPES = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
 
-INCOME_TYPES = CORE_BUSINESS_TYPES[:5] + OTHER_INCOME_TYPES # 取前5个主营收入+其他收入
-EXPENSE_TYPES = CORE_BUSINESS_TYPES[5:] + OTHER_EXPENSE_TYPES # 取后2个主营支出+其他支出
+INCOME_TYPES = CORE_BUSINESS_TYPES[:5] + OTHER_INCOME_TYPES
+EXPENSE_TYPES = CORE_BUSINESS_TYPES[5:] + OTHER_EXPENSE_TYPES
 ALL_FUND_PROPERTIES = INCOME_TYPES + EXPENSE_TYPES
 
 # --- 侧边栏导航 ---
@@ -30,13 +26,23 @@ st.sidebar.title("💰 富邦现金流水账")
 role = st.sidebar.radio("选择功能模块", ["数据录入", "管理看板"])
 password = st.sidebar.text_input("请输入访问密码", type="password")
 
-# --- 逻辑判断 ---
-
 if role == "数据录入":
     if password == STAFF_PWD:
         st.title("📝 日记账录入 (USD)")
         
+        # 1. 读取数据（用于计算结余和提取人名库）
         df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
+        
+        # 提取现有经手人列表（去重、去空、排序）
+        if not df_latest.empty and "经手人" in df_latest.columns:
+            existing_handlers = sorted(df_latest["经手人"].unique().tolist())
+            existing_handlers = [h for h in existing_handlers if h] # 过滤掉空值
+        else:
+            existing_handlers = []
+        
+        # 在列表最前面加上“+ 新增”选项
+        handler_options = ["🔍 从列表中选择"] + existing_handlers + ["➕ 新增经手人..."]
+
         if not df_latest.empty:
             df_latest["余额"] = pd.to_numeric(df_latest["余额"], errors='coerce').fillna(0)
             last_balance = float(df_latest.iloc[-1]["余额"])
@@ -45,7 +51,7 @@ if role == "数据录入":
         
         st.info(f"💵 当前系统账面结余：**${last_balance:,.2f}**")
 
-        # 选定资金性质（放在 form 外以触发动态重绘）
+        # 选定资金性质（外置以触发动态重绘）
         fund_property = st.selectbox("资金性质", ALL_FUND_PROPERTIES)
 
         with st.form("entry_form", clear_on_submit=True):
@@ -62,34 +68,39 @@ if role == "数据录入":
                     "ABA_357_定期", "HUONE_USD", "HUONE_USDT", "现金" 
                 ])
                 
-                # 💡 核心改动：如果是主营业务，显示项目/客户录入框
+                # 项目/客户名称（主营业务必填）
                 project_name = ""
                 if fund_property in CORE_BUSINESS_TYPES:
                     project_name = st.text_input("💎 客户/项目名称 (必填)")
-                else:
-                    # 占位或不显示，为了保持数据库列完整，我们传空字符串
-                    project_name = ""
 
             with col2:
                 amount = st.number_input("金额 (USD)", min_value=0.0, step=0.01, format="%.2f")
-                st.text_input("当前结余 (只读)", value=f"${last_balance:,.2f}", disabled=True)
-
+                # 🔄 经手人智能下拉菜单
+                handler_select = st.selectbox("经手人选择", handler_options)
+                new_handler = ""
+                if handler_select == "➕ 新增经手人...":
+                    new_handler = st.text_input("👤 请输入新经手人姓名")
+                
             col3, col4 = st.columns(2)
             with col3:
-                handler = st.text_input("经手人")
-            with col4:
                 ref_no = st.text_input("审批/发票编号")
+            with col4:
+                summary = st.text_input("摘要 (必填)")
             
-            summary = st.text_input("摘要 (必填)")
             note = st.text_area("备注")
 
             if st.form_submit_button("🚀 提交并同步至云端"):
-                # 必填项逻辑判断
+                # 确定最终经手人姓名
+                final_handler = new_handler if handler_select == "➕ 新增经手人..." else handler_select
+                
+                # 校验逻辑
                 is_core = fund_property in CORE_BUSINESS_TYPES
-                if not summary or not handler:
-                    st.error("❌ 请填写摘要和经手人！")
+                if not summary:
+                    st.error("❌ 请填写摘要！")
+                elif final_handler in ["🔍 从列表中选择", ""]:
+                    st.error("❌ 请选择或输入有效的经手人！")
                 elif is_core and not project_name:
-                    st.error(f"❌ 选了【{fund_property}】，请务必填写‘客户/项目名称’！")
+                    st.error(f"❌ 选了【{fund_property}】，请填写‘客户/项目名称’！")
                 elif amount <= 0:
                     st.error("❌ 金额必须大于 0！")
                 else:
@@ -101,24 +112,25 @@ if role == "数据录入":
                         new_row = {
                             "日期": report_date.strftime('%Y-%m-%d'),
                             "摘要": summary, 
-                            "客户/项目名称": project_name, # 🔄 新增列
+                            "客户/项目名称": project_name,
                             "账户": account_type, 
                             "审批/发票编号": ref_no,
                             "资金性质": fund_property, 
                             "收入": inc, "支出": exp,
                             "余额": new_balance, 
-                            "经手人": handler, "备注": note
+                            "经手人": final_handler, 
+                            "备注": note
                         }
                         
                         updated_df = pd.concat([df_latest, pd.DataFrame([new_row])], ignore_index=True).fillna("")
                         conn.update(worksheet="Summary", data=updated_df)
                         
-                        st.success(f"✅ 记录已同步！当前结余：${new_balance:,.2f}")
+                        st.success(f"✅ {final_handler} 的记录已同步！当前结余：${new_balance:,.2f}")
                         st.rerun()
                     except Exception as e:
                         st.error(f"同步失败: {e}")
 
-# --- 管理看板（保持同步显示新列） ---
+# --- 管理看板（保持原样） ---
 elif role == "管理看板":
     if password == ADMIN_PWD:
         st.title("📊 财务决策看板 (USD)")
@@ -143,6 +155,7 @@ elif role == "管理看板":
                     opening_bal = float(df_sum.iloc[-1]["余额"]) if not df_sum.empty else 0.0
                     m_income, m_expense, curr_bal = 0.0, 0.0, opening_bal
 
+                st.subheader(f"📅 {now.year}年{now.month}月 财务概况")
                 c1, c2, c3 = st.columns(3)
                 c1.metric("本月期初余额", f"${opening_bal:,.2f}")
                 c2.metric("本月累计收入", f"${m_income:,.2f}")

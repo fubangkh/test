@@ -21,68 +21,47 @@ if role == "数据录入":
         st.title("📝 财务收支记账录入")
         
         with st.form("entry_form", clear_on_submit=True):
-            # 第一行：基础信息
             col1, col2, col3 = st.columns(3)
             with col1:
-                report_date = st.date_input("日期", help="列B")
+                report_date = st.date_input("日期")
             with col2:
-                account_type = st.selectbox("账户", ["现金", "银行存款", "微信", "支付宝", "其他"], help="列D")
+                account_type = st.selectbox("账户", ["银行存款", "现金", "微信", "支付宝"])
             with col3:
-                trans_type = st.radio("收支类型", ["收入", "支出"], horizontal=True, help="列F")
+                trans_type = st.radio("收支类型", ["收入", "支出"], horizontal=True)
 
-            # 第二行：核心金额
-            col4, col5, col6 = st.columns(3)
+            # 💡 动态显示：根据收支类型只显示一个输入框
+            amount = st.number_input(f"请输入{trans_type}金额", min_value=0.0, step=100.0)
+            
+            col4, col5 = st.columns(2)
             with col4:
-                income_val = st.number_input("收入金额", min_value=0.0, step=100.0) if trans_type == "收入" else 0.0
+                current_balance = st.number_input("当前账户总余额", min_value=0.0, step=100.0)
             with col5:
-                expense_val = st.number_input("支出金额", min_value=0.0, step=100.0) if trans_type == "支出" else 0.0
-            with col6:
-                current_balance = st.number_input("当前账户余额", min_value=0.0, step=100.0, help="列I")
+                handler = st.text_input("经手人")
 
-            # 第三行：单据与经手人
-            col7, col8 = st.columns(2)
-            with col7:
-                ref_no = st.text_input("审批/发票编号", help="列E")
-            with col8:
-                handler = st.text_input("经手人", help="列J")
+            ref_no = st.text_input("审批/发票编号")
+            summary = st.text_input("摘要 (必填)")
+            note = st.text_area("备注")
 
-            # 第四行：文字描述
-            summary = st.text_input("摘要 (必填)", help="列C")
-            note = st.text_area("备注", help="列K")
-
-            submitted = st.form_submit_button("🚀 提交并同步至云端")
-
-            if submitted:
+            if st.form_submit_button("🚀 提交并同步"):
                 if not summary or not handler:
-                    st.error("❌ 请填写‘摘要’和‘经手人’！")
+                    st.error("❌ 摘要和经手人为必填项")
                 else:
                     try:
-                        # 1. 读取现有数据获取当前最大序号
                         df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-                        next_id = 1 if df.empty else len(df) + 1
+                        # 转换金额逻辑
+                        inc = amount if trans_type == "收入" else 0.0
+                        exp = amount if trans_type == "支出" else 0.0
                         
-                        # 2. 构造新行 (严格对应 A-K 列顺序)
                         new_row = {
-                            "序号": next_id, # 列A
-                            "日期": report_date.strftime('%Y-%m-%d'), # 列B
-                            "摘要": summary, # 列C
-                            "账户": account_type, # 列D
-                            "审批/发票编号": ref_no, # 列E
-                            "收支类型": trans_type, # 列F
-                            "收入": income_val, # 列G
-                            "支出": expense_val, # 列H
-                            "余额": current_balance, # 列I
-                            "经手人": handler, # 列J
-                            "备注": note # 列K
+                            "序号": len(df) + 1,
+                            "日期": report_date.strftime('%Y-%m-%d'),
+                            "摘要": summary, "账户": account_type, "审批/发票编号": ref_no,
+                            "收支类型": trans_type, "收入": inc, "支出": exp,
+                            "余额": current_balance, "经手人": handler, "备注": note
                         }
-                        
-                        new_df = pd.DataFrame([new_row])
-                        updated_df = pd.concat([df, new_df], ignore_index=True).fillna("")
-                        
-                        # 3. 写入 Google Sheets
+                        updated_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
                         conn.update(worksheet="Summary", data=updated_df)
-                        
-                        st.success(f"✅ 第 {next_id} 号记录已成功同步！")
+                        st.success("✅ 录入成功！")
                         st.balloons()
                     except Exception as e:
                         st.error(f"同步失败: {e}")
@@ -151,4 +130,5 @@ elif role == "管理看板":
 
         except Exception as e:
             st.error(f"计算看板指标时出错: {e}")
+
 

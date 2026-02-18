@@ -6,16 +6,23 @@ import pandas as pd
 st.set_page_config(page_title="富邦现金流水账", layout="wide")
 
 # --- 权限配置 ---
-STAFF_PWD = "123"      # 出纳录入密码
-ADMIN_PWD = "123"      # 管理看板密码
+STAFF_PWD = "123"      
+ADMIN_PWD = "123"      
 
 # --- 初始化 Google Sheets 连接 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- 定义资金性质分类 ---
-# 自动判断：这些性质属于“收入”，其余属于“支出”
-INCOME_TYPES = ["工程收入", "施工收入", "产品销售收入", "服务收入", "网络收入", "其他收入", "预收款", "借款", "往来款收回", "押金收回"]
-EXPENSE_TYPES = ["工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
+# 1. 主营业务相关（需要填写 客户/项目名称）
+CORE_BUSINESS_TYPES = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本"]
+
+# 2. 其他收入类
+OTHER_INCOME_TYPES = ["网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
+# 3. 其他支出类
+OTHER_EXPENSE_TYPES = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
+
+INCOME_TYPES = CORE_BUSINESS_TYPES[:5] + OTHER_INCOME_TYPES # 取前5个主营收入+其他收入
+EXPENSE_TYPES = CORE_BUSINESS_TYPES[5:] + OTHER_EXPENSE_TYPES # 取后2个主营支出+其他支出
 ALL_FUND_PROPERTIES = INCOME_TYPES + EXPENSE_TYPES
 
 # --- 侧边栏导航 ---
@@ -25,12 +32,10 @@ password = st.sidebar.text_input("请输入访问密码", type="password")
 
 # --- 逻辑判断 ---
 
-# 1. 数据录入模块
 if role == "数据录入":
     if password == STAFF_PWD:
         st.title("📝 日记账录入 (USD)")
         
-        # 实时读取当前结余
         df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
         if not df_latest.empty:
             df_latest["余额"] = pd.to_numeric(df_latest["余额"], errors='coerce').fillna(0)
@@ -40,12 +45,13 @@ if role == "数据录入":
         
         st.info(f"💵 当前系统账面结余：**${last_balance:,.2f}**")
 
+        # 选定资金性质（放在 form 外以触发动态重绘）
+        fund_property = st.selectbox("资金性质", ALL_FUND_PROPERTIES)
+
         with st.form("entry_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
                 report_date = st.date_input("日期")
-                # 🔄 变更：收支类型改为资金性质
-                fund_property = st.selectbox("资金性质", ALL_FUND_PROPERTIES)
                 account_type = st.selectbox("账户类型", [
                     "ABA_924_个人户", "ABA_403_个人户", "ABA_313_FB公司户",
                     "ICBC_215_AF公司户", "BOC_052_FB公司户", "BOC_063_FB公司户", 
@@ -55,6 +61,15 @@ if role == "数据录入":
                     "CMB_002_人民币_科吉公司户", "CMB_032_美元_科吉公司户", 
                     "ABA_357_定期", "HUONE_USD", "HUONE_USDT", "现金" 
                 ])
+                
+                # 💡 核心改动：如果是主营业务，显示项目/客户录入框
+                project_name = ""
+                if fund_property in CORE_BUSINESS_TYPES:
+                    project_name = st.text_input("💎 客户/项目名称 (必填)")
+                else:
+                    # 占位或不显示，为了保持数据库列完整，我们传空字符串
+                    project_name = ""
+
             with col2:
                 amount = st.number_input("金额 (USD)", min_value=0.0, step=0.01, format="%.2f")
                 st.text_input("当前结余 (只读)", value=f"${last_balance:,.2f}", disabled=True)
@@ -69,63 +84,49 @@ if role == "数据录入":
             note = st.text_area("备注")
 
             if st.form_submit_button("🚀 提交并同步至云端"):
+                # 必填项逻辑判断
+                is_core = fund_property in CORE_BUSINESS_TYPES
                 if not summary or not handler:
                     st.error("❌ 请填写摘要和经手人！")
+                elif is_core and not project_name:
+                    st.error(f"❌ 选了【{fund_property}】，请务必填写‘客户/项目名称’！")
                 elif amount <= 0:
                     st.error("❌ 金额必须大于 0！")
                 else:
                     try:
-                        # 💡 自动逻辑：根据资金性质决定填入哪一列
-                        if fund_property in INCOME_TYPES:
-                            inc = amount
-                            exp = 0.0
-                            trans_label = "收入"
-                        else:
-                            inc = 0.0
-                            exp = amount
-                            trans_label = "支出"
-                            
+                        inc = amount if fund_property in INCOME_TYPES else 0.0
+                        exp = amount if fund_property in EXPENSE_TYPES else 0.0
                         new_balance = last_balance + inc - exp
                         
                         new_row = {
                             "日期": report_date.strftime('%Y-%m-%d'),
                             "摘要": summary, 
+                            "客户/项目名称": project_name, # 🔄 新增列
                             "账户": account_type, 
                             "审批/发票编号": ref_no,
-                            "资金性质": fund_property, # 🔄 列名更新
-                            "收入": inc, 
-                            "支出": exp,
+                            "资金性质": fund_property, 
+                            "收入": inc, "支出": exp,
                             "余额": new_balance, 
-                            "经手人": handler, 
-                            "备注": note
+                            "经手人": handler, "备注": note
                         }
                         
                         updated_df = pd.concat([df_latest, pd.DataFrame([new_row])], ignore_index=True).fillna("")
                         conn.update(worksheet="Summary", data=updated_df)
                         
-                        st.success(f"✅ {fund_property}已同步！当前结余：${new_balance:,.2f}")
-                        st.balloons()
+                        st.success(f"✅ 记录已同步！当前结余：${new_balance:,.2f}")
                         st.rerun()
                     except Exception as e:
                         st.error(f"同步失败: {e}")
 
-    elif password == "":
-        st.info("💡 请输入录入密码以开启表单")
-    else:
-        st.error("❌ 密码错误")
-
-# 2. 管理看板模块
+# --- 管理看板（保持同步显示新列） ---
 elif role == "管理看板":
     if password == ADMIN_PWD:
         st.title("📊 财务决策看板 (USD)")
-        
         try:
             df_sum = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-            
             if not df_sum.empty:
                 for col in ["收入", "支出", "余额"]:
                     df_sum[col] = pd.to_numeric(df_sum[col], errors='coerce').fillna(0)
-                
                 df_sum['日期'] = pd.to_datetime(df_sum['日期'])
                 df_sum = df_sum.sort_values('日期')
                 
@@ -140,49 +141,24 @@ elif role == "管理看板":
                     curr_bal = df_month.iloc[-1]["余额"]
                 else:
                     opening_bal = float(df_sum.iloc[-1]["余额"]) if not df_sum.empty else 0.0
-                    m_income, m_expense = 0.0, 0.0
-                    curr_bal = opening_bal
+                    m_income, m_expense, curr_bal = 0.0, 0.0, opening_bal
 
-                # 指标展示
-                st.subheader(f"📅 {now.year}年{now.month}月 财务概况")
                 c1, c2, c3 = st.columns(3)
                 c1.metric("本月期初余额", f"${opening_bal:,.2f}")
                 c2.metric("本月累计收入", f"${m_income:,.2f}")
                 c3.metric("本月累计支出", f"${m_expense:,.2f}", delta=f"-${m_expense:,.2f}", delta_color="inverse")
-
+                
                 st.markdown("---")
-                c4, c5 = st.columns(2)
-                net_cash = m_income - m_expense
-                c4.metric("本月收支净额", f"${net_cash:,.2f}", delta=f"{net_cash:,.2f}")
-                c5.metric("当前动态总余额", f"${curr_bal:,.2f}")
-
-                # 流水表展示
-                st.markdown("---")
-                st.subheader("📋 详细收支流水 (USD)")
                 df_display = df_sum.copy()
                 df_display['日期'] = df_display['日期'].dt.strftime('%Y-%m-%d')
-                
-                styled_df = df_display.sort_index(ascending=False).style.format({
-                    "收入": "{:.2f}", "支出": "{:.2f}", "余额": "{:.2f}"
-                })
-                st.dataframe(styled_df, use_container_width=True)
+                st.dataframe(df_display.sort_index(ascending=False).style.format({"收入": "{:.2f}", "支出": "{:.2f}", "余额": "{:.2f}"}), use_container_width=True)
 
-                # 数据管理
-                with st.expander("🛠️ 数据管理（误填删除）"):
-                    st.warning("⚠️ 删除操作不可撤销。请输入左侧灰色数字索引。")
+                with st.expander("🛠️ 数据管理"):
                     del_idx = st.number_input("行索引", min_value=0, max_value=len(df_sum)-1, step=1)
                     if st.button("确认删除"):
-                        df_final = df_sum.drop(del_idx)
-                        conn.update(worksheet="Summary", data=df_final)
-                        st.success(f"✅ 记录已删除")
+                        conn.update(worksheet="Summary", data=df_sum.drop(del_idx))
                         st.rerun()
             else:
                 st.info("📊 暂无数据")
-
         except Exception as e:
             st.error(f"看板异常: {e}")
-
-    elif password == "":
-        st.info("💡 请输入管理密码以查看看板")
-    else:
-        st.error("❌ 密码错误")

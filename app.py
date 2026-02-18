@@ -155,11 +155,21 @@ def entry_dialog():
             full_df['收入'] = pd.to_numeric(full_df['收入'], errors='coerce').fillna(0)
             full_df['支出'] = pd.to_numeric(full_df['支出'], errors='coerce').fillna(0)
             
-            # 重新计算余额流水
+            # --- 核心计算环节 ---
+            # 1. 安全处理：先把可能存在的逗号去掉，再转为数字，确保计算不出错
+            for col in ['收入', '支出']:
+                full_df[col] = (
+                    full_df[col].astype(str)
+                    .str.replace(',', '', regex=False)
+                    .pipe(pd.to_numeric, errors='coerce')
+                    .fillna(0)
+                )
+
+            # 2. 重新计算余额流水
             full_df['余额'] = (full_df['收入'].cumsum() - full_df['支出'].cumsum())
 
-            # --- 核心修正：将金额列转换为带2位小数的字符串 ---
-            # 这样上传到 Google Sheets 后，即使是 .00 也会被强制显示
+            # 3. 核心修正：将金额列转换为带2位小数的字符串 (不带逗号存入)
+            # 这样上传到 Google Sheets 后，由表格的“财务格式”来负责显示逗号
             for col in ['收入', '支出', '余额']:
                 full_df[col] = full_df[col].apply(lambda x: "{:.2f}".format(float(x)))
             
@@ -245,6 +255,7 @@ if pwd == ADMIN_PWD:
         st.dataframe(df_main.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

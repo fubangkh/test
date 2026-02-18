@@ -90,13 +90,18 @@ def entry_dialog():
     
     st.divider()
     b1, b2, b3 = st.columns(3)
-    if b1.button("📥 提交并继续", type="primary", use_container_width=True):
-        st.balloons()
-        st.success("数据已存入缓冲区")
+   if b1.button("📥 提交并继续", type="primary", use_container_width=True):
+        st.balloons() # 先喷气球
+        st.success("🎉 数据录入成功！") # 显示提示
+        time.sleep(1.5) # 给气球飞一会儿的时间
+        # 这里执行您的数据保存逻辑
+        st.rerun() # 强制复位窗口
     if b2.button("✅ 提交并返回", type="primary", use_container_width=True):
-        st.balloons()
-        st.rerun()
-    st.markdown('<div class="red-btn">', unsafe_allow_html=True)
+        st.balloons() # 先喷气球
+        st.success("🎉 数据录入成功！")
+        time.sleep(1.5)
+        # 这里执行您的数据保存逻辑
+        st.rerun() # 强制复位窗口并关闭弹窗
     if b3.button("❌ 取消录入", use_container_width=True): st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -129,10 +134,11 @@ def edit_dialog(df):
         st.divider()
         sv, ex = st.columns(2)
         if sv.button("💾 确认保存全字段修正", type="primary", use_container_width=True):
-            st.balloons()
-            st.rerun()
-        st.markdown('<div class="red-btn">', unsafe_allow_html=True)
-        if ex.button("❌ 放弃修正并复位", use_container_width=True): st.rerun()
+        st.balloons() # 先喷气球
+        st.success("✅ 修正已完成并刷新！")
+        time.sleep(1.5) # 给气球飞一会儿的时间
+        # 这里执行您的数据更新逻辑
+        st.rerun() # 强制关闭弹窗并刷新主页
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 6. 主页面 ---
@@ -152,3 +158,4 @@ if pwd == ADMIN_PWD:
         st.dataframe(df_main.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
 else:
     st.info("请输入密码解锁系统")
+

@@ -3,7 +3,7 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 
 # --- 页面基础配置 ---
-st.set_page_config(page_title="富邦现金流水账", layout="wide")
+st.set_page_config(page_title="富邦现金日记账", layout="wide")
 
 # --- 权限配置 ---
 STAFF_PWD = "123"      
@@ -22,13 +22,13 @@ EXPENSE_TYPES = CORE_BUSINESS_TYPES[5:] + OTHER_EXPENSE_TYPES
 ALL_FUND_PROPERTIES = INCOME_TYPES + EXPENSE_TYPES
 
 # --- 侧边栏导航 ---
-st.sidebar.title("💰 富邦现金流水账")
+st.sidebar.title("💰 富邦现金日记账")
 role = st.sidebar.radio("选择功能模块", ["数据录入", "管理看板"])
 password = st.sidebar.text_input("请输入访问密码", type="password")
 
 if role == "数据录入":
     if password == STAFF_PWD:
-        st.title("📝 日记账录入 (USD)")
+        st.title("📝 日记账录入")
         
         # 1. 读取数据（用于计算结余和提取人名库）
         df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
@@ -175,3 +175,4 @@ elif role == "管理看板":
                 st.info("📊 暂无数据")
         except Exception as e:
             st.error(f"看板异常: {e}")
+

@@ -156,10 +156,11 @@ if role == "数据录入" and pwd == STAFF_PWD:
             time.sleep(1.2)
             st.rerun()
 
-# --- 6. 页面 B：汇总统计 (增加返回按钮逻辑) ---
+# --- 6. 页面 B：汇总统计 (已将“放弃并返回”移至底部并更名) ---
 elif role == "汇总统计" and pwd == ADMIN_PWD:
     st.title("📊 财务实时汇总统计")
     if not df_latest.empty:
+        # 今日统计
         today_date = get_now_local().strftime('%Y-%m-%d')
         df_today = df_latest[df_latest['日期'].astype(str).str.startswith(today_date)]
         st.markdown(f"### 📅 今日快报 ({today_date})")
@@ -205,19 +206,12 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
         st.subheader("🛠️ 全字段数据修正")
         e_itr = st.session_state.edit_iteration
         
-        # 优化点：将选择框和放弃按钮并排
-        sc1, sc2 = st.columns([3, 1])
-        with sc1:
-            target = st.selectbox("第一步：选择要修改的录入编号", ["-- 请选择 --"] + df_latest["录入编号"].tolist()[::-1], key=f"edit_target_{e_itr}")
-        with sc2:
-            st.write("<br>", unsafe_allow_html=True) # 对齐高度
-            if target != "-- 请选择 --":
-                if st.button("❌ 放弃修正并复位", use_container_width=True):
-                    st.session_state.edit_iteration += 1
-                    st.rerun()
+        # 第一步：仅保留编号选择框
+        target = st.selectbox("第一步：选择要修改的录入编号", ["-- 请选择 --"] + df_latest["录入编号"].tolist()[::-1], key=f"edit_target_{e_itr}")
         
         if target != "-- 请选择 --":
             old_data = df_latest[df_latest["录入编号"] == target].iloc[0]
+            # 修正表单
             with st.form(f"full_edit_form_{e_itr}_{target}"):
                 st.write(f"📂 正在深度修正编号：**{target}**")
                 fe_c1, fe_c2 = st.columns(2)
@@ -236,7 +230,19 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                     u_ref = st.text_input("审批/发票编号", value=str(old_data["审批/发票编号"]))
                     u_note = st.text_area("备注详情", value=str(old_data["备注"]))
 
-                if st.form_submit_button("💾 确认保存全字段修正", use_container_width=True):
+                st.warning("⚠️ 提示：保存后余额将重新计算，并自动盖上修正时间戳。")
+                
+                # 修改点：将保存按钮和放弃按钮在表单底部并排
+                btn_c1, btn_c2 = st.columns(2)
+                with btn_c1:
+                    save_clicked = st.form_submit_button("💾 确认保存全字段修正", use_container_width=True)
+                with btn_c2:
+                    # 注意：在 st.form 内部，只能有一个真正的 submit_button，
+                    # 另一个必须通过 form 外的逻辑或逻辑分支实现。
+                    # 这里我们使用一个特殊的 submit_button 作为“放弃”动作
+                    cancel_clicked = st.form_submit_button("❌ 放弃并返回", use_container_width=True)
+
+                if save_clicked:
                     idx = df_latest[df_latest["录入编号"] == target].index[0]
                     df_latest.at[idx, "日期"] = u_date
                     df_latest.at[idx, "摘要"] = u_sum
@@ -262,6 +268,10 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                     st.success(f"✅ 编号 {target} 修正成功并重算余额！")
                     st.cache_data.clear()
                     time.sleep(1.2)
+                    st.rerun()
+                
+                if cancel_clicked:
+                    st.session_state.edit_iteration += 1
                     st.rerun()
 else:
     st.warning("🔒 权限验证：请输入正确密码访问。")

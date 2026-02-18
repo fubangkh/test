@@ -20,8 +20,12 @@ def get_now_str():
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 2. 核心函数 ---
-@st.cache_data(ttl=2)
+# --- 2. 状态初始化 (核心：控制复位的版本号) ---
+if "form_iteration" not in st.session_state:
+    st.session_state.form_iteration = 0  # 提交一次，累加1，强制组件重置
+
+# --- 3. 核心函数 ---
+@st.cache_data(ttl=1)
 def load_all_data():
     try:
         df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
@@ -54,29 +58,32 @@ df_latest = load_all_data()
 if 'input_rate' not in st.session_state: 
     st.session_state.input_rate = 1.0
 
-# --- 3. 界面逻辑 ---
+# --- 4. 界面逻辑 ---
 role = st.sidebar.radio("📋 功能选择", ["数据录入", "汇总统计"])
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 
-# --- 4. 页面 A：数据录入 (已修改标题与复位逻辑) ---
+# --- 5. 页面 A：数据录入 (强效重置版) ---
 if role == "数据录入" and pwd == STAFF_PWD:
-    st.title("📝 数据录入") # 已修改：财务数据录入 -> 数据录入
+    st.title("📝 数据录入")
     last_bal = df_latest["余额"].iloc[-1] if not df_latest.empty else 0.0
     st.info(f"💵 总结余：**${last_bal:,.2f}** | 柬埔寨时间：{get_now_str()}")
+
+    # 使用 iteration 变量作为 key 的一部分，确保提交后所有组件被视为“新组件”
+    itr = st.session_state.form_iteration
 
     # --- 第一部分：摘要与时间 ---
     st.markdown("### 1️⃣ 业务基础")
     r1_c1, r1_c2 = st.columns([2, 1])
     with r1_c1:
-        val_summary = st.text_input("摘要内容", placeholder="例如：支付2月办公室租金", key="ui_summary")
+        val_summary = st.text_input("摘要内容", placeholder="例如：支付2月租金", key=f"sum_{itr}")
     with r1_c2:
-        val_biz_time = st.datetime_input("业务时间 (UTC+7)", value=get_now_local())
+        val_biz_time = st.datetime_input("业务时间 (UTC+7)", value=get_now_local(), key=f"time_{itr}")
 
     # --- 第二部分：金额与账户 ---
     st.markdown("### 2️⃣ 金额与结算账户")
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     with r2_c1:
-        val_raw_amt = st.number_input("录入金额", min_value=0.0, step=0.01, key="ui_raw_amt")
+        val_raw_amt = st.number_input("录入金额", min_value=0.0, step=0.01, key=f"raw_{itr}")
     with r2_c2:
         val_curr = st.selectbox("录入币种", ["USD", "RMB", "VND", "HKD"], key="sel_curr", on_change=handle_currency_change)
     with r2_c3:
@@ -85,8 +92,8 @@ if role == "数据录入" and pwd == STAFF_PWD:
     acc_list = get_unique_list(df_latest, "账户")
     r3_c1, r3_c2 = st.columns([1, 1])
     with r3_c1:
-        a_sel = st.selectbox("结算账户", ["🔍 选择历史账户"] + acc_list + ["➕ 新增账户"], key="ui_a_sel")
-        val_acc = st.text_input("✍️ 输入新账户名称", key="ui_acc_new") if a_sel == "➕ 新增账户" else a_sel
+        a_sel = st.selectbox("结算账户", ["🔍 选择历史账户"] + acc_list + ["➕ 新增账户"], key=f"asel_{itr}")
+        val_acc = st.text_input("✍️ 输入新账户名称", key=f"accnew_{itr}") if a_sel == "➕ 新增账户" else a_sel
     with r3_c2:
         val_est_usd = round(val_raw_amt / val_rate, 2) if val_rate > 0 else 0.0
         st.markdown(f"<br><p style='font-size:20px; color:#008000;'><b>当前金额预估：${val_est_usd:,.2f} USD</b></p>", unsafe_allow_html=True)
@@ -94,7 +101,7 @@ if role == "数据录入" and pwd == STAFF_PWD:
     # --- 第三部分：性质与项目 ---
     st.markdown("### 3️⃣ 资金性质与归属")
     ALL_PROPS = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "期初结存", "内部调拨-转入", "内部调拨-转出", "借款", "往来款收回", "押金收回", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
-    val_prop = st.selectbox("资金性质", ALL_PROPS, key="ui_prop")
+    val_prop = st.selectbox("资金性质", ALL_PROPS, key=f"prop_{itr}")
 
     val_project = ""
     PROJECT_TRIGGER = ["工程收入", "施工收入", "产品销售收入", "服务收入", "网络收入", "预收款", "工程成本", "施工成本"]
@@ -103,15 +110,15 @@ if role == "数据录入" and pwd == STAFF_PWD:
         pc1, pc2 = st.columns(2)
         with pc1:
             p_list = get_unique_list(df_latest, "客户/项目名称")
-            p_sel = st.selectbox("选择历史项目/客户", ["🔍 请选择"] + p_list + ["➕ 新增项目"], key="ui_p_sel")
+            p_sel = st.selectbox("选择历史项目/客户", ["🔍 请选择"] + p_list + ["➕ 新增项目"], key=f"psel_{itr}")
         with pc2:
             if p_sel == "➕ 新增项目":
-                val_project = st.text_input("✍️ 输入新项目名称", key="ui_p_new")
+                val_project = st.text_input("✍️ 输入新项目名称", key=f"pnew_{itr}")
             else:
                 val_project = p_sel if p_sel != "🔍 请选择" else ""
 
-    # --- 第四部分：次要信息与提交 ---
-    with st.form("final_submit_form", clear_on_submit=True):
+    # --- 第四部分：次要信息与提交 (这里不加 itr key，由 Form 自带 clear 配合刷新) ---
+    with st.form(f"submit_form_{itr}", clear_on_submit=True):
         st.markdown("### 4️⃣ 经手人与备注")
         f1, f2 = st.columns(2)
         with f1:
@@ -144,28 +151,21 @@ if role == "数据录入" and pwd == STAFF_PWD:
                 "收入": inc_v, "支出": exp_v, "余额": round(last_bal + inc_v - exp_v, 2), 
                 "经手人": val_handler, "备注": f"{val_note} {tag}", "审批/发票编号": val_ref
             }
-            
-            # 保存到表格
             conn.update(worksheet="Summary", data=pd.concat([df_latest, pd.DataFrame([row])], ignore_index=True))
             
-            # --- 🚀 核心复位逻辑：强制清空所有关键 Key ---
-            for k in st.session_state.keys():
-                # 排除掉不需要重置的（比如密码、汇率、功能选择）
-                if k not in ["input_rate", "sel_curr"]: 
-                    del st.session_state[k]
-            
+            # --- 🚀 终极解决手段 ---
+            st.session_state.form_iteration += 1  # 改变所有组件的 ID，强制物理复位
             st.balloons()
-            st.success("✅ 账目已存入 Google 表格！系统已自动复位。")
+            st.success("✅ 提交成功！页面已完全初始化。")
             st.cache_data.clear()
-            
-            # 停顿一下让用户看到气球，然后刷新
-            time.sleep(1.5)
+            time.sleep(1.2)
             st.rerun()
 
-# --- 5. 页面 B：汇总统计 ---
+# --- 6. 页面 B：汇总统计 ---
 elif role == "汇总统计" and pwd == ADMIN_PWD:
     st.title("📊 财务实时汇总统计")
     if not df_latest.empty:
+        # (此处保持原有统计代码，无变动)
         today_date = get_now_local().strftime('%Y-%m-%d')
         df_today = df_latest[df_latest['日期'].astype(str).str.startswith(today_date)]
         st.markdown(f"### 📅 今日快报 ({today_date})")
@@ -202,9 +202,9 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                 "余额": st.column_config.NumberColumn(format="$%.2f")
             }
         )
-        
+        # (修正模块逻辑也增加了 rerun)
         with st.expander("🛠️ 快速数据修正"):
-            target = st.selectbox("选择要修改的编号", ["-- 请选择 --"] + df_latest["录入编号"].tolist()[::-1])
+            target = st.selectbox("选择编号", ["-- 请选择 --"] + df_latest["录入编号"].tolist()[::-1], key="edit_sel")
             if target != "-- 请选择 --":
                 old = df_latest[df_latest["录入编号"] == target].iloc[0]
                 with st.form("edit_form"):
@@ -218,4 +218,3 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                         st.cache_data.clear(); st.rerun()
 else:
     st.warning("🔒 权限验证：请输入正确密码访问。")
-

@@ -6,7 +6,7 @@ from datetime import datetime
 import time
 import pytz
 
-# --- 1. 基础配置 (严禁变动) ---
+# --- 1. 基础配置 (严格保持一致) ---
 st.set_page_config(page_title="富邦日记账系统", layout="wide")
 STAFF_PWD = "123"
 ADMIN_PWD = "123"
@@ -17,7 +17,7 @@ def get_now_str():
 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 2. 核心逻辑 (严禁变动) ---
+# --- 2. 核心逻辑 (汇率计算严格保持一致) ---
 def handle_currency_change():
     new_curr = st.session_state.sel_curr
     st.session_state.input_rate = float(get_reference_rate(df_latest, new_curr))
@@ -40,7 +40,7 @@ def get_reference_rate(df_history, currency):
     except: pass
     return rates.get(currency, 1.0)
 
-# --- 3. 数据加载 (严禁变动) ---
+# --- 3. 数据加载 ---
 @st.cache_data(ttl=2)
 def load_all_data():
     try:
@@ -49,12 +49,11 @@ def load_all_data():
         cols = ["录入编号", "日期", "摘要", "客户/项目名称", "账户", "资金性质", "收入", "支出", "余额", "经手人", "备注", "审批/发票编号"]
         for c in cols:
             if c not in df.columns: df[c] = ""
-        history_summaries = sorted([str(x) for x in df["摘要"].unique() if x and str(x)!='nan'])
-        return df, history_summaries
+        return df
     except:
-        return pd.DataFrame(), []
+        return pd.DataFrame()
 
-df_latest, SUMMARY_HISTORY = load_all_data()
+df_latest = load_all_data()
 
 if 'input_rate' not in st.session_state: st.session_state.input_rate = 1.0
 
@@ -67,24 +66,18 @@ role = st.sidebar.radio("📋 功能选择", ["数据录入", "汇总统计"])
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 
 if role == "数据录入" and pwd == STAFF_PWD:
-    st.title("📝 智能财务录入")
+    st.title("📝 财务数据录入")
     last_bal = pd.to_numeric(df_latest["余额"], errors='coerce').iloc[-1] if not df_latest.empty else 0.0
     st.info(f"💵 总结余：**${last_bal:,.2f}** | {get_now_str()}")
     
-    # --- 模块 1：业务摘要 (实现你想要的逻辑) ---
+    # --- 模块 1：业务摘要 ---
     st.markdown("### 1️⃣ 业务摘要")
     c1, c2 = st.columns([3, 1])
     with c1:
-        # 如果下拉框选的是第一个(录入新摘要)，则显示输入框；否则显示下拉框
-        # 初始默认是显示下拉框，支持搜索
-        s_mode = st.toggle("🖊️ 切换手动输入新摘要", key="s_toggle")
-        if s_mode:
-            final_summary = st.text_input("✍️ 直接输入新摘要内容", placeholder="例如：赛轮轮胎")
-        else:
-            final_summary = st.selectbox("🔍 搜索历史摘要", options=SUMMARY_HISTORY, index=None, placeholder="输入关键词搜索，如：正道...")
-
+        # 已按要求恢复为原始纯文本框
+        final_summary = st.text_input("摘要内容", placeholder="请在此录入业务摘要...")
     with c2:
-        biz_date = st.date_input("日期", value=datetime.now(LOCAL_TZ))
+        biz_date = st.date_input("业务日期", value=datetime.now(LOCAL_TZ))
 
     # --- 模块 2：金额与结算 ---
     st.markdown("### 2️⃣ 金额与结算")
@@ -99,41 +92,37 @@ if role == "数据录入" and pwd == STAFF_PWD:
         if ex_rate > 0 and currency != "USD":
             st.metric("📊 换算美元", f"${(raw_amt/ex_rate):,.2f}")
     with cc3:
-        # 账户单行化逻辑
-        a_list = get_unique_list(df_latest, "账户")
-        a_mode = st.checkbox("🖊️ 新增账户", key="a_check")
-        if a_mode:
-            final_acc = st.text_input("✍️ 输入新账户名")
-        else:
-            final_acc = st.selectbox("🔍 选择账户", options=a_list, index=None, placeholder="搜索历史账户...")
+        accs_list = get_unique_list(df_latest, "账户")
+        a_sel = st.selectbox("结算账户", ["🔍 选择历史账户"] + accs_list + ["➕ 新增账户"])
+        final_acc = st.text_input("✍️ 输入新账户名") if a_sel == "➕ 新增账户" else a_sel
 
-    # --- 模块 3：相关方信息 ---
+    # --- 模块 3：相关方信息 (恢复触发逻辑) ---
     st.markdown("### 3️⃣ 相关方信息")
     hc1, hc2, hc3 = st.columns(3)
+    
     with hc1:
-        # 项目单行化逻辑
-        p_list = get_unique_list(df_latest, "客户/项目名称")
-        p_mode = st.checkbox("🖊️ 新增项目", key="p_check")
-        if p_mode:
-            f_p = st.text_input("✍️ 输入新项目名")
+        # 【按要求恢复】只有特定性质才显示项目名称
+        f_p = "" # 默认值
+        if fund_p in ["工程收入", "施工收入", "产品销售收入", "服务收入", "网络收入"]:
+            projs_list = get_unique_list(df_latest, "客户/项目名称")
+            p_sel = st.selectbox("项目/客户", ["🔍 选择历史项目"] + projs_list + ["➕ 新增项目"])
+            f_p = st.text_input("✍️ 输入新项目名") if p_sel == "➕ 新增项目" else (p_sel if "🔍" not in str(p_sel) else "")
         else:
-            f_p = st.selectbox("🔍 选择项目", options=p_list, index=None, placeholder="搜索历史项目...")
+            st.write("ℹ️ 此性质无需填写项目信息")
+            
     with hc2:
-        # 经手人单行化逻辑
-        h_list = get_unique_list(df_latest, "经手人")
-        h_mode = st.checkbox("🖊️ 新增经手人", key="h_check")
-        if h_mode:
-            f_h = st.text_input("✍️ 输入经手人姓名")
-        else:
-            f_h = st.selectbox("🔍 选择经手人", options=h_list, index=None, placeholder="搜索历史姓名...")
+        hands_list = get_unique_list(df_latest, "经手人")
+        h_sel = st.selectbox("经手人", ["🔍 选择历史经手人"] + hands_list + ["➕ 新增经手人"])
+        f_h = st.text_input("✍️ 输入经手人姓名") if h_sel == "➕ 新增经手人" else h_sel
+        
     with hc3:
         ref_no = st.text_input("审批/发票编号")
         note = st.text_area("备注信息", height=68)
 
     st.divider()
     if st.button("🚀 提交账目流水", use_container_width=True):
-        if not final_summary or not final_acc or not f_h:
-            st.error("❌ 请检查：摘要、结算账户、经手人不能为空！")
+        if not final_summary or "🔍" in str(final_acc) or "🔍" in str(f_h):
+            st.error("❌ 必填项缺失：请填写摘要、结算账户或经手人！")
         else:
             final_usd = raw_amt / st.session_state.input_rate if st.session_state.input_rate > 0 else 0
             is_inc = fund_p in ["期初结存", "内部调拨-转入", "工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
@@ -145,7 +134,7 @@ if role == "数据录入" and pwd == STAFF_PWD:
             
             row = {
                 "录入编号": sn, "提交时间": get_now_str(), "日期": biz_date.strftime('%Y-%m-%d'),
-                "摘要": final_summary, "客户/项目名称": f_p if f_p else "", "账户": final_acc, 
+                "摘要": final_summary, "客户/项目名称": f_p, "账户": final_acc, 
                 "资金性质": fund_p, "收入": inc_v, "支出": exp_v, "余额": last_bal + inc_v - exp_v, 
                 "经手人": f_h, "备注": f"{note} {rate_tag}", "审批/发票编号": ref_no
             }

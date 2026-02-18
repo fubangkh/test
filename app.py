@@ -92,46 +92,63 @@ elif role == "管理看板":
         st.title("📊 财务决策看板")
         
         try:
-            # 1. 实时读取并按日期排序，确保最后一行是最新日期
+            # 1. 实时读取数据并处理日期
             df_sum = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-            df_sum['日期'] = pd.to_datetime(df_sum['日期'])
-            df_sum = df_sum.sort_values('日期')
+            
+            if not df_sum.empty:
+                df_sum['日期'] = pd.to_datetime(df_sum['日期'])
+                df_sum = df_sum.sort_values('日期')
+                
+                # 获取当前月份和年份
+                current_month = pd.Timestamp.now().month
+                current_year = pd.Timestamp.now().year
+                
+                # 筛选本月数据
+                month_mask = (df_sum['日期'].dt.month == current_month) & (df_sum['日期'].dt.year == current_year)
+                df_month = df_sum[month_mask]
 
-            # 2. 计算环比逻辑
-            if len(df_sum) >= 2:
-                # 获取最后两行数据
-                today_data = df_sum.iloc[-1]
-                yesterday_data = df_sum.iloc[-2]
-                
-                curr_income = float(today_data["收款金额"])
-                prev_income = float(yesterday_data["收款金额"])
-                income_delta = curr_income - prev_income
-                
-                curr_balance = float(today_data["现金余额"])
-                prev_balance = float(yesterday_data["现金余额"])
-                balance_delta = curr_balance - prev_balance
+                # --- 计算各项指标 ---
+                # A. 期初余额：本月第一笔记录之前的余额（若无则取本月第一笔的余额减去第一笔的收支）
+                if not df_month.empty:
+                    first_row = df_month.iloc[0]
+                    # 期初 = 第一笔的余额 - 第一笔收入 + 第一笔支出
+                    opening_balance = float(first_row["余额"]) - float(first_row["收入"]) + float(first_row["支出"])
+                    month_income = df_month["收入"].sum()
+                    month_expense = df_month["支出"].sum()
+                    current_balance = df_month.iloc[-1]["余额"]
+                else:
+                    opening_balance = df_sum.iloc[-1]["余额"] if not df_sum.empty else 0
+                    month_income = 0
+                    month_expense = 0
+                    current_balance = opening_balance
+
+                # --- 显示第一排指标：当前状态 ---
+                st.subheader(f"📅 {current_year}年{current_month}月 财务概况")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("期初余额", f"¥{opening_balance:,.2f}")
+                with col2:
+                    st.metric("本月累计收入", f"¥{month_income:,.2f}", delta_color="normal")
+                with col3:
+                    st.metric("本月累计支出", f"¥{month_expense:,.2f}", delta=f"-{month_expense:,.2f}", delta_color="inverse")
+
+                # --- 显示第二排指标：最终结果 ---
+                st.markdown("---")
+                col4, col5 = st.columns(2)
+                with col4:
+                    # 计算本月净头寸
+                    net_cash = month_income - month_expense
+                    st.metric("本月收支净额", f"¥{net_cash:,.2f}", delta=f"{net_cash:,.2f}")
+                with col5:
+                    st.metric("当前动态总余额", f"¥{current_balance:,.2f}")
+
+                # 4. 显示原始数据表
+                st.markdown("---")
+                st.subheader("📋 详细收支流水 (按日期倒序)")
+                st.dataframe(df_sum.sort_values('日期', ascending=False), use_container_width=True)
             else:
-                # 如果只有一行数据，则没有环比
-                curr_income = float(df_sum.iloc[-1]["收款金额"]) if not df_sum.empty else 0
-                income_delta = 0
-                curr_balance = float(df_sum.iloc[-1]["现金余额"]) if not df_sum.empty else 0
-                balance_delta = 0
-
-            # 3. 显示指标卡片
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                # 显示现金余额及其变动
-                st.metric("当前现金总余额", f"¥{curr_balance:,.2f}", delta=f"¥{balance_delta:,.2f}")
-            with col2:
-                # 显示今日收款及其环比昨日的增减
-                # delta_color="normal" 会自动实现：正数绿色，负数红色
-                st.metric("最新单日收款", f"¥{curr_income:,.2f}", delta=f"{income_delta:,.2f} (较上笔)")
-            with col3:
-                st.metric("累计报备次数", f"{len(df_sum)} 次")
-
-            # ... 下方保留原来的 tab 表格展示 ...
+                st.info("📊 暂无数据，请先完成首笔录入。")
 
         except Exception as e:
             st.error(f"计算看板指标时出错: {e}")
-
 

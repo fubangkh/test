@@ -252,25 +252,48 @@ if pwd == ADMIN_PWD:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
-    # 1. 先进行排序
+    # 1. 准备显示用的数据
     df_display = df_main.sort_values("录入编号", ascending=False).copy()
     
-    # 2. 核心补丁：强制显示小数点后 2 位和千分位
-    # 即使 Google Sheets 里显示正常，这一步能保证网页端也绝对整齐
+    # 2. 格式化金额列（保留小数点和千分位）
     for col in ['收入', '支出', '余额']:
         if col in df_display.columns:
-            # 先转为数字（防止有脏数据），再格式化为带逗号和2位小数的字符串
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
-    # 3. 最终显示
-    # 通用性最强的样式法：强制所有单元格内容居右
+    # 3. 最终显示：使用 column_config 方案
     st.dataframe(
-        df_display.style.set_properties(**{'text-align': 'right'}), 
+        df_display, 
         use_container_width=True, 
-        hide_index=True
-    )
+        hide_index=True,
+        # 这里是关键：手动配置每一列的行为
+        column_config={
+            "收入": st.column_config.NumberColumn(  # 换成 NumberColumn
+                "收入",
+                help="收入金额 (USD)",
+                width="medium",
+            ),
+            "支出": st.column_config.NumberColumn(  # 换成 NumberColumn
+                "支出",
+                help="支出金额 (USD)",
+                width="medium",
+            ),
+            "余额": st.column_config.NumberColumn(  # 换成 NumberColumn
+                "余额",
+                help="实时总结余 (USD)",
+                width="medium",
+            ),
+            "摘要": st.column_config.TextColumn(
+                "摘要",
+                width="large",
+            ),
+            "录入编号": st.column_config.TextColumn(
+                "录入编号",
+                width="small",
+            )
+        }
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

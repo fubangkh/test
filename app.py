@@ -279,7 +279,7 @@ if pwd == ADMIN_PWD:
             ),
             "余额": st.column_config.NumberColumn(
                 "余额",
-                format="%.2f",
+                format="$%.2f",
                 width="medium",
             ),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
@@ -288,6 +288,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

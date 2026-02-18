@@ -50,7 +50,7 @@ def get_dynamic_options(df, column_name):
         return options + ["➕ 新增..."]
     return ["➕ 新增..."]
 
-# --- 4. 录入弹窗 ---
+# --- 4. 录入弹窗 (最终全功能合并版) ---
 @st.dialog("📝 数据录入", width="large")
 def entry_dialog():
     df = load_data()
@@ -68,7 +68,7 @@ def entry_dialog():
     val_curr = r2_c2.selectbox("币种", list(live_rates.keys()))
     val_rate = r2_c3.number_input("实时汇率 (API获取)", value=float(live_rates[val_curr]), format="%.4f")
     
-    # --- 实时换算金额显示 (22px 蓝色条) ---
+    # --- 实时换算金额显示 (22px 蓝色条样式) ---
     converted_usd = val_amt / val_rate if val_rate != 0 else 0
     st.markdown(f"""
         <div style="background-color: #f8f9fa; padding: 8px 12px; border-radius: 6px; border-left: 4px solid #0056b3; margin: 5px 0;">
@@ -79,22 +79,31 @@ def entry_dialog():
     
     st.divider() 
     
-    # 第三行：结算账户与经手人 (下拉+新增模式)
-    r3_c1, r3_c2 = st.columns(2)
-    sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "账户"))
-    val_acc = st.text_input("✍️ 录入新账户名称") if sel_acc == "➕ 新增..." else sel_acc
-    
-    sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
-    val_hand = st.text_input("✍️ 录入新经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
-    
-    # 第四行：发票编号与资金性质 (恢复下拉菜单)
+    # 第四行前置：获取资金性质（为了触发转账和必填联动）
     r4_c1, r4_c2 = st.columns(2)
     val_inv = r4_c1.text_input("审批/发票编号", placeholder="选填")
-    # 核心回归：资金性质下拉选择
-    val_prop = r4_c2.selectbox("资金性质", ["工程收入", "施工成本", "管理费用", "预收款", "其他"])
     
-    # 第五行：客户/项目名称 (下拉+新增 + 必填联动)
-    is_req = val_prop in ["工程收入", "施工成本"]
+    # 补齐所有科目列表
+    val_prop = r4_c2.selectbox("资金性质", list(ALL_FUND_PROPERTIES) + ["资金结转"])
+    
+    # --- 核心判定：是否为转账对冲 ---
+    is_transfer = (val_prop == "资金结转")
+    
+    # 第三行：根据是否转账，动态切换账户输入
+    r3_c1, r3_c2 = st.columns(2)
+    if is_transfer:
+        val_acc_from = r3_c1.selectbox("➡️ 转出账户", options=get_dynamic_options(df, "账户"))
+        val_acc_to = r3_c2.selectbox("⬅️ 转入账户", options=get_dynamic_options(df, "账户"))
+        val_hand = st.text_input("经手人", value="系统自动结转")
+    else:
+        sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "账户"))
+        val_acc = st.text_input("✍️ 录入新账户名称") if sel_acc == "➕ 新增..." else sel_acc
+        sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
+        val_hand = st.text_input("✍️ 录入新经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
+
+    # 第五行：客户/项目名称 (强化版必填联动)
+    # 只要在 CORE_BUSINESS_TYPES 里的（含工程成本、施工成本），都设为必填
+    is_req = val_prop in CORE_BUSINESS_TYPES
     proj_label = "📍 客户/项目名称 (必填)" if is_req else "客户/项目名称 (选填)"
     sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目名称"))
     val_proj = st.text_input("✍️ 录入新项目名称") if sel_proj == "➕ 新增..." else sel_proj
@@ -104,21 +113,47 @@ def entry_dialog():
     st.divider()
     b1, b2, b3 = st.columns(3)
 
-    # 提交逻辑 (校验+仪式感)
+    # 提交逻辑 (判定分流 + 气球动画)
     def validate_and_submit(stay_open):
         if not val_sum.strip():
-            st.error("⚠️ 请填写摘要内容！")
-            return
+            st.error("⚠️ 请填写摘要内容！"); return
         if val_amt <= 0:
-            st.error("⚠️ 金额必须大于 0！")
-            return
+            st.error("⚠️ 金额必须大于 0！"); return
         if is_req and (not val_proj or val_proj.strip() == ""):
-            st.error("⚠️ 工程类业务，必须选择或填写项目名称！")
-            return
-        
-        # 写入成功模拟
+            st.error(f"⚠️ 业务【{val_prop}】必须选择或填写项目名称！"); return
+        if is_transfer and (val_acc_from == val_acc_to):
+            st.error("⚠️ 转出账户和转入账户不能相同！"); return
+
+        # --- 数据封装与自动收支判定 ---
+        final_rows = []
+        if is_transfer:
+            # 自动生成双向流水
+            final_rows.append({
+                "日期": val_time.strftime("%Y-%m-%d"), "摘要": f"【转出】{val_sum}",
+                "收入": 0, "支出": converted_usd, "账户": val_acc_from,
+                "资金性质": "资金结转", "客户/项目名称": "内部调拨", "经手人": val_hand, "审批/发票编号": val_inv, "备注": val_note
+            })
+            final_rows.append({
+                "日期": val_time.strftime("%Y-%m-%d"), "摘要": f"【转入】{val_sum}",
+                "收入": converted_usd, "支出": 0, "账户": val_acc_to,
+                "资金性质": "资金结转", "客户/项目名称": "内部调拨", "经手人": val_hand, "审批/发票编号": val_inv, "备注": val_note
+            })
+        else:
+            # 自动判定 收入 还是 支出
+            inc_val = converted_usd if (val_prop in CORE_BUSINESS_TYPES[:5] or val_prop in OTHER_INCOME_TYPES) else 0
+            exp_val = converted_usd if (val_prop in CORE_BUSINESS_TYPES[5:] or val_prop in OTHER_EXPENSE_TYPES) else 0
+            
+            final_rows.append({
+                "日期": val_time.strftime("%Y-%m-%d"), "摘要": val_sum,
+                "收入": inc_val, "支出": exp_val, "账户": val_acc,
+                "资金性质": val_prop, "客户/项目名称": val_proj, "经手人": val_hand, "审批/发票编号": val_inv, "备注": val_note
+            })
+
+        # --- 此处对接您的 conn.update 逻辑 ---
+        # conn.update(worksheet="Summary", data=pd.DataFrame(final_rows)...)
+
         st.balloons()
-        st.success("🎉 数据录入成功！主表已实时刷新。")
+        st.success(f"🎉 {'资金结转对冲' if is_transfer else '数据录入'}成功！")
         time.sleep(1.2) 
         st.cache_data.clear() 
         st.rerun()
@@ -189,6 +224,7 @@ if pwd == ADMIN_PWD:
         st.dataframe(df_main.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

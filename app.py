@@ -57,7 +57,7 @@ def entry_dialog():
     live_rates = get_live_rates()
     st.write(f"💡 当前系统总结余: **${df['余额'].iloc[-1] if not df.empty else 0:,.2f}**")
     
-    # 第一行
+    # 第一行：摘要与时间
     c1, c2 = st.columns(2)
     val_sum = c1.text_input("摘要内容")
     val_time = c2.datetime_input("业务时间", value=datetime.now(LOCAL_TZ))
@@ -68,13 +68,20 @@ def entry_dialog():
     val_curr = r2_c2.selectbox("币种", list(live_rates.keys()))
     val_rate = r2_c3.number_input("实时汇率 (API获取)", value=float(live_rates[val_curr]), format="%.4f")
     
-    # --- 核心新增：换算后金额显示 ---
-    # 计算逻辑：如果汇率不为0，则计算金额/汇率
+    # --- 【重点优化】：大字体实时换算显示 ---
     converted_usd = val_amt / val_rate if val_rate != 0 else 0
-    st.markdown(f"**💰 换算后金额：`${converted_usd:,.2f} USD`**") 
-    st.divider() # 加一条细线区分开
     
-    # 第三行
+    # 使用 HTML 注入自定义样式：加大字体 (24px)、深蓝色 (#0056b3)、圆角背景块
+    st.markdown(f"""
+        <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; border-left: 5px solid #0056b3; margin: 10px 0;">
+            <span style="font-size: 16px; color: #555;">💰 换算后金额：</span><br>
+            <span style="font-size: 32px; font-weight: bold; color: #0056b3;">$ {converted_usd:,.2f} <span style="font-size: 18px;">USD</span></span>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.divider() # 视觉分割线
+    
+    # 第三行：结算账户与经手人 (下拉+新增)
     r3_c1, r3_c2 = st.columns(2)
     sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "账户"))
     val_acc = st.text_input("✍️ 录入新账户名称") if sel_acc == "➕ 新增..." else sel_acc
@@ -82,12 +89,12 @@ def entry_dialog():
     sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
     val_hand = st.text_input("✍️ 录入新经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
     
-    # 第四行 (含审批/发票编号)
+    # 第四行：发票编号与性质
     r4_c1, r4_c2 = st.columns(2)
     val_inv = r4_c1.text_input("审批/发票编号")
     val_prop = r4_c2.selectbox("资金性质", ["工程收入", "施工成本", "管理费用", "其他"])
     
-    # 第五行 (联动项目)
+    # 第五行：联动项目名称
     is_req = val_prop in ["工程收入", "施工成本"]
     proj_label = "📍 客户/项目名称 (必填)" if is_req else "客户/项目名称 (选填)"
     sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目名称"))
@@ -98,7 +105,7 @@ def entry_dialog():
     st.divider()
     b1, b2, b3 = st.columns(3)
 
-    # 提交逻辑（含必填限制）
+    # 提交逻辑 (带限制条件 + 气球 + 刷新)
     def validate_and_submit(stay_open):
         if not val_sum.strip():
             st.error("⚠️ 请填写摘要内容！")
@@ -182,5 +189,6 @@ if pwd == ADMIN_PWD:
         st.dataframe(df_main.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
 else:
     st.info("请输入密码解锁系统")
+
 
 

@@ -71,32 +71,21 @@ if role == "数据录入" and pwd == STAFF_PWD:
     last_bal = pd.to_numeric(df_latest["余额"], errors='coerce').iloc[-1] if not df_latest.empty else 0.0
     st.info(f"💵 总结余：**${last_bal:,.2f}** | {get_now_str()}")
     
-    # --- 模块 1：业务摘要 (实现单行二合一) ---
+    # --- 模块 1：业务摘要 (真正的单行逻辑) ---
     st.markdown("### 1️⃣ 业务摘要")
-    col_main, col_date = st.columns([3, 1])
-    with col_main:
-        # 使用 text_input 结合 label 指引，模拟搜索建议
-        # 此时 SUMMARY_HISTORY 仅作为参考，用户直接在此输入。
-        # 如果需要更强的自动补全，建议手动打字。
-        final_summary = st.selectbox(
-            "摘要内容 (打字搜索，若无匹配请直接在输入框手动覆盖)",
-            options=SUMMARY_HISTORY,
-            index=None,
-            placeholder="在此输入或选择历史摘要...",
-            key="summary_box",
-            label_visibility="collapsed"
-        )
-        
-        # 💡 核心补丁：如果下拉框没选到，允许通过 Session State 强制获取
-        # 这种方式最接近一行操作
-        if final_summary is None:
-            # 这是一个隐藏逻辑：如果在搜索框打完字没选，按回车，这里会尝试捕获
-            final_summary = st.session_state.get("summary_box", "")
+    c_main, c_date = st.columns([3, 1])
+    with c_main:
+        # 增加一个特殊选项 [新增内容]，如果没搜到，用户选它就会弹出一行输入
+        sel_s = st.selectbox("搜索历史摘要", ["直接打字录入新摘要"] + SUMMARY_HISTORY, index=0, label_visibility="collapsed")
+        if sel_s == "直接打字录入新摘要":
+            final_summary = st.text_input("✍️ 请输入摘要内容", key="manual_s", placeholder="如：赛轮轮胎")
+        else:
+            final_summary = sel_s
             
-    with col_date:
+    with c_date:
         biz_date = st.date_input("业务日期", value=datetime.now(LOCAL_TZ), label_visibility="collapsed")
 
-    # --- 模块 2：金额与结算 (账户单行化) ---
+    # --- 模块 2：金额与结算 ---
     st.markdown("### 2️⃣ 金额与结算")
     cc1, cc2, cc3 = st.columns(3)
     with cc1:
@@ -109,33 +98,32 @@ if role == "数据录入" and pwd == STAFF_PWD:
         if ex_rate > 0 and currency != "USD":
             st.metric("📊 换算美元", f"${(raw_amt/ex_rate):,.2f}")
     with cc3:
-        accs_list = get_unique_list(df_latest, "账户")
-        final_acc = st.selectbox("结算账户 (搜不到请直接选'➕ 新增')", options=accs_list + ["➕ 新增"])
-        if final_acc == "➕ 新增":
-            final_acc = st.text_input("请输入新账户名称", key="new_acc_input")
+        # 账户二合一
+        hist_accs = get_unique_list(df_latest, "账户")
+        sel_acc = st.selectbox("结算账户", ["新增账户"] + hist_accs, index=0)
+        final_acc = st.text_input("✍️ 账户确认/新增", value="" if sel_acc == "新增账户" else sel_acc, label_visibility="collapsed")
 
-    # --- 模块 3：相关方信息 (项目与经手人单行化) ---
+    # --- 模块 3：相关方信息 ---
     st.markdown("### 3️⃣ 相关方信息")
     hc1, hc2, hc3 = st.columns(3)
     with hc1:
-        projs_list = get_unique_list(df_latest, "客户/项目名称")
-        f_p = st.selectbox("项目/客户 (搜不到选'➕ 新增')", options=projs_list + ["➕ 新增"])
-        if f_p == "➕ 新增":
-            f_p = st.text_input("请输入新项目/客户", key="new_proj_input")
+        # 项目二合一
+        hist_projs = get_unique_list(df_latest, "客户/项目名称")
+        sel_p = st.selectbox("项目/客户", ["新增项目"] + hist_projs, index=0)
+        f_p = st.text_input("✍️ 项目确认/新增", value="" if sel_p == "新增项目" else sel_p, label_visibility="collapsed")
     with hc2:
-        hands_list = get_unique_list(df_latest, "经手人")
-        f_h = st.selectbox("经手人 (搜不到选'➕ 新增')", options=hands_list + ["➕ 新增"])
-        if f_h == "➕ 新增":
-            f_h = st.text_input("请输入新经手人姓名", key="new_hand_input")
+        # 经手人二合一
+        hist_hands = get_unique_list(df_latest, "经手人")
+        sel_h = st.selectbox("经手人", ["新增姓名"] + hist_hands, index=0)
+        f_h = st.text_input("✍️ 姓名确认/新增", value="" if sel_h == "新增姓名" else sel_h, label_visibility="collapsed")
     with hc3:
         ref_no = st.text_input("审批/发票编号")
         note = st.text_area("备注信息", height=68)
 
     st.divider()
     if st.button("🚀 提交账目流水", use_container_width=True):
-        # 这里的判断逻辑针对新版单行做了优化
         if not final_summary or not final_acc or not f_h:
-            st.error("❌ 必填项缺失：请确保摘要、账户和经手人已填写！")
+            st.error("❌ 必填项缺失：请填写摘要、账户和经手人！")
         else:
             final_usd = raw_amt / st.session_state.input_rate if st.session_state.input_rate > 0 else 0
             is_inc = fund_p in ["期初结存", "内部调拨-转入", "工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "借款", "往来款收回", "押金收回"]

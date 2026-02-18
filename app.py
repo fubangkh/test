@@ -12,6 +12,12 @@ ADMIN_PWD = "123"      # 管理看板密码
 # --- 初始化 Google Sheets 连接 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# --- 定义资金性质分类 ---
+# 自动判断：这些性质属于“收入”，其余属于“支出”
+INCOME_TYPES = ["工程收入", "施工收入", "产品销售收入", "服务收入", "网络收入", "其他收入", "预收款", "借款", "往来款收回", "押金收回"]
+EXPENSE_TYPES = ["工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
+ALL_FUND_PROPERTIES = INCOME_TYPES + EXPENSE_TYPES
+
 # --- 侧边栏导航 ---
 st.sidebar.title("💰 富邦现金流水账")
 role = st.sidebar.radio("选择功能模块", ["数据录入", "管理看板"])
@@ -26,7 +32,6 @@ if role == "数据录入":
         
         # 实时读取当前结余
         df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-        # 强制数值化处理
         if not df_latest.empty:
             df_latest["余额"] = pd.to_numeric(df_latest["余额"], errors='coerce').fillna(0)
             last_balance = float(df_latest.iloc[-1]["余额"])
@@ -35,13 +40,12 @@ if role == "数据录入":
         
         st.info(f"💵 当前系统账面结余：**${last_balance:,.2f}**")
 
-        # 收支类型选择
-        trans_type = st.radio("收支类型", ["收入", "支出"], horizontal=True)
-
         with st.form("entry_form", clear_on_submit=True):
             col1, col2 = st.columns(2)
             with col1:
                 report_date = st.date_input("日期")
+                # 🔄 变更：收支类型改为资金性质
+                fund_property = st.selectbox("资金性质", ALL_FUND_PROPERTIES)
                 account_type = st.selectbox("账户类型", [
                     "ABA_924_个人户", "ABA_403_个人户", "ABA_313_FB公司户",
                     "ICBC_215_AF公司户", "BOC_052_FB公司户", "BOC_063_FB公司户", 
@@ -52,8 +56,8 @@ if role == "数据录入":
                     "ABA_357_定期", "HUONE_USD", "HUONE_USDT", "现金" 
                 ])
             with col2:
-                amount = st.number_input(f"请输入【{trans_type}】金额 (USD)", min_value=0.0, step=0.01, format="%.2f")
-                st.text_input("当前结余 (系统自动计算)", value=f"${last_balance:,.2f}", disabled=True)
+                amount = st.number_input("金额 (USD)", min_value=0.0, step=0.01, format="%.2f")
+                st.text_input("当前结余 (只读)", value=f"${last_balance:,.2f}", disabled=True)
 
             col3, col4 = st.columns(2)
             with col3:
@@ -67,10 +71,20 @@ if role == "数据录入":
             if st.form_submit_button("🚀 提交并同步至云端"):
                 if not summary or not handler:
                     st.error("❌ 请填写摘要和经手人！")
+                elif amount <= 0:
+                    st.error("❌ 金额必须大于 0！")
                 else:
                     try:
-                        inc = amount if trans_type == "收入" else 0.0
-                        exp = amount if trans_type == "支出" else 0.0
+                        # 💡 自动逻辑：根据资金性质决定填入哪一列
+                        if fund_property in INCOME_TYPES:
+                            inc = amount
+                            exp = 0.0
+                            trans_label = "收入"
+                        else:
+                            inc = 0.0
+                            exp = amount
+                            trans_label = "支出"
+                            
                         new_balance = last_balance + inc - exp
                         
                         new_row = {
@@ -78,7 +92,7 @@ if role == "数据录入":
                             "摘要": summary, 
                             "账户": account_type, 
                             "审批/发票编号": ref_no,
-                            "收支类型": trans_type, 
+                            "资金性质": fund_property, # 🔄 列名更新
                             "收入": inc, 
                             "支出": exp,
                             "余额": new_balance, 
@@ -89,7 +103,7 @@ if role == "数据录入":
                         updated_df = pd.concat([df_latest, pd.DataFrame([new_row])], ignore_index=True).fillna("")
                         conn.update(worksheet="Summary", data=updated_df)
                         
-                        st.success(f"✅ 录入成功！结余已更新：${new_balance:,.2f}")
+                        st.success(f"✅ {fund_property}已同步！当前结余：${new_balance:,.2f}")
                         st.balloons()
                         st.rerun()
                     except Exception as e:
@@ -109,7 +123,6 @@ elif role == "管理看板":
             df_sum = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
             
             if not df_sum.empty:
-                # 数据清洗
                 for col in ["收入", "支出", "余额"]:
                     df_sum[col] = pd.to_numeric(df_sum[col], errors='coerce').fillna(0)
                 
@@ -119,10 +132,8 @@ elif role == "管理看板":
                 now = pd.Timestamp.now()
                 df_month = df_sum[(df_sum['日期'].dt.month == now.month) & (df_sum['日期'].dt.year == now.year)]
 
-                # 计算本月指标
                 if not df_month.empty:
                     first_row_m = df_month.iloc[0]
-                    # ✅ 修复关键公式：期初 = 第一笔余额 - 第一笔收入 + 第一笔支出
                     opening_bal = float(first_row_m["余额"]) - float(first_row_m["收入"]) + float(first_row_m["支出"])
                     m_income = df_month["收入"].sum()
                     m_expense = df_month["支出"].sum()
@@ -132,7 +143,7 @@ elif role == "管理看板":
                     m_income, m_expense = 0.0, 0.0
                     curr_bal = opening_bal
 
-                # 显示指标卡片
+                # 指标展示
                 st.subheader(f"📅 {now.year}年{now.month}月 财务概况")
                 c1, c2, c3 = st.columns(3)
                 c1.metric("本月期初余额", f"${opening_bal:,.2f}")

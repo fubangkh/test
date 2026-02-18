@@ -109,50 +109,73 @@ def entry_dialog():
     b1, b2, b3 = st.columns(3)
 
     # 提交逻辑：严格对应 Google Sheets A-M 列
-    def validate_and_submit(stay_open):
+def validate_and_submit(stay_open):
         if not val_sum.strip():
             st.error("⚠️ 请填写摘要内容！"); return
+        if val_amt <= 0:
+            st.error("⚠️ 金额必须大于 0！"); return
         
         try:
             current_df = load_data()
-            new_rows = []
-            now_ts = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
+            now_dt = datetime.now(LOCAL_TZ)
+            now_ts = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+            today_str = now_dt.strftime("%Y%m%d") # 生成：20260218
 
-            # 定义单行生成的函数，确保列顺序：
-            # A:录入编号, B:提交时间, C:修改时间, D:摘要, E:客户/项目名称, F:账户, G:审批/发票编号, H:资金性质, I:收入, J:支出, K:余额, L:经手人, M:备注
-            def create_row(summary, proj, acc, inv, prop, inc, exp, hand, note):
-                # 生成编号逻辑：DATE-随机数 或 行数+1
-                sn = f"SN{datetime.now().strftime('%y%m%d%H%M%S')}"
-                return [sn, now_ts, now_ts, summary, proj, acc, inv, prop, inc, exp, 0, hand, note]
+            # --- 1. 编号规则回归：R + 年月日 + 3位顺位码 ---
+            today_mask = current_df['录入编号'].astype(str).str.contains(f"R{today_str}", na=False)
+            today_records = current_df[today_mask]
+            
+            if not today_records.empty:
+                # 获取今天已有的最大编号并加 1
+                last_sn = str(today_records['录入编号'].iloc[-1])
+                try:
+                    last_num = int(last_sn[-3:]) 
+                    start_num = last_num + 1
+                except:
+                    start_num = len(today_records) + 1
+            else:
+                start_num = 1
+            
+            # --- 2. 准备数据行 (金额保留2位小数) ---
+            new_rows = []
+            
+            def format_money(val):
+                return round(float(val), 2)
+
+            # A:编号, B:提交时间, C:修改时间, D:摘要, E:项目, F:账户, G:发票, H:性质, I:收入, J:支出, K:余额, L:经手人, M:备注
+            def create_row(idx_offset, summary, proj, acc, inv, prop, inc, exp, hand, note):
+                sn = f"R{today_str}{(start_num + idx_offset):03d}"
+                return [sn, now_ts, now_ts, summary, proj, acc, inv, prop, format_money(inc), format_money(exp), 0, hand, note]
 
             if is_transfer:
-                new_rows.append(create_row(f"【转出】{val_sum}", "内部调拨", val_acc_from, val_inv, val_prop, 0, converted_usd, val_hand, val_note))
-                new_rows.append(create_row(f"【转入】{val_sum}", "内部调拨", val_acc_to, val_inv, val_prop, converted_usd, 0, val_hand, val_note))
+                # 结转双行，顺位码连续
+                new_rows.append(create_row(0, f"【转出】{val_sum}", "内部调拨", val_acc_from, val_inv, val_prop, 0, converted_usd, val_hand, val_note))
+                new_rows.append(create_row(1, f"【转入】{val_sum}", "内部调拨", val_acc_to, val_inv, val_prop, converted_usd, 0, val_hand, val_note))
             else:
-                inc = converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0
-                exp = converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0
-                new_rows.append(create_row(val_sum, val_proj, val_acc, val_inv, val_prop, inc, exp, val_hand, val_note))
+                inc_val = converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0
+                exp_val = converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0
+                new_rows.append(create_row(0, val_sum, val_proj, val_acc, val_inv, val_prop, inc_val, exp_val, val_hand, val_note))
 
-            # 合并并重算余额
+            # --- 3. 合并并重算余额 (全列保留2位) ---
             new_df = pd.DataFrame(new_rows, columns=current_df.columns)
             full_df = pd.concat([current_df, new_df], ignore_index=True)
             
-            # --- 余额重算核心 ---
-            full_df['收入'] = pd.to_numeric(full_df['收入'], errors='coerce').fillna(0)
-            full_df['支出'] = pd.to_numeric(full_df['支出'], errors='coerce').fillna(0)
-            full_df['余额'] = full_df['收入'].cumsum() - full_df['支出'].cumsum()
+            # 强制转换数字类型并重算
+            full_df['收入'] = pd.to_numeric(full_df['收入'], errors='coerce').fillna(0).round(2)
+            full_df['支出'] = pd.to_numeric(full_df['支出'], errors='coerce').fillna(0).round(2)
+            full_df['余额'] = (full_df['收入'].cumsum() - full_df['支出'].cumsum()).round(2)
             
-            # 同步云端
+            # --- 4. 同步 Google Sheets ---
             conn.update(worksheet="Summary", data=full_df)
             
             st.balloons()
-            st.success("🎉 数据录入成功，总结余已更新！")
+            st.success(f"🎉 录入成功！流水号：{new_rows[0][0]}")
             time.sleep(1.2)
             st.cache_data.clear()
             st.rerun()
             
         except Exception as e:
-            st.error(f"❌ 写入失败，请检查网络或列名: {e}")
+            st.error(f"❌ 编号或金额计算失败: {e}")
 
     # 修复 IndentationError 的按钮逻辑 (严格缩进)
     if b1.button("📥 提交并继续", type="primary", use_container_width=True):
@@ -219,6 +242,7 @@ if pwd == ADMIN_PWD:
         st.dataframe(df_main.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

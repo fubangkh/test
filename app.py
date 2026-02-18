@@ -241,7 +241,7 @@ def edit_dialog(df):
 # --- 6. 主页面 ---
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 if pwd == ADMIN_PWD:
-    st.title("📊 财务实时汇总统计")
+    st.title("📊 实时汇总统计")
     df_main = load_data()
     if not df_main.empty:
         st.metric("总结余", f"${df_main['余额'].iloc[-1]:,.2f}")
@@ -252,7 +252,18 @@ if pwd == ADMIN_PWD:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
-        st.dataframe(df_main.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
+    # 1. 先进行排序
+    df_display = df_main.sort_values("录入编号", ascending=False).copy()
+    
+    # 2. 核心补丁：强制显示小数点后 2 位和千分位
+    # 即使 Google Sheets 里显示正常，这一步能保证网页端也绝对整齐
+    for col in ['收入', '支出', '余额']:
+        if col in df_display.columns:
+            # 先转为数字（防止有脏数据），再格式化为带逗号和2位小数的字符串
+            df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
+
+    # 3. 最终显示
+    st.dataframe(df_display, use_container_width=True, hide_index=True)
 else:
     st.info("请输入密码解锁系统")
 

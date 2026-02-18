@@ -3,122 +3,167 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import requests
 from datetime import datetime
+import time
+import pytz
 
-# --- 页面基础配置 ---
-st.set_page_config(page_title="富邦现金日记账", layout="wide")
+# --- 1. 基础配置 (严禁改动) ---
+st.set_page_config(page_title="富邦日记账系统", layout="wide")
+STAFF_PWD = "123"
+ADMIN_PWD = "123"
+LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
-# --- 权限配置 ---
-STAFF_PWD = "123"      
-ADMIN_PWD = "123"      
+def get_now_str():
+    return datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
 
-# --- 初始化连接 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 核心函数：获取参考汇率 ---
+# --- 2. 核心数据函数 ---
+@st.cache_data(ttl=2)
+def load_all_data():
+    try:
+        df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
+        df.columns = df.columns.str.strip()
+        # 强制转换数值列，防止对比或计算报错
+        for c in ["收入", "支出", "余额"]:
+            df[c] = pd.to_numeric(df[c], errors='coerce').fillna(0)
+        return df
+    except:
+        return pd.DataFrame()
+
+def handle_currency_change():
+    new_curr = st.session_state.sel_curr
+    st.session_state.input_rate = float(get_reference_rate(df_latest, new_curr))
+
 def get_reference_rate(df_history, currency):
-    now = datetime.now()
-    if not df_history.empty and "备注" in df_history.columns:
-        this_month_str = now.strftime('%Y-%m')
-        df_this_month = df_history[df_history['日期'].astype(str).str.contains(this_month_str)]
-        for note in df_this_month['备注'].iloc[::-1]:
-            if "【原币" in str(note) and f"{currency}" in str(note):
-                try:
-                    return float(note.split("汇率：")[1].split("】")[0])
-                except:
-                    continue
+    if currency == "USD": return 1.0
     rates = {"RMB": 7.23, "VND": 25450.0, "HKD": 7.82}
     try:
-        res = requests.get("https://open.er-api.com/v6/latest/USD", timeout=3)
+        res = requests.get("https://open.er-api.com/v6/latest/USD", timeout=1)
         if res.status_code == 200:
-            data = res.json().get("rates", {})
-            rates = {"RMB": data.get("CNY", 7.23), "VND": data.get("VND", 25450.0), "HKD": data.get("HKD", 7.82)}
-    except:
-        pass
+            api = res.json().get("rates", {})
+            rates = {"RMB": api.get("CNY", 7.23), "VND": api.get("VND", 25450.0), "HKD": api.get("HKD", 7.82)}
+    except: pass
     return rates.get(currency, 1.0)
 
-# --- 常量定义 ---
-CORE_BUSINESS_TYPES = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本"]
-OTHER_INCOME_TYPES = ["网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
-OTHER_EXPENSE_TYPES = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
-ALL_FUND_PROPERTIES = (CORE_BUSINESS_TYPES[:5] + OTHER_INCOME_TYPES) + (CORE_BUSINESS_TYPES[5:] + OTHER_EXPENSE_TYPES)
+def get_unique_list(df, col_name):
+    if df.empty or col_name not in df.columns: return []
+    return sorted([str(x) for x in df[col_name].unique() if x and str(x)!='nan'])
 
-# --- 侧边栏 ---
-st.sidebar.title("💰 富邦现金日记账")
-role = st.sidebar.radio("选择功能模块", ["数据录入", "管理看板"])
-password = st.sidebar.text_input("请输入访问密码", type="password")
+df_latest = load_all_data()
+if 'input_rate' not in st.session_state: st.session_state.input_rate = 1.0
 
-if role == "数据录入" and password == STAFF_PWD:
-    st.title("📝 日记账录入")
+# --- 3. 界面侧边栏 ---
+role = st.sidebar.radio("📋 功能选择", ["数据录入", "汇总统计"])
+pwd = st.sidebar.text_input("🔑 访问密码", type="password")
+
+# --- 4. 页面 A：数据录入 ---
+if role == "数据录入" and pwd == STAFF_PWD:
+    st.title("📝 财务数据录入")
+    last_bal = df_latest["余额"].iloc[-1] if not df_latest.empty else 0.0
+    st.info(f"💵 总结余：**${last_bal:,.2f}** | {get_now_str()}")
+
+    st.markdown("### 1️⃣ 业务摘要")
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        final_summary = st.text_input("摘要内容", placeholder="请手动输入本笔业务描述...")
+    with c2:
+        biz_date = st.date_input("业务日期", value=datetime.now(LOCAL_TZ))
+
+    st.markdown("### 2️⃣ 金额与结算")
+    cc1, cc2, cc3 = st.columns(3)
+    with cc1:
+        ALL_PROPS = ["期初结存", "内部调拨-转入", "内部调拨-转出", "工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "借款", "往来款收回", "押金收回", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
+        fund_p = st.selectbox("资金性质", ALL_PROPS)
+        currency = st.selectbox("录入币种", ["USD", "RMB", "VND", "HKD"], key="sel_curr", on_change=handle_currency_change)
+    with cc2:
+        raw_amt = st.number_input("原币金额", min_value=0.0, step=0.01)
+        ex_rate = st.number_input("实时汇率", key="input_rate", format="%.4f")
+    with cc3:
+        acc_list = get_unique_list(df_latest, "账户")
+        a_sel = st.selectbox("结算账户", ["🔍 选择历史账户"] + acc_list + ["➕ 新增账户"])
+        final_acc = st.text_input("✍️ 输入新账户") if a_sel == "➕ 新增账户" else a_sel
+
+    st.markdown("### 3️⃣ 相关方信息")
+    hc1, hc2, hc3 = st.columns(3)
+    with hc1:
+        f_p = ""
+        PROJECT_TRIGGER = ["工程收入", "施工收入", "产品销售收入", "服务收入", "网络收入", "预收款", "工程成本", "施工成本"]
+        if fund_p in PROJECT_TRIGGER:
+            p_list = get_unique_list(df_latest, "客户/项目名称")
+            p_sel = st.selectbox("项目/客户", ["🔍 选择历史项目"] + p_list + ["➕ 新增项目"])
+            f_p = st.text_input("✍️ 输入新项目") if p_sel == "➕ 新增项目" else (p_sel if "🔍" not in str(p_sel) else "")
+        else:
+            st.write("ℹ️ 此性质无需填写项目")
+    with hc2:
+        h_list = get_unique_list(df_latest, "经手人")
+        h_sel = st.selectbox("经手人", ["🔍 选择历史人员"] + h_list + ["➕ 新增人员"])
+        f_h = st.text_input("✍️ 输入新姓名") if h_sel == "➕ 新增人员" else h_sel
+    with hc3:
+        ref_no = st.text_input("审批/发票编号")
+        note = st.text_area("备注", height=68)
+
+    if st.button("🚀 提交账目流水", use_container_width=True):
+        if not final_summary or "🔍" in str(final_acc) or "🔍" in str(f_h):
+            st.error("❌ 摘要、账户和经手人不能为空！")
+        else:
+            final_usd = raw_amt / st.session_state.input_rate if st.session_state.input_rate > 0 else 0
+            is_inc = fund_p in ["期初结存", "内部调拨-转入", "工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
+            inc_v, exp_v = (final_usd, 0) if is_inc else (0, final_usd)
+            rate_tag = f"【原币：{raw_amt} {currency}，汇率：{st.session_state.input_rate}】"
+            today = "R" + datetime.now(LOCAL_TZ).strftime("%Y%m%d")
+            sn = today + f"{len(df_latest[df_latest['录入编号'].astype(str).str.contains(today, na=False)]) + 1:03d}"
+            row = {"录入编号": sn, "提交时间": get_now_str(), "日期": biz_date.strftime('%Y-%m-%d'), "摘要": final_summary, "客户/项目名称": f_p, "账户": final_acc, "资金性质": fund_p, "收入": inc_v, "支出": exp_v, "余额": last_bal + inc_v - exp_v, "经手人": f_h, "备注": f"{note} {rate_tag}", "审批/发票编号": ref_no}
+            conn.update(worksheet="Summary", data=pd.concat([df_latest, pd.DataFrame([row])], ignore_index=True))
+            st.cache_data.clear(); st.balloons(); st.success("✅ 提交成功！"); time.sleep(1); st.rerun()
+
+# --- 5. 页面 B：汇总统计与修正 ---
+elif role == "汇总统计" and pwd == ADMIN_PWD:
+    st.title("📊 账户汇总与管理")
     
-    df_latest = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-    last_balance = float(df_latest.iloc[-1]["余额"]) if not df_latest.empty else 0.0
-    st.info(f"💵 当前结余：**${last_balance:,.2f}** (USD)")
+    if not df_latest.empty:
+        # 1. 顶部统计
+        st.subheader("🏦 账户本月收支汇总")
+        this_month = datetime.now(LOCAL_TZ).strftime('%Y-%m')
+        summary_list = []
+        for acc in get_unique_list(df_latest, "账户"):
+            df_acc = df_latest[df_latest["账户"] == acc]
+            df_before = df_acc[df_acc["日期"].astype(str) < f"{this_month}-01"]
+            open_bal = df_before["余额"].iloc[-1] if not df_before.empty else 0
+            df_m = df_acc[df_acc["日期"].astype(str).str.contains(this_month)]
+            summary_list.append({"账户": acc, "期初": open_bal, "月收入": df_m["收入"].sum(), "月支出": df_m["支出"].sum(), "实时结余": df_acc["余额"].iloc[-1]})
+        st.table(pd.DataFrame(summary_list))
 
-    # --- 实时互动区 (移出 Form 外以支持秒级联动) ---
-    col1, col2 = st.columns(2)
-    with col1:
-        report_date = st.date_input("日期")
-        fund_property = st.selectbox("资金性质", ALL_FUND_PROPERTIES)
-        currency = st.selectbox("录入币种", ["USD", "RMB", "VND", "HKD"])
+        st.divider()
         
-        # 联动汇率
-        ref_rate = 1.0 if currency == "USD" else get_reference_rate(df_latest, currency)
-        exchange_rate = st.number_input(f"记账汇率", value=float(ref_rate), format="%.4f")
-        
-        # 联动金额框标签
-        raw_amount = st.number_input(f"录入金额 ({currency})", min_value=0.0, step=0.01)
-        
-        # 计算预估
-        final_usd = raw_amount / exchange_rate if exchange_rate > 0 else 0.0
-        st.markdown(f"📊 **当前折合预估：${final_usd:,.2f} USD**")
-
-    with col2:
-        account_type = st.selectbox("结算账户", ["ABA_924_个人户", "ABA_403_个人户", "ABA_313_FB公司户","ICBC_215_AF公司户", "BOC_052_FB公司户", "BOC_063_FB公司户", "BOC_892_瑞尔_FB公司户", "ICBC_854_FB公司户", "CCB_762_人民币_个人户", "BOC_865_人民币_亚堡公司户", "CCB_825_美元_昆仑公司户", "CCB_825_港币_昆仑公司户", "CCB_825_人民币_昆仑公司户", "CMB_002_人民币_科吉公司户", "CMB_032_美元_科吉公司户", "ABA_357_定期", "HUONE_USD", "HUONE_USDT", "现金"])
-        project_name = st.text_input("💎 客户/项目名称 (必填项)") if fund_property in CORE_BUSINESS_TYPES else ""
-        ref_no = st.text_input("📑 审批/发票编号")
-        
-        handlers = sorted([h for h in df_latest["经手人"].unique().tolist() if h]) if not df_latest.empty else []
-        h_select = st.selectbox("经手人", ["🔍 选择"] + handlers + ["➕ 新增"])
-        new_h = st.text_input("👤 输入新名字") if h_select == "➕ 新增" else ""
-
-    # --- 提交确认区 ---
-    with st.form("confirm_submit", clear_on_submit=True):
-        summary = st.text_input("摘要 (必填)")
-        note = st.text_area("备注")
-        
-        if st.form_submit_button("🚀 提交并同步"):
-            handler = new_h if h_select == "➕ 新增" else h_select
-            if not summary or handler in ["🔍 选择", ""]:
-                st.error("❌ 摘要和经手人不能为空！")
-            elif fund_property in CORE_BUSINESS_TYPES and not project_name:
-                st.error(f"❌ 选了【{fund_property}】，客户/项目名称必须填写！")
-            elif final_usd <= 0:
-                st.error("❌ 录入金额无效！")
-            else:
-                try:
-                    inc = final_usd if fund_property in (CORE_BUSINESS_TYPES[:5] + OTHER_INCOME_TYPES) else 0.0
-                    exp = final_usd if fund_property in (CORE_BUSINESS_TYPES[5:] + OTHER_EXPENSE_TYPES) else 0.0
-                    auto_note = f"【原币：{raw_amount} {currency}，汇率：{exchange_rate}】 " + (note if note else "")
+        # 2. 修正模块 (无需新插件的稳健方案)
+        st.subheader("🛠️ 数据修正中心")
+        with st.expander("🔍 点击此处，输入编号修改错误账目"):
+            all_sn = df_latest["录入编号"].tolist()[::-1]
+            target_sn = st.selectbox("请选择要修改的【录入编号】", options=["-- 请选择 --"] + all_sn)
+            
+            if target_sn != "-- 请选择 --":
+                old_row = df_latest[df_latest["录入编号"] == target_sn].iloc[0]
+                st.info(f"正在编辑记录：{target_sn}")
+                with st.form("edit_form"):
+                    col1, col2, col3 = st.columns(3)
+                    u_sum = col1.text_input("摘要", value=str(old_row["摘要"]))
+                    u_inc = col2.number_input("收入($)", value=float(old_row["收入"]))
+                    u_exp = col3.number_input("支出($)", value=float(old_row["支出"]))
+                    u_note = st.text_area("备注", value=str(old_row["备注"]))
                     
-                    new_row = {
-                        "日期": report_date.strftime('%Y-%m-%d'),
-                        "摘要": summary, "客户/项目名称": project_name,
-                        "账户": account_type, "审批/发票编号": ref_no,
-                        "资金性质": fund_property, "收入": inc, "支出": exp,
-                        "余额": last_balance + inc - exp, "经手人": handler, "备注": auto_note
-                    }
-                    
-                    updated_df = pd.concat([df_latest, pd.DataFrame([new_row])], ignore_index=True).fillna("")
-                    conn.update(worksheet="Summary", data=updated_df)
-                    st.success(f"✅ 录入成功！折合：${final_usd:,.2f}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"失败: {e}")
+                    if st.form_submit_button("💾 保存并更新 Google 表格"):
+                        idx = df_latest[df_latest["录入编号"] == target_sn].index[0]
+                        df_latest.at[idx, "摘要"] = u_sum
+                        df_latest.at[idx, "收入"] = u_inc
+                        df_latest.at[idx, "支出"] = u_exp
+                        df_latest.at[idx, "备注"] = u_note
+                        conn.update(worksheet="Summary", data=df_latest)
+                        st.success(f"编号 {target_sn} 已更新！"); st.cache_data.clear(); time.sleep(1); st.rerun()
 
-elif role == "管理看板" and password == ADMIN_PWD:
-    st.title("📊 财务看板 (USD)")
-    df_sum = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-    if not df_sum.empty:
-        for c in ["收入", "支出", "余额"]: 
-            df_sum[c] = pd.to_numeric(df_sum[c], errors='coerce').fillna(0)
-        st.dataframe(df_sum.sort_index(ascending=False), use_container_width=True)
+        st.divider()
+        # 3. 原始明细
+        st.subheader("📑 原始流水明细")
+        st.dataframe(df_latest.sort_values("录入编号", ascending=False), use_container_width=True, hide_index=True)
+else:
+    st.warning("⚠️ 请在侧边栏输入密码访问")
+

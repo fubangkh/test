@@ -235,7 +235,7 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                 # 修改点：将保存按钮和放弃按钮在表单底部并排
                 btn_c1, btn_c2 = st.columns(2)
                 with btn_c1:
-                    save_clicked = st.form_submit_button("💾 确认保存全字段修正", use_container_width=True)
+                    save_clicked = st.form_submit_button("💾 确认保存", use_container_width=True)
                 with btn_c2:
                     # 注意：在 st.form 内部，只能有一个真正的 submit_button，
                     # 另一个必须通过 form 外的逻辑或逻辑分支实现。
@@ -275,3 +275,4 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                     st.rerun()
 else:
     st.warning("🔒 权限验证：请输入正确密码访问。")
+

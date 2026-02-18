@@ -263,9 +263,15 @@ if pwd == ADMIN_PWD:
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
     # 3. 最终显示
-    st.dataframe(df_display, use_container_width=True, hide_index=True)
+    # 通用性最强的样式法：强制所有单元格内容居右
+    st.dataframe(
+        df_display.style.set_properties(**{'text-align': 'right'}), 
+        use_container_width=True, 
+        hide_index=True
+    )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

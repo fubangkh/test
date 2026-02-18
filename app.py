@@ -292,8 +292,9 @@ if pwd == ADMIN_PWD:
             )
         }
 )
-        else:
+else:
     st.info("请输入密码解锁系统")
+
 
 
 

@@ -263,18 +263,23 @@ if pwd == ADMIN_PWD:
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
     # 3. 最终显示：确保 column_config 和上面的参数对齐
-    # 注意：使用 .style 强制让字符串类型的金额列右对齐
+  # 如果 .style 方案失效，请尝试直接在 column_config 里利用 NumberColumn 的右对齐特性
+    # 但由于我们 map 过了字符串，这里要稍微绕一下
     st.dataframe(
-        df_display.style.set_properties(subset=money_cols, **{'text-align': 'right'}), 
+        df_display, 
         use_container_width=True, 
         hide_index=True,
         column_config={
+            "收入": st.column_config.TextColumn("收入", width="medium"), # 虽然是 Text，但 Streamlit 有时会根据内容对齐
+            "支出": st.column_config.TextColumn("支出", width="medium"),
+            "余额": st.column_config.TextColumn("余额", width="medium"),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small")
         }
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

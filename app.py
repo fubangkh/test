@@ -271,10 +271,13 @@ if pwd == ADMIN_PWD:
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
     # 3. 最终显示：使用通用的 Column 配置
+    # 在 st.dataframe 内部使用 .style 来强制右对齐这三列
     st.dataframe(
-        df_display, 
+        df_display.style.set_properties(subset=['收入', '支出', '余额'], **{'text-align': 'right'}), 
         use_container_width=True, 
         hide_index=True,
+        # 此时可以不写 column_config，或者只写非金额列的配置
+    )
         column_config={
             "收入": st.column_config.Column(
                 "收入",
@@ -295,6 +298,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

@@ -252,26 +252,22 @@ if pwd == ADMIN_PWD:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
-   # 1. 准备显示数据
+   # 1. 准备数据
     df_display = df_main.sort_values("录入编号", ascending=False).copy()
     
-    # 2. 格式化金额列：手动加上逗号、小数点，并强制右对齐
+    # 2. 格式化金额（带逗号和2位小数）
     money_cols = ['收入', '支出', '余额']
     for col in money_cols:
         if col in df_display.columns:
-            # {:,.2f} 负责千分位逗号和 2 位小数
             df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
-    # 3. 最终显示：通过 column_config 强制右对齐
-    # 强制右对齐样式补丁
-    styled_df = df_display.style.set_properties(subset=['收入', '支出', '余额'], **{'text-align': 'right'})
+    # 3. 显示表格（确保括号内的每一行都保持 8 个空格或 2 个 Tab 的对齐）
     st.dataframe(
-        styled_df, 
-        use_container_width=True, 
-        hide_index=True
-    )
-    column_config={
-            "收入": st.column_config.Column("收入", width="medium", help="右对齐文本"),
+        df_display,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "收入": st.column_config.Column("收入", width="medium"),
             "支出": st.column_config.Column("支出", width="medium"),
             "余额": st.column_config.Column("余额", width="medium"),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
@@ -280,6 +276,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

@@ -58,21 +58,24 @@ if role == "数据录入":
                         exp = amount if trans_type == "支出" else 0.0
                         new_balance = last_balance + inc - exp
                         
-                        # 构造新行
+                        # 💡 构造新行：删掉了 "序号" 键值对
                         new_row = {
-                            "序号": len(df_latest) + 1,
                             "日期": report_date.strftime('%Y-%m-%d'),
-                            "摘要": summary, "账户": account_type, "审批/发票编号": ref_no,
-                            "收支类型": trans_type, "收入": inc, "支出": exp,
-                            "余额": new_balance, "经手人": handler, "备注": note
+                            "摘要": summary, 
+                            "账户": account_type, 
+                            "审批/发票编号": ref_no,
+                            "收支类型": trans_type, 
+                            "收入": inc, 
+                            "支出": exp,
+                            "余额": new_balance, 
+                            "经手人": handler, 
+                            "备注": note
                         }
                         
                         updated_df = pd.concat([df_latest, pd.DataFrame([new_row])], ignore_index=True).fillna("")
                         conn.update(worksheet="Summary", data=updated_df)
                         
-                        st.success(f"✅ 录入成功！结余已更新为：¥{new_balance:,.2f}")
-                        st.balloons()
-                        # 提交后强制刷新页面以更新顶部的“当前账面余额”显示
+                        st.success(f"✅ 记录已同步！当前结余：¥{new_balance:,.2f}")
                         st.rerun()
                     except Exception as e:
                         st.error(f"同步失败: {e}")
@@ -159,6 +162,7 @@ elif role == "管理看板":
                             st.error(f"删除失败: {e}")
         except Exception as e:
             st.error(f"计算看板指标时出错: {e}")
+
 
 
 

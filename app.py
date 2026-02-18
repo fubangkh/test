@@ -59,12 +59,22 @@ role = st.sidebar.radio("📋 功能选择", ["数据录入", "汇总统计"])
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 
 # --- 4. 页面 A：数据录入 ---
+# --- 优化后的录入逻辑片段 (请替换原代码中的对应部分) ---
+
 if role == "数据录入" and pwd == STAFF_PWD:
     st.title("📝 财务数据录入")
     last_bal = df_latest["余额"].iloc[-1] if not df_latest.empty else 0.0
     st.info(f"💵 总结余：**${last_bal:,.2f}** | 柬埔寨时间：{get_now_str()}")
 
-    # clear_on_submit=True 确保点击提交后输入框内容清空
+    # 1. 把“录入币种”和“汇率”提出来，放在表单外面，这样 on_change 才能生效
+    st.markdown("### 0️⃣ 汇率预设")
+    ex_c1, ex_c2 = st.columns(2)
+    with ex_c1:
+        currency = st.selectbox("录入币种", ["USD", "RMB", "VND", "HKD"], key="sel_curr", on_change=handle_currency_change)
+    with ex_c2:
+        ex_rate = st.number_input("实时汇率", key="input_rate", format="%.4f")
+
+    # 2. 进入正式表单
     with st.form("entry_form", clear_on_submit=True):
         st.markdown("### 1️⃣ 业务摘要")
         c1, c2 = st.columns([2, 1])
@@ -73,41 +83,38 @@ if role == "数据录入" and pwd == STAFF_PWD:
         with c2:
             biz_datetime = st.datetime_input("业务时间 (UTC+7)", value=get_now_local())
 
-        st.markdown("### 2️⃣ 金额与结算")
-        cc1, cc2, cc3 = st.columns(3)
+        st.markdown("### 2️⃣ 资金与账户")
+        cc1, cc2 = st.columns(2)
         with cc1:
             ALL_PROPS = ["期初结存", "内部调拨-转入", "内部调拨-转出", "工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "网络收入", "其他收入", "借款", "往来款收回", "押金收回", "工程成本", "施工成本", "网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
             fund_p = st.selectbox("资金性质", ALL_PROPS)
-            currency = st.selectbox("录入币种", ["USD", "RMB", "VND", "HKD"], key="sel_curr", on_change=handle_currency_change)
         with cc2:
             raw_amt = st.number_input("原币金额", min_value=0.0, step=0.01)
-            ex_rate = st.number_input("实时汇率", key="input_rate", format="%.4f")
-        with cc3:
-            acc_list = get_unique_list(df_latest, "账户")
-            a_sel = st.selectbox("结算账户", ["🔍 选择历史账户"] + acc_list + ["➕ 新增账户"])
-            final_acc = st.text_input("✍️ 输入新账户") if a_sel == "➕ 新增账户" else a_sel
+
+        # 账户选择
+        acc_list = get_unique_list(df_latest, "账户")
+        a_sel = st.selectbox("结算账户", ["🔍 选择历史账户"] + acc_list + ["➕ 新增账户"])
+        final_acc = st.text_input("✍️ 如果是新账户，请在此输入名称") if a_sel == "➕ 新增账户" else a_sel
 
         st.markdown("### 3️⃣ 相关方信息")
-        hc1, hc2, hc3 = st.columns(3)
+        hc1, hc2 = st.columns(2)
         with hc1:
             f_p = ""
             PROJECT_TRIGGER = ["工程收入", "施工收入", "产品销售收入", "服务收入", "网络收入", "预收款", "工程成本", "施工成本"]
             if fund_p in PROJECT_TRIGGER:
                 p_list = get_unique_list(df_latest, "客户/项目名称")
                 p_sel = st.selectbox("项目/客户", ["🔍 选择历史项目"] + p_list + ["➕ 新增项目"])
-                f_p = st.text_input("✍️ 输入新项目") if p_sel == "➕ 新增项目" else (p_sel if "🔍" not in str(p_sel) else "")
-            else:
-                st.write("ℹ️ 无需项目信息")
+                f_p = st.text_input("✍️ 输入新项目名") if p_sel == "➕ 新增项目" else (p_sel if "🔍" not in str(p_sel) else "")
         with hc2:
             h_list = get_unique_list(df_latest, "经手人")
             h_sel = st.selectbox("经手人", ["🔍 选择历史人员"] + h_list + ["➕ 新增人员"])
             f_h = st.text_input("✍️ 输入新姓名") if h_sel == "➕ 新增人员" else h_sel
-        with hc3:
-            ref_no = st.text_input("审批/发票编号")
-            note = st.text_area("备注", height=68)
 
+        ref_no = st.text_input("审批/发票编号")
+        note = st.text_area("备注")
+
+        # 必须要有一个这个按钮
         submit_btn = st.form_submit_button("🚀 提交账目流水", use_container_width=True)
-
     if submit_btn:
         if not final_summary or "🔍" in str(final_acc) or "🔍" in str(f_h):
             st.error("❌ 摘要、账户和经手人不能为空！")
@@ -219,3 +226,4 @@ elif role == "汇总统计" and pwd == ADMIN_PWD:
                         st.rerun() # 彻底刷新页面，选择框回归默认，表单收起
 else:
     st.warning("🔒 权限验证：请输入正确密码访问。")
+

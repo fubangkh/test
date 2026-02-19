@@ -93,7 +93,7 @@ def entry_dialog():
 
     # 3. 性质与发票
     r4_c1, r4_c2 = st.columns(2)
-    val_inv = r4_c1.text_input("📑 审批/发票编号 (必填)")
+    val_inv = r4_c1.text_input("📑 审批/发票单号 (必填)")
     val_prop = r4_c2.selectbox("资金性质", ALL_PROPS)
     
     is_transfer = (val_prop == "资金结转")
@@ -134,7 +134,7 @@ def entry_dialog():
             st.error("⚠️ 金额必须大于 0！")
             return False
         if not val_inv or val_inv.strip() == "":
-            st.error("⚠️ 请输入【审批/发票编号】！")
+            st.error("⚠️ 请输入【审批/发票单号】！")
             return False
         if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --", "--", "-"]):
             st.error(f"⚠️ 【{val_prop}】必须关联有效项目！")
@@ -253,7 +253,7 @@ def edit_dialog(df):
         
         c7, c8 = st.columns(2)
         u_acc = c7.text_input("结算账户", value=str(old.get("结算账户", "")))
-        u_inv = c8.text_input("审批/发票编号", value=str(old.get("审批/发票编号", "")))
+        u_inv = c8.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
         
         u_prop = st.selectbox("资金性质", ["工程收入", "施工成本", "管理费用", "预收款", "其他"])
         u_note = st.text_area("备注详情", value=str(old.get("备注", "")))
@@ -308,6 +308,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

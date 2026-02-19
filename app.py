@@ -42,7 +42,11 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 @st.cache_data(ttl=0)
 def load_data():
-    return conn.read(worksheet="Summary", ttl=0).dropna(how="all")
+    # 先读取数据并去掉全空行
+    df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
+    # --- 关键新增：把所有的空值 (NaN) 替换成干净的空字符串 ---
+    df = df.fillna("")
+    return df
 
 def get_dynamic_options(df, column_name):
     try:
@@ -305,6 +309,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

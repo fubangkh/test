@@ -7,7 +7,7 @@ import requests
 from datetime import datetime
 
 # --- 1. 配置与全局样式 ---
-st.set_page_config(page_title="富邦财务系统", layout="wide")
+st.set_page_config(page_title="富邦日记账", layout="wide")
 ADMIN_PWD = "123"
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
@@ -28,12 +28,12 @@ st.markdown("""
 # --- 2. 核心功能：实时汇率 ---
 @st.cache_data(ttl=3600)
 def get_live_rates():
-    default_rates = {"USD": 1.0, "RMB": 7.23, "VND": 25450.0, "HKD": 7.82}
+    default_rates = {"USD": 1.0, "RMB": 6.91, "VND": 26000.0, "HKD": 7.82, "IDR": 16848.0}
     try:
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
             rates = response.json().get("rates", {})
-            return {"USD": 1.0, "RMB": rates.get("CNY", 7.23), "VND": rates.get("VND", 25450), "HKD": rates.get("HKD", 7.82)}
+            return {"USD": 1.0, "RMB": rates.get("CNY", 6.91), "VND": rates.get("VND", 26000), "HKD": rates.get("HKD", 7.82), "IDR": rates.get("IDR", 16848.0)}
     except: pass
     return default_rates
 
@@ -64,7 +64,7 @@ def entry_dialog():
     
     # 顶部结余显示
     current_balance = df['余额'].iloc[-1] if not df.empty else 0
-    st.write(f"💡 当前系统总结余: **${current_balance:,.2f}**")
+    st.write(f"💡 当前总结余: **${current_balance:,.2f}**")
     
     # 1. 摘要与时间
     c1, c2 = st.columns(2)
@@ -104,8 +104,8 @@ def entry_dialog():
         val_hand = st.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
 
     # 5. 项目与备注
-    proj_label = "📍 客户/项目名称 (必填)" if is_req else "客户/项目名称 (选填)"
-    sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目名称"))
+    proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
+    sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
     val_proj = st.text_input("✍️ 录入新项目名称") if sel_proj == "➕ 新增..." else sel_proj
     val_note = st.text_area("备注详情")
     
@@ -280,7 +280,6 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
-
 
 
 

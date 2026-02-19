@@ -103,10 +103,13 @@ def entry_dialog():
         sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
         val_hand = st.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
 
-    # 5. 项目与备注
+    # --- 5. 项目与备注
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
-    val_proj = st.text_input("✍️ 录入新客户/项目") if sel_proj == "➕ 新增..." else sel_proj
+    if sel_proj == "➕ 新增...":
+        val_proj = st.text_input("✍️ 录入新客户/项目", key="k_new_proj_input") 
+    else:
+        val_proj = sel_proj
     val_note = st.text_area("备注详情")
     
     st.divider()
@@ -280,6 +283,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

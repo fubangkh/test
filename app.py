@@ -304,10 +304,10 @@ if pwd == ADMIN_PWD:
     if not df_main.empty:
         # 【此处插入：月份选择器逻辑】------------------------------------------
         st.write("📅 **时间维度复盘**")
-        df_main['日期'] = pd.to_datetime(df_main['日期']) # 确保日期格式正确
+        df_main['日期'] = pd.to_datetime(df_main['提交时间']) # 确保日期格式正确
         
         # 获取可选的年、月
-        year_list = sorted(df_main['日期'].dt.year.unique().tolist(), reverse=True)
+        year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
         month_list = list(range(1, 13))
         
         c1, c2 = st.columns(2)
@@ -315,12 +315,12 @@ if pwd == ADMIN_PWD:
         sel_month = c2.selectbox("月份", month_list, index=datetime.now().month - 1)
 
         # 计算选中月和上个月的数据
-        df_this_month = df_main[(df_main['日期'].dt.month == sel_month) & (df_main['日期'].dt.year == sel_year)]
+        df_this_month = df_main[(df_main['提交时间'].dt.month == sel_month) & (df_main['提交时间'].dt.year == sel_year)]
         
         # 上个月逻辑处理
         lm = 12 if sel_month == 1 else sel_month - 1
         ly = sel_year - 1 if sel_month == 1 else sel_year
-        df_last_month = df_main[(df_main['日期'].dt.month == lm) & (df_main['日期'].dt.year == ly)]
+        df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['日期'].dt.year == ly)]
         
         # 计算本月和上月的具体数值
         tm_inc = df_this_month['收入'].sum()
@@ -394,6 +394,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

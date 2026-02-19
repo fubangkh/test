@@ -300,39 +300,68 @@ pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 if pwd == ADMIN_PWD:
     st.title("📊 实时汇总统计")
     df_main = load_data()
+    
     if not df_main.empty:
-        # --- 维度 A: 时间维度 (核心指标卡片) ---
-        # 计算总入、总出 (从主表汇总)
-        t_income = df_main['收入'].sum()
-        t_expense = df_main['支出'].sum()
-        t_balance = t_income - t_expense
+        # 【此处插入：月份选择器逻辑】------------------------------------------
+        st.write("📅 **时间维度复盘**")
+        df_main['日期'] = pd.to_datetime(df_main['日期']) # 确保日期格式正确
+        
+        # 获取可选的年、月
+        year_list = sorted(df_main['日期'].dt.year.unique().tolist(), reverse=True)
+        month_list = list(range(1, 13))
+        
+        c1, c2 = st.columns(2)
+        sel_year = c1.selectbox("年份", year_list, index=0)
+        sel_month = c2.selectbox("月份", month_list, index=datetime.now().month - 1)
 
-        # 创建三列布局
+        # 计算选中月和上个月的数据
+        df_this_month = df_main[(df_main['日期'].dt.month == sel_month) & (df_main['日期'].dt.year == sel_year)]
+        
+        # 上个月逻辑处理
+        lm = 12 if sel_month == 1 else sel_month - 1
+        ly = sel_year - 1 if sel_month == 1 else sel_year
+        df_last_month = df_main[(df_main['日期'].dt.month == lm) & (df_main['日期'].dt.year == ly)]
+        
+        # 计算本月和上月的具体数值
+        tm_inc = df_this_month['收入'].sum()
+        tm_exp = df_this_month['支出'].sum()
+        lm_inc = df_last_month['收入'].sum()
+        lm_exp = df_last_month['支出'].sum()
+        
+        inc_delta = tm_inc - lm_inc
+        exp_delta = tm_exp - lm_exp
+        # ------------------------------------------------------------------
+
+        # --- 维度 A: 时间维度 (核心指标卡片) ---
+        # 这里我们把原来的“总收入”改成“月度收入”，因为上面选了月份
         m1, m2, m3 = st.columns(3)
-        m1.metric("总收入", f"¥{t_income:,.2f}")
-        m2.metric("总支出", f"¥{t_expense:,.2f}", delta=f"-{t_expense:,.2f}", delta_color="inverse")
-        m3.metric("总结余", f"¥{t_balance:,.2f}")
+        m1.metric(f"{sel_month}月收入", f"${tm_inc:,.2f}", delta=f"{inc_delta:,.2f}")
+        m2.metric(f"{sel_month}月支出", f"${tm_exp:,.2f}", delta=f"{exp_delta:,.2f}", delta_color="inverse")
+        
+        # 总结余通常看全量的，保持不变
+        t_balance = df_main['收入'].sum() - df_main['支出'].sum()
+        m3.metric("总资产结余", f"${t_balance:,.2f}")
         
         st.divider()
 
         # --- 维度 B & C: 账户与分类 (双栏显示) ---
+        # 建议：如果你想看“当月”的分布，就把下面的 df_main 换成 df_this_month
+        # 如果你想看“全量”的分布，就维持原样使用 df_main
         col_left, col_right = st.columns(2)
-
+        
         with col_left:
-            st.write("🏦 **各账户当前余额**")
-            # 汇总每个账户的余额
+            st.write("🏦 **各账户当前余额**") # 余额通常看全量
             acc_stats = df_main.groupby('结算账户').apply(lambda x: x['收入'].sum() - x['支出'].sum()).reset_index()
             acc_stats.columns = ['账户', '余额']
-            st.dataframe(acc_stats.style.format({"余额": "¥{:,.2f}"}), use_container_width=True, hide_index=True)
+            st.dataframe(acc_stats.style.format({"余额": "${:,.2f}"}), use_container_width=True, hide_index=True)
 
         with col_right:
-            st.write("🏷️ **支出分类排行**")
-            # 仅统计支出大于0的部分
-            exp_stats = df_main[df_main['支出'] > 0].groupby('资金性质')['支出'].sum().sort_values(ascending=False).reset_index()
+            st.write(f"🏷️ **{sel_month}月支出排行**") # 支出排行建议看选中的月份
+            exp_stats = df_this_month[df_this_month['支出'] > 0].groupby('资金性质')['支出'].sum().sort_values(ascending=False).reset_index()
             if not exp_stats.empty:
-                st.dataframe(exp_stats.style.format({"支出": "¥{:,.2f}"}), use_container_width=True, hide_index=True)
+                st.dataframe(exp_stats.style.format({"支出": "${:,.2f}"}), use_container_width=True, hide_index=True)
             else:
-                st.caption("暂无支出数据")
+                st.caption("该月暂无支出")
 
         st.divider()
         h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
@@ -365,6 +394,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

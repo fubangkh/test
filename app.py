@@ -399,10 +399,23 @@ if pwd == ADMIN_PWD:
             try:
                 acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
 
+                # 4. 符号映射（修改这里）
                 def symbol_format(row):
                     val = row['RAW']
                     cur = row['CUR']
-                    sym_map = {"人民币": "¥", "港币": "HK$", "印尼盾": "Rp", "越南盾": "₫", "美元": "$"}
+                    # 关键：确保这里的 key 和你录入时选的值（RMB, USD等）完全一致
+                    sym_map = {
+                        "人民币": "¥", 
+                        "RMB": "¥",      # 新增这一行
+                        "港币": "HK$",
+                        "HKD": "HK$",
+                        "印尼盾": "Rp", 
+                        "IDR": "Rp",     # 建议顺便把缩写都加上
+                        "越南盾": "₫", 
+                        "VND": "₫",
+                        "美元": "$", 
+                        "USD": "$"
+                    }
                     sym = sym_map.get(cur, "$")
                     prefix = "-" if val < -0.01 else "" 
                     return f"{prefix}{sym}{abs(val):,.2f}"
@@ -460,3 +473,4 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+

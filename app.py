@@ -393,7 +393,8 @@ if pwd == ADMIN_PWD:
                 raw_bal = sum(get_raw_val(idx) for idx in group.index)
                 
                 # 3. 币种识别
-                cur_name = group['实际币种'].iloc[0] if (not group['实际币种'].empty and group['实际币种'].iloc[0] != "") else "美元"
+                valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
+                cur_name = valid_currencies[-1] if valid_currencies else "美元"
                 return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
 
             try:
@@ -473,4 +474,5 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 

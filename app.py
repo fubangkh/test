@@ -450,23 +450,28 @@ if pwd == ADMIN_PWD:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
-   # 1. 准备数据 (请确保这一行相对于上方的 if 缩进 4 个空格)
-    df_display = df_main.sort_values("录入编号", ascending=False).copy()
-    
-    # === 搜索框逻辑 ===
-    search_query = st.text_input("🔍 搜索流水", placeholder="输入摘要、客户、账户、备注...", label_visibility="collapsed")
-    
-    if search_query:
-        # 统一转成小写进行模糊匹配
-        q = search_query.lower()
-        # 筛选逻辑：多列匹配 (修正了 .str.contains)
-        mask = (
-            df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
-            df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False) |
-            df_display['结算账户'].astype(str).str.lower().str.contains(q, na=False) |
-            df_display['备注'].astype(str).str.lower().str.contains(q, na=False)
-        )
-        df_display = df_display[mask]
+   # 1. 准备数据并按时间筛选
+        df_display = df_main.copy()
+        df_display['提交时间'] = pd.to_datetime(df_display['提交时间'], errors='coerce')
+        
+        # 核心逻辑：利用上方选定的 sel_year 和 sel_month 过滤数据
+        df_display = df_display[
+            (df_display['提交时间'].dt.year == sel_year) & 
+            (df_display['提交时间'].dt.month == sel_month)
+        ]
+        
+        # 排序
+        df_display = df_display.sort_values("录入编号", ascending=False)
+        
+        # 2. 搜索框逻辑 (在当前月份结果中搜索)
+        search_query = st.text_input("🔍 搜索本月流水", placeholder="输入关键词...", label_visibility="collapsed")
+        if search_query:
+            q = search_query.lower()
+            mask = (
+                df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
+                df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
+            )
+            df_display = df_display[mask]
     
     # 2. 格式化金额（紧接着下方，保持对齐）
     money_cols = ['收入', '支出', '余额']
@@ -497,6 +502,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

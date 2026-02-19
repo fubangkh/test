@@ -472,7 +472,7 @@ if pwd == ADMIN_PWD:
             "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
             "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
-            "实际币种": st.column_config.textColumn("实际币种", width="small"),
+            "实际币种": st.column_config.TextColumn("实际币种", width="small"),
             "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
             "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
             "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
@@ -482,6 +482,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

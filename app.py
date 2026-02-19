@@ -186,14 +186,18 @@ def entry_dialog():
     if b1.button("📥 提交并继续", type="primary", use_container_width=True):
         if validate_and_submit():
             st.balloons()
-            st.success("数据已保存，请继续录入。")
-            time.sleep(1)
+            st.success("保存成功，请继续录入。")
             st.cache_data.clear()
+            st.session_state.show_form = True  # 强制保持开启状态
+            time.sleep(1)
+            st.session_state.input_amount = 0.0
             st.rerun()
 
     if b2.button("✅ 提交并返回", type="primary", use_container_width=True):
         if validate_and_submit():
             st.balloons()
+            st.success("保存成功")
+            time.sleep(1)
             st.cache_data.clear()
             st.rerun()
 
@@ -276,6 +280,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

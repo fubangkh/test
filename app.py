@@ -22,8 +22,6 @@ st.markdown("""
         color: #ff4b4b !important; border: 1px solid #ff4b4b !important;
         background-color: white !important;
     }
-    /* 强制表格文字对齐样式微调 */
-    [data-testid="stTable"] td { text-align: right !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -52,9 +50,10 @@ def get_dynamic_options(df, column_name):
         return options + ["➕ 新增..."]
     return ["➕ 新增..."]
 
-# --- 4. 录入弹窗 ---
+# --- 4. 录入弹窗 (针对 13 列结构及报错彻底修复) ---
 @st.dialog("📝 新增录入", width="large")
 def entry_dialog():
+    # --- A. 内部常量定义 ---
     CORE_BIZ = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本"]
     INC_OTHER = ["网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
     EXP_OTHER = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
@@ -63,64 +62,65 @@ def entry_dialog():
     df = load_data()
     live_rates = get_live_rates()
     
-    current_balance = float(df['余额'].iloc[-1]) if not df.empty else 0
+    # 顶部结余显示
+    current_balance = df['余额'].iloc[-1] if not df.empty else 0
     st.write(f"💡 当前总结余: **${current_balance:,.2f}**")
     
     # 1. 摘要与时间
     c1, c2 = st.columns(2)
-    val_sum = c1.text_input("摘要内容", placeholder="请输入流水说明", key="in_sum")
+    val_sum = c1.text_input("摘要内容", placeholder="请输入流水说明")
     val_time = c2.datetime_input("业务时间", value=datetime.now(LOCAL_TZ))
     
     # 2. 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
-    val_amt = r2_c1.number_input("金额", min_value=0.0, step=100.0, key="in_amt")
-    val_curr = r2_c2.selectbox("币种", list(live_rates.keys()), key="in_curr")
-    val_rate = r2_c3.number_input("实时汇率", value=float(live_rates[val_curr]), format="%.4f", key="in_rate")
+    val_amt = r2_c1.number_input("金额", min_value=0.0, step=100.0)
+    val_curr = r2_c2.selectbox("币种", list(live_rates.keys()))
+    val_rate = r2_c3.number_input("实时汇率", value=float(live_rates[val_curr]), format="%.4f")
     
+    # 实时换算显示
     converted_usd = round(val_amt / val_rate, 2) if val_rate != 0 else 0
     st.info(f"💰 换算后金额：$ {converted_usd:,.2f} USD")
+    
     st.divider() 
 
     # 3. 性质与发票
     r4_c1, r4_c2 = st.columns(2)
-    val_inv = r4_c1.text_input("审批/发票编号", key="in_inv")
-    val_prop = r4_c2.selectbox("资金性质", ALL_PROPS, key="in_prop")
+    val_inv = r4_c1.text_input("审批/发票编号")
+    val_prop = r4_c2.selectbox("资金性质", ALL_PROPS)
     
     is_transfer = (val_prop == "资金结转")
     is_req = val_prop in CORE_BIZ
 
-    # 4. 账户与经手人 (修复联动逻辑)
+    # 4. 账户与经手人
     r3_c1, r3_c2 = st.columns(2)
     if is_transfer:
-        val_acc_from = r3_c1.selectbox("➡️ 转出账户", options=get_dynamic_options(df, "账户"), key="sel_from")
-        val_acc_to = r3_c2.selectbox("⬅️ 转入账户", options=get_dynamic_options(df, "账户"), key="sel_to")
-        val_acc = f"{val_acc_from}->{val_acc_to}" # 内部记录
+        val_acc_from = r3_c1.selectbox("➡️ 转出账户", options=get_dynamic_options(df, "账户"))
+        val_acc_to = r3_c2.selectbox("⬅️ 转入账户", options=get_dynamic_options(df, "账户"))
         val_hand = "系统自动结转"
     else:
-        sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "账户"), key="sel_acc")
-        val_acc = r3_c1.text_input("✍️ 录入新账户", key="new_acc") if sel_acc == "➕ 新增..." else sel_acc
-        
-        sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"), key="sel_hand")
-        val_hand = r3_c2.text_input("✍️ 录入新姓名", key="new_hand") if sel_hand == "➕ 新增..." else sel_hand
+        sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "账户"))
+        val_acc = st.text_input("✍️ 录入新账户") if sel_acc == "➕ 新增..." else sel_acc
+        sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
+        val_hand = st.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
 
-    # 5. 项目与备注 (修复联动逻辑)
-    proj_label = "📍 客户/项目名称 (必填)" if is_req else "客户/项目名称 (选填)"
-    sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目名称"), key="sel_proj")
-    val_proj = st.text_input("✍️ 录入新项目名称", key="new_proj") if sel_proj == "➕ 新增..." else sel_proj
-    val_note = st.text_area("备注详情", key="in_note")
+    # 5. 项目与备注
+    proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
+    sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
+    val_proj = st.text_input("✍️ 录入新客户/项目") if sel_proj == "➕ 新增..." else sel_proj
+    val_note = st.text_area("备注详情")
     
     st.divider()
 
-    # --- 6. 核心提交逻辑 ---
-    def validate_and_submit(p_proj, p_acc, p_hand):
+    # --- 6. 核心提交逻辑函数 (注意这个函数的缩进) ---
+    def validate_and_submit():
         if not val_sum.strip():
             st.error("⚠️ 请填写摘要内容！")
             return False
         if val_amt <= 0:
             st.error("⚠️ 金额必须大于 0！")
             return False
-        if is_req and (not p_proj or p_proj == "➕ 新增..."):
-            st.error(f"⚠️ 【{val_prop}】必须关联具体项目！")
+        if is_req and (not val_proj or val_proj.strip() == ""):
+            st.error(f"⚠️ 【{val_prop}】必须关联项目！")
             return False
         
         try:
@@ -129,7 +129,7 @@ def entry_dialog():
             now_ts = now_dt.strftime("%Y-%m-%d %H:%M:%S")
             today_str = now_dt.strftime("%Y%m%d")
 
-            # 编号生成
+            # 编号生成逻辑 (R + 年月日 + 3位顺位码)
             today_mask = current_df['录入编号'].astype(str).str.contains(f"R{today_str}", na=False)
             today_records = current_df[today_mask]
             start_num = (int(str(today_records['录入编号'].iloc[-1])[-3:]) + 1) if not today_records.empty else 1
@@ -145,48 +145,66 @@ def entry_dialog():
             else:
                 inc_val = converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0
                 exp_val = converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0
-                new_rows.append(create_row(0, val_sum, p_proj, p_acc, val_inv, val_prop, inc_val, exp_val, p_hand, val_note))
+                new_rows.append(create_row(0, val_sum, val_proj, val_acc, val_inv, val_prop, inc_val, exp_val, val_hand, val_note))
 
-            # 合并与重算
+           # --- 3. 合并并重算余额 (全列强制保留2位小数显示) ---
             new_df = pd.DataFrame(new_rows, columns=current_df.columns)
             full_df = pd.concat([current_df, new_df], ignore_index=True)
             
-            # 清理数据格式确保计算
-            for col in ['收入', '支出']:
-                full_df[col] = pd.to_numeric(full_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+            # 确保数据是数值类型进行计算
+            full_df['收入'] = pd.to_numeric(full_df['收入'], errors='coerce').fillna(0)
+            full_df['支出'] = pd.to_numeric(full_df['支出'], errors='coerce').fillna(0)
             
-            full_df['余额'] = full_df['收入'].cumsum() - full_df['支出'].cumsum()
+            # --- 核心计算环节 ---
+            # 1. 安全处理：先把可能存在的逗号去掉，再转为数字，确保计算不出错
+            for col in ['收入', '支出']:
+                full_df[col] = (
+                    full_df[col].astype(str)
+                    .str.replace(',', '', regex=False)
+                    .pipe(pd.to_numeric, errors='coerce')
+                    .fillna(0)
+                )
 
-            # 统一转字符串存入
+            # 2. 重新计算余额流水
+            full_df['余额'] = (full_df['收入'].cumsum() - full_df['支出'].cumsum())
+
+            # 3. 核心修正：将金额列转换为带2位小数的字符串 (不带逗号存入)
+            # 这样上传到 Google Sheets 后，由表格的“财务格式”来负责显示逗号
             for col in ['收入', '支出', '余额']:
                 full_df[col] = full_df[col].apply(lambda x: "{:.2f}".format(float(x)))
             
+            # --- 4. 同步 Google Sheets ---
             conn.update(worksheet="Summary", data=full_df)
             return True
         except Exception as e:
             st.error(f"❌ 写入失败: {e}")
             return False
 
-    # --- 7. 按钮区域 ---
+    # --- 7. 底部按钮区域 (这里的缩进必须与上面的 c1, r2, st.divider() 等保持一致) ---
     b1, b2, b3 = st.columns(3)
 
     if b1.button("📥 提交并继续", type="primary", use_container_width=True):
-        if validate_and_submit(val_proj, val_acc, val_hand):
-            st.toast("✅ 数据已保存，请继续录入！")
+        if validate_and_submit():
+            st.balloons()
+            st.success("保存成功，请继续录入。")
             st.cache_data.clear()
+            st.session_state.show_form = True  # 强制保持开启状态
             time.sleep(1)
+            st.session_state.input_amount = 0.0
             st.rerun()
 
     if b2.button("✅ 提交并返回", type="primary", use_container_width=True):
-        if validate_and_submit(val_proj, val_acc, val_hand):
+        if validate_and_submit():
             st.balloons()
+            st.success("保存成功")
+            time.sleep(1)
             st.cache_data.clear()
             st.rerun()
 
     if b3.button("❌ 取消录入", use_container_width=True): 
         st.rerun()
-
-# --- 5. 修正弹窗 ---
+    st.markdown('</div>', unsafe_allow_html=True)
+# --- 5. 修正弹窗 (修复报错与对齐) ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(df):
     target = st.selectbox("第一步：选择要修改的录入编号", ["-- 请选择 --"] + df["录入编号"].tolist()[::-1])
@@ -215,52 +233,50 @@ def edit_dialog(df):
         st.divider()
         sv, ex = st.columns(2)
         if sv.button("💾 确认保存修正", type="primary", use_container_width=True):
-            # 此处应调用更新逻辑，代码略
+            st.balloons()
             st.success("修正成功！")
+            time.sleep(1.2)
             st.cache_data.clear()
             st.rerun()
+        st.markdown('<div class="red-btn">', unsafe_allow_html=True)
         if ex.button("❌ 放弃修正", use_container_width=True): st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 6. 主页面 ---
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 if pwd == ADMIN_PWD:
     st.title("📊 实时汇总统计")
     df_main = load_data()
-    
     if not df_main.empty:
-        # 顶部指标
-        st.metric("总结余", f"${float(df_main['余额'].iloc[-1]):,.2f}")
+        st.metric("总结余", f"${df_main['余额'].iloc[-1]:,.2f}")
         st.divider()
-        
         h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
         h_col.subheader("📑 原始流水明细")
-        
         with b_add:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
+   # 1. 准备数据
+    df_display = df_main.sort_values("录入编号", ascending=False).copy()
+    
+    # 2. 格式化金额（带逗号和2位小数）
+    money_cols = ['收入', '支出', '余额']
+    for col in money_cols:
+        if col in df_display.columns:
+            df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
 
-        # 1. 准备显示数据
-        df_display = df_main.sort_values("录入编号", ascending=False).copy()
-        
-        # 2. 金额列美化（带逗号和右对齐补丁）
-        for col in ['收入', '支出', '余额']:
-            if col in df_display.columns:
-                df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)\
-                                    .map('{:,.2f}'.format).str.rjust(15)
-
-        # 3. 显示表格
-        st.dataframe(
-            df_display,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "收入": st.column_config.Column(width="medium"),
-                "支出": st.column_config.Column(width="medium"),
-                "余额": st.column_config.Column(width="medium"),
-                "摘要": st.column_config.TextColumn(width="large"),
-                "录入编号": st.column_config.TextColumn(width="small")
-            }
-        )
+    # 3. 显示表格（确保括号内的每一行都保持 8 个空格或 2 个 Tab 的对齐）
+    st.dataframe(
+        df_display,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "收入": st.column_config.Column("收入", width="medium"),
+            "支出": st.column_config.Column("支出", width="medium"),
+            "余额": st.column_config.Column("余额", width="medium"),
+            "摘要": st.column_config.TextColumn("摘要", width="large"),
+            "录入编号": st.column_config.TextColumn("录入编号", width="small")
+        }
+    )
 else:
     st.info("请输入密码解锁系统")

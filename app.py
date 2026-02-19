@@ -103,16 +103,10 @@ def entry_dialog():
         sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
         val_hand = st.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
 
-    # --- 5. 项目与备注 (请确保代码长这样) ---
+    # 5. 项目与备注
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
-    # 1. 渲染下拉菜单
     sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
-    # 2. 判断逻辑：如果选了新增，就显示输入框并“强制锁定”变量
-    if sel_proj == "➕ 新增...":
-    # 核心：必须加 key，否则提交时数据会丢失
-    val_proj = st.text_input("✍️ 录入新客户/项目", key="k_new_proj_input")
-    else:
-    val_proj = sel_proj
+    val_proj = st.text_input("✍️ 录入新客户/项目") if sel_proj == "➕ 新增..." else sel_proj
     val_note = st.text_area("备注详情")
     
     st.divider()
@@ -286,5 +280,6 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 

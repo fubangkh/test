@@ -465,14 +465,17 @@ if pwd == ADMIN_PWD:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "收入": st.column_config.Column("收入", width="medium"),
-            "支出": st.column_config.Column("支出", width="medium"),
-            "余额": st.column_config.Column("余额", width="medium"),
+            "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
+            "实际币种": st.column_config.TextColumn("币种单位", width="small"),
+            "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
+            "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
+            "余额": st.column_config.Column("余额", width="small"),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small")
         }
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 

@@ -133,9 +133,23 @@ def entry_dialog():
         if val_amt <= 0:
             st.error("⚠️ 金额必须大于 0！")
             return False
+        if not val_inv or val_inv.strip() == "":
+            st.error("⚠️ 请输入【审批/发票编号】！")
+            return False
         if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --", "--", "-"]):
             st.error(f"⚠️ 【{val_prop}】必须关联有效项目！")
             return False
+        if is_transfer:
+            if val_acc_from == "-- 请选择 --" or val_acc_to == "-- 请选择 --":
+                st.error("⚠️ 请选择转出或转入账户！")
+                return False
+        else:
+            if not val_acc or val_acc.strip() in ["", "-- 请选择 --"]:
+                st.error("⚠️ 请输入或选择【结算账户】！")
+                return False
+            if not val_hand or val_hand.strip() in ["", "-- 请选择 --"]:
+                st.error("⚠️ 请输入或选择【经手人】！")
+                return False
         
         try:
             current_df = load_data()
@@ -294,6 +308,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

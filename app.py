@@ -13,25 +13,38 @@ LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
 st.markdown("""
     <style>
-    /* 1. 定制 Primary 按钮（确认提交）的样式 */
+    /* 1. 确认提交按钮：默认是清爽的浅绿灰色 */
     div.stButton > button[kind="primary"] {
-        background-color: #4F4F4F; /* 默认：深灰色 */
-        color: white;               /* 文字：白色 */
-        border: none;
-        transition: all 0.3s ease;  /* 让颜色过渡更丝滑 */
-    }
-
-    /* 2. 悬停状态：深灰变浅灰 */
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #808080; /* 悬停：浅灰色 */
+        background-color: #4CAF50; /* 默认：清爽绿 */
         color: white;
-        border-color: #808080;
+        border: none;
+        border-radius: 8px;        /* 圆角稍微圆润一点，更现代 */
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+        font-weight: 500;
     }
 
-    /* 3. 激活状态：点击时稍微再浅一点，增加反馈感 */
-    div.stButton > button[kind="primary"]:active {
-        background-color: #A9A9A9; 
-        transform: scale(0.98);     /* 点击时轻微缩小，模拟物理按压 */
+    /* 2. 悬停状态：变成明亮的绿色，并有一点点阴影 */
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #66BB6A; /* 悬停：亮绿 */
+        color: white;
+        border-color: #66BB6A;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* 增加一点点悬浮阴影感 */
+    }
+
+    /* 3. 取消返回按钮：极简浅灰色 */
+    div.stButton > button[kind="secondary"] {
+        background-color: #F8F9FA; 
+        color: #444;
+        border: 1px solid #E0E0E0;
+        border-radius: 8px;
+    }
+
+    /* 4. 取消按钮悬停：稍微深一点的灰 */
+    div.stButton > button[kind="secondary"]:hover {
+        background-color: #EEEEEE;
+        border-color: #CCCCCC;
+        color: #000;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -320,6 +333,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

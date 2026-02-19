@@ -208,30 +208,27 @@ def entry_dialog():
             st.error(f"❌ 写入失败: {e}")
             return False
 
-    # --- 7. 底部按钮区域 (这里的缩进必须与上面的 c1, r2, st.divider() 等保持一致) ---
-    b1, b2, b3 = st.columns(3)
+    # --- 7. 底部按钮区域 ---
+    st.divider() # 加上分割线更有层次感
+    col_sub, col_can = st.columns(2)
 
-    if b1.button("📥 提交并继续", type="primary", use_container_width=True):
-        if validate_and_submit():
-            st.balloons()
-            st.success("保存成功，请继续录入。")
-            st.cache_data.clear()
-            st.session_state.show_form = True  # 强制保持开启状态
-            time.sleep(1)
-            st.session_state.input_amount = 0.0
-            st.rerun()
+    # 1. 提交按钮
+    if col_sub.button("🚀 确认提交", type="primary", use_container_width=True):
+        with st.spinner("正在同步至云端..."):
+            if validate_and_submit():
+                st.toast("记账成功！数据已实时同步", icon="💰")
+                st.balloons()
+                st.cache_data.clear() # 清除缓存确保主页看到最新数据
+                time.sleep(1.2)
+                st.rerun()
 
-    if b2.button("✅ 提交并返回", type="primary", use_container_width=True):
-        if validate_and_submit():
-            st.balloons()
-            st.success("保存成功")
-            time.sleep(1)
-            st.cache_data.clear()
-            st.rerun()
-
-    if b3.button("❌ 取消录入", use_container_width=True): 
+    # 2. 取消按钮
+    if col_can.button("🗑️ 取消返回", use_container_width=True):
         st.rerun()
+
+    # 如果你之前有手动开启的 div 标签，记得闭合它
     st.markdown('</div>', unsafe_allow_html=True)
+    
 # --- 5. 修正弹窗 (修复报错与对齐) ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(df):
@@ -308,6 +305,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

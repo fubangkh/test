@@ -334,7 +334,8 @@ if pwd == ADMIN_PWD:
             t_balance = df_main['收入'].sum() - df_main['支出'].sum()
 
             with c3:
-                st.caption(f"💡 当前统计周期：{sel_year}年{sel_month}月")
+                #  st.caption(f"💡 当前统计周期：{sel_year}年{sel_month}月")
+                st.write(f"### 💡 当前统计周期：{sel_year}年{sel_month}月**")
 
             st.markdown("---") 
             
@@ -393,6 +394,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

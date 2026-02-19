@@ -353,13 +353,53 @@ if pwd == ADMIN_PWD:
         # 下面接着你之前的 st.divider() 和 维度 B & C (账户余额/排行)
         st.divider()
 
-        # 6. 下方账户余额和排行（建议也联动 sel_month）
+        # 6. 下方账户余额和排行
         col_l, col_r = st.columns(2)
         with col_l:
-            st.write("🏦 **各账户实时余额**")
-            acc_stats = df_main.groupby('结算账户').apply(lambda x: x['收入'].sum() - x['支出'].sum()).reset_index()
-            acc_stats.columns = ['账户', '余额']
-            st.dataframe(acc_stats.style.format({"余额": "${:,.2f}"}), use_container_width=True, hide_index=True)
+            st.write("🏦 **各账户当前余额 (原币对账)**")
+            
+            # --- 1. 核心计算：按账户分组汇总，处理正负数 ---
+            def calc_bank_balance(group):
+                # 美元部分（折算后的）
+                usd_bal = group['收入'].sum() - group['支出'].sum()
+                
+                # 原币对账部分（实际金额列）
+                # 逻辑：如果 支出 > 0，则认为实际金额是流出，取负值计算
+                group_temp = group.copy()
+                group_temp['实际金额'] = group_temp.apply(
+                    lambda row: -row['实际金额'] if row['支出'] > 0 else row['实际金额'], 
+                    axis=1
+                )
+                raw_bal = group_temp['实际金额'].sum()
+                
+                # 获取币种
+                cur_name = group['实际币种'].iloc[0] if not group['实际币种'].empty else "USD"
+                return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
+
+            acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
+
+            # --- 2. 符号映射函数 ---
+            def symbol_format(row):
+                val = row['RAW']
+                cur = row['CUR']
+                sym_map = {"人民币": "¥", "港币": "HK$", "印尼盾": "Rp", "越南盾": "₫", "美元": "$"}
+                sym = sym_map.get(cur, "")
+                prefix = "-" if val < -0.01 else "" # 避免极小浮点数显示负号
+                return f"{prefix}{sym}{abs(val):,.2f}"
+
+            acc_stats['银行卡实际金额'] = acc_stats.apply(symbol_format, axis=1)
+
+            # --- 3. 渲染表格 ---
+            st.dataframe(
+                acc_stats[['结算账户', 'USD', '银行卡实际金额']],
+                column_config={
+                    "结算账户": "账户名称",
+                    "USD": st.column_config.NumberColumn("折合美元 (USD)", format="$%.2f"),
+                    "银行卡实际金额": "银行对账单余额 (原币)"
+                },
+                use_container_width=True, 
+                hide_index=True
+            )
 
         with col_r:
             st.write(f"🏷️ **{sel_month}月支出排行**")
@@ -399,6 +439,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

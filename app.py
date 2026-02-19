@@ -46,11 +46,17 @@ def load_data():
 
 def get_dynamic_options(df, column_name):
     if not df.empty and column_name in df.columns:
-        options = sorted([str(x) for x in df[column_name].unique() if x and str(x).strip()])
-        return options + ["➕ 新增..."]
+        # 提取唯一值并转为字符串
+        options = [str(x).strip() for x in df[column_name].unique() if x]
+        # 核心修复：过滤掉 '--'、'nan'、'None' 等无效干扰项
+        clean_options = sorted([
+            x for x in options 
+            if x and x not in ["--", "-", "nan", "None", "0", "0.0"] and "➕" not in x
+        ])
+        return clean_options + ["➕ 新增..."]
     return ["➕ 新增..."]
-
-# --- 4. 录入弹窗 (针对 13 列结构及报错彻底修复) ---
+    
+   # --- 4. 录入弹窗 (针对 13 列结构及报错彻底修复) ---
 @st.dialog("📝 新增录入", width="large")
 def entry_dialog():
     # --- A. 内部常量定义 ---
@@ -107,9 +113,9 @@ def entry_dialog():
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
     if sel_proj == "➕ 新增...":
-        val_proj = st.text_input("✍️ 录入新客户/项目", key="k_new_proj_input") 
+        val_proj = st.text_input("✍️ 录入新客户/项目", value="", key="k_new_proj_final", placeholder="在此输入新名字...") 
     else:
-        val_proj = sel_proj
+        val_proj = "" if sel_proj in ["--", "-"] else sel_proj
     val_note = st.text_area("备注详情")
     
     st.divider()
@@ -122,8 +128,8 @@ def entry_dialog():
         if val_amt <= 0:
             st.error("⚠️ 金额必须大于 0！")
             return False
-        if is_req and (not val_proj or val_proj.strip() == ""):
-            st.error(f"⚠️ 【{val_prop}】必须关联项目！")
+        if is_req and (not val_proj or val_proj.strip() in ["", "--", "-"]):
+            st.error(f"⚠️ 【{val_prop}】必须关联有效项目，不能留空或使用横杠！")
             return False
         
         try:
@@ -283,6 +289,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

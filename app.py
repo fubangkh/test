@@ -191,18 +191,33 @@ def entry_dialog():
             start_num = (int(str(today_records['录入编号'].iloc[-1])[-3:]) + 1) if not today_records.empty else 1
 
             new_rows = []
-            def create_row(offset, s, p, a, i, pr, inc, exp, h, n):
+            # --- 核心修改：定义 15 列结构的行生成函数 ---
+            def create_row(offset, s, p, a, i, pr, raw_v, raw_c, inc, exp, h, n):
                 sn = f"R{today_str}{(start_num + offset):03d}"
-                return [sn, now_ts, now_ts, s, p, a, i, pr, round(float(inc), 2), round(float(exp), 2), 0, h, n]
+                # 严格对应 Sheets 15列顺序：
+                # 1.录入编号, 2.提交时间, 3.修改时间, 4.摘要, 5.客户/项目信息, 6.结算账户, 
+                # 7.审批/发票单号, 8.资金性质, 9.实际金额, 10.实际币种, 11.收入, 12.支出, 
+                # 13.余额, 14.经手人, 15.备注
+                return [
+                    sn, now_ts, now_ts, s, p, a, i, pr, 
+                    round(float(raw_v), 2),  # 第9列：实际金额
+                    raw_c,                   # 第10列：实际币种
+                    round(float(inc), 2),    # 第11列：收入(USD)
+                    round(float(exp), 2),    # 第12列：支出(USD)
+                    0,                       # 第13列：余额 (后面代码会统一重算)
+                    h, n                     # 第14,15列：经手人, 备注
+                ]
 
             if is_transfer:
-                new_rows.append(create_row(0, f"【转出】{val_sum}", "内部调拨", val_acc_from, val_inv, val_prop, 0, converted_usd, val_hand, val_note))
-                new_rows.append(create_row(1, f"【转入】{val_sum}", "内部调拨", val_acc_to, val_inv, val_prop, converted_usd, 0, val_hand, val_note))
+                # 转出：实际金额也记为 val_amt
+                new_rows.append(create_row(0, f"【转出】{val_sum}", "内部调拨", val_acc_from, val_inv, val_prop, val_amt, val_curr, 0, converted_usd, val_hand, val_note))
+                # 转入：实际金额也记为 val_amt
+                new_rows.append(create_row(1, f"【转入】{val_sum}", "内部调拨", val_acc_to, val_inv, val_prop, val_amt, val_curr, converted_usd, 0, val_hand, val_note))
             else:
                 inc_val = converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0
                 exp_val = converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0
-                new_rows.append(create_row(0, val_sum, val_proj, val_acc, val_inv, val_prop, inc_val, exp_val, val_hand, val_note))
-
+                # 正常录入
+                new_rows.append(create_row(0, val_sum, val_proj, val_acc, val_inv, val_prop, val_amt, val_curr, inc_val, exp_val, val_hand, val_note))
            # --- 3. 合并并重算余额 (全列强制保留2位小数显示) ---
             new_df = pd.DataFrame(new_rows, columns=current_df.columns)
             full_df = pd.concat([current_df, new_df], ignore_index=True)

@@ -51,7 +51,7 @@ def get_dynamic_options(df, column_name):
     return ["➕ 新增..."]
 
 # --- 4. 录入弹窗 (针对 13 列结构及报错彻底修复) ---
-@st.dialog("📝 数据录入", width="large")
+@st.dialog("📝 新增录入", width="large")
 def entry_dialog():
     # --- A. 内部常量定义 ---
     CORE_BIZ = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本"]
@@ -280,6 +280,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

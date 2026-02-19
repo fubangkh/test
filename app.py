@@ -15,7 +15,7 @@ st.markdown("""
     <style>
     /* 1. 确认提交按钮：默认是清爽的浅绿灰色 */
     div.stButton > button[kind="primary"] {
-        background-color: #4CAF50; /* 默认：清爽绿 */
+        background-color: #1F883D; /* 默认：清爽绿 */
         color: white;
         border: none;
         border-radius: 8px;        /* 圆角稍微圆润一点，更现代 */
@@ -333,6 +333,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

@@ -93,7 +93,7 @@ def entry_dialog():
 
     # 3. 性质与发票
     r4_c1, r4_c2 = st.columns(2)
-    val_inv = r4_c1.text_input("审批/发票编号")
+    val_inv = r4_c1.text_input("📑 审批/发票编号 (必填)")
     val_prop = r4_c2.selectbox("资金性质", ALL_PROPS)
     
     is_transfer = (val_prop == "资金结转")
@@ -308,6 +308,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

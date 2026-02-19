@@ -373,48 +373,54 @@ if pwd == ADMIN_PWD:
         with col_l:
             st.write("🏦 **各账户当前余额 (原币对账)**")
             
-            # --- 1. 核心计算：按账户分组汇总，处理正负数 ---
             def calc_bank_balance(group):
-                # 美元部分（折算后的）
-                usd_bal = group['收入'].sum() - group['支出'].sum()
+                # 1. 强制数值转换，防止 NaN 字符导致计算崩溃
+                inc_clean = pd.to_numeric(group['收入'], errors='coerce').fillna(0)
+                exp_clean = pd.to_numeric(group['支出'], errors='coerce').fillna(0)
+                amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
                 
-                # 原币对账部分（实际金额列）
-                # 逻辑：如果 支出 > 0，则认为实际金额是流出，取负值计算
-                group_temp = group.copy()
-                group_temp['实际金额'] = group_temp.apply(
-                    lambda row: -row['实际金额'] if row['支出'] > 0 else row['实际金额'], 
-                    axis=1
-                )
-                raw_bal = group_temp['实际金额'].sum()
+                usd_bal = inc_clean.sum() - exp_clean.sum()
                 
-                # 获取币种
-                cur_name = group['实际币种'].iloc[0] if not group['实际币种'].empty else "USD"
+                # 2. 原币对账逻辑（兼容旧账：如果实际金额为0，则用折合金额补位）
+                def get_raw_val(idx):
+                    val = amt_clean.loc[idx]
+                    if val == 0:  # 针对旧数据
+                        val = inc_clean.loc[idx] if inc_clean.loc[idx] > 0 else exp_clean.loc[idx]
+                    
+                    is_exp = exp_clean.loc[idx] > 0
+                    return -val if is_exp else val
+
+                raw_bal = sum(get_raw_val(idx) for idx in group.index)
+                
+                # 3. 币种识别
+                cur_name = group['实际币种'].iloc[0] if (not group['实际币种'].empty and group['实际币种'].iloc[0] != "") else "美元"
                 return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
 
-            acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
+            try:
+                acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
 
-            # --- 2. 符号映射函数 ---
-            def symbol_format(row):
-                val = row['RAW']
-                cur = row['CUR']
-                sym_map = {"人民币": "¥", "港币": "HK$", "印尼盾": "Rp", "越南盾": "₫", "美元": "$"}
-                sym = sym_map.get(cur, "")
-                prefix = "-" if val < -0.01 else "" # 避免极小浮点数显示负号
-                return f"{prefix}{sym}{abs(val):,.2f}"
+                def symbol_format(row):
+                    val = row['RAW']
+                    cur = row['CUR']
+                    sym_map = {"人民币": "¥", "港币": "HK$", "印尼盾": "Rp", "越南盾": "₫", "美元": "$"}
+                    sym = sym_map.get(cur, "$")
+                    prefix = "-" if val < -0.01 else "" 
+                    return f"{prefix}{sym}{abs(val):,.2f}"
 
-            acc_stats['银行卡实际金额'] = acc_stats.apply(symbol_format, axis=1)
+                acc_stats['银行卡实际金额'] = acc_stats.apply(symbol_format, axis=1)
 
-            # --- 3. 渲染表格 ---
-            st.dataframe(
-                acc_stats[['结算账户', 'USD', '银行卡实际金额']],
-                column_config={
-                    "结算账户": "账户名称",
-                    "USD": st.column_config.NumberColumn("折合美元 (USD)", format="$%.2f"),
-                    "银行卡实际金额": "银行对账单余额 (原币)"
-                },
-                use_container_width=True, 
-                hide_index=True
-            )
+                st.dataframe(
+                    acc_stats[['结算账户', 'USD', '银行卡实际金额']],
+                    column_config={
+                        "结算账户": "账户名称",
+                        "USD": st.column_config.NumberColumn("折合美元", format="$%.2f"),
+                        "银行卡实际金额": "银行对账单余额"
+                    },
+                    use_container_width=True, 
+                    hide_index=True
+                )
+            except Exception as e:
+                st.error(f"余额计算异常: {e}")
 
         with col_r:
             st.write(f"🏷️ **{sel_month}月支出排行**")
@@ -454,35 +460,3 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

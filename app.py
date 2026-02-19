@@ -335,7 +335,7 @@ if pwd == ADMIN_PWD:
 
             with c3:
                 # margin-top: 5px 或 8px 通常能让文字与下拉框的中轴线对齐
-                st.markdown(f
+                st.markdown(f"""
                     <div style="margin-top: 7px; padding-left: 5px;">
                         <span style="font-size: 1.2rem; font-weight: bold; color: #31333F;">
                             💡 当前统计周期：<span style="color: #4CAF50;">{sel_year}年{sel_month}月</span>
@@ -399,6 +399,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

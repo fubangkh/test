@@ -451,7 +451,22 @@ if pwd == ADMIN_PWD:
         with b_edit:
             if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
    # 1. 准备数据
-    df_display = df_main.sort_values("录入编号", ascending=False).copy()
+   df_display = df_main.sort_values("录入编号", ascending=False).copy()
+   
+   # === 这里是插入位置：搜索框逻辑 ===
+   search_query = st.text_input("🔍 搜索流水", placeholder="输入摘要、客户、账户、备注...", label_visibility="collapsed")
+   
+   if search_query:
+       # 统一转成小写进行模糊匹配
+       q = search_query.lower()
+       # 筛选逻辑：多列匹配
+       mask = (
+           df_display['摘要'].astype(str).str.lower().contains(q, na=False) |
+           df_display['客户/项目信息'].astype(str).str.lower().contains(q, na=False) |
+           df_display['结算账户'].astype(str).str.lower().contains(q, na=False) |
+           df_display['备注'].astype(str).str.lower().contains(q, na=False)
+       )
+       df_display = df_display[mask]
     
     # 2. 格式化金额（带逗号和2位小数）
     money_cols = ['收入', '支出', '余额']
@@ -482,9 +497,6 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
-
-
-
 
 
 

@@ -220,7 +220,7 @@ def edit_dialog(df):
         u_exp = c4.number_input("支出 (USD)", value=float(old.get("支出", 0)))
         
         c5, c6 = st.columns(2)
-        u_proj = c5.text_input("客户/项目名称", value=str(old.get("客户/项目名称", "")))
+        u_proj = c5.text_input("客户/项目信息", value=str(old.get("客户/项目信息", "")))
         u_hand = c6.text_input("经手人", value=str(old.get("经手人", "")))
         
         c7, c8 = st.columns(2)
@@ -280,6 +280,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

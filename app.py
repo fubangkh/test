@@ -301,7 +301,39 @@ if pwd == ADMIN_PWD:
     st.title("📊 实时汇总统计")
     df_main = load_data()
     if not df_main.empty:
-        st.metric("总结余", f"${df_main['余额'].iloc[-1]:,.2f}")
+        # --- 维度 A: 时间维度 (核心指标卡片) ---
+        # 计算总入、总出 (从主表汇总)
+        t_income = df_main['收入'].sum()
+        t_expense = df_main['支出'].sum()
+        t_balance = t_income - t_expense
+
+        # 创建三列布局
+        m1, m2, m3 = st.columns(3)
+        m1.metric("总收入", f"¥{t_income:,.2f}")
+        m2.metric("总支出", f"¥{t_expense:,.2f}", delta=f"-{t_expense:,.2f}", delta_color="inverse")
+        m3.metric("总结余", f"¥{t_balance:,.2f}")
+        
+        st.divider()
+
+        # --- 维度 B & C: 账户与分类 (双栏显示) ---
+        col_left, col_right = st.columns(2)
+
+        with col_left:
+            st.write("🏦 **各账户当前余额**")
+            # 汇总每个账户的余额
+            acc_stats = df_main.groupby('结算账户').apply(lambda x: x['收入'].sum() - x['支出'].sum()).reset_index()
+            acc_stats.columns = ['账户', '余额']
+            st.dataframe(acc_stats.style.format({"余额": "¥{:,.2f}"}), use_container_width=True, hide_index=True)
+
+        with col_right:
+            st.write("🏷️ **支出分类排行**")
+            # 仅统计支出大于0的部分
+            exp_stats = df_main[df_main['支出'] > 0].groupby('资金性质')['支出'].sum().sort_values(ascending=False).reset_index()
+            if not exp_stats.empty:
+                st.dataframe(exp_stats.style.format({"支出": "¥{:,.2f}"}), use_container_width=True, hide_index=True)
+            else:
+                st.caption("暂无支出数据")
+
         st.divider()
         h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
         h_col.subheader("📑 原始流水明细")
@@ -333,6 +365,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

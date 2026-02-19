@@ -335,7 +335,7 @@ if pwd == ADMIN_PWD:
 
             with c3:
                 #  st.caption(f"💡 当前统计周期：{sel_year}年{sel_month}月")
-                st.write(f"### 💡 当前统计周期：{sel_year}年{sel_month}月**")
+                st.write(f"# 💡 当前统计周期：{sel_year}年{sel_month}月")
 
             st.markdown("---") 
             
@@ -394,6 +394,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

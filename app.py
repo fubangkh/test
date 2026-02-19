@@ -13,17 +13,25 @@ LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
 st.markdown("""
     <style>
-    /* 让主按钮（确认提交）在鼠标悬停时变色 */
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #2e7d32; /* 这里换成你喜欢的颜色，比如深绿色 */
-        border-color: #2e7d32;
-        color: white;
+    /* 1. 定制 Primary 按钮（确认提交）的样式 */
+    div.stButton > button[kind="primary"] {
+        background-color: #4F4F4F; /* 默认：深灰色 */
+        color: white;               /* 文字：白色 */
+        border: none;
+        transition: all 0.3s ease;  /* 让颜色过渡更丝滑 */
     }
-    
-    /* 增加点击时的缩放效果，让它更有动感 */
-    div.stButton > button:active {
-        transform: scale(0.95);
-        transition: 0.1s;
+
+    /* 2. 悬停状态：深灰变浅灰 */
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #808080; /* 悬停：浅灰色 */
+        color: white;
+        border-color: #808080;
+    }
+
+    /* 3. 激活状态：点击时稍微再浅一点，增加反馈感 */
+    div.stButton > button[kind="primary"]:active {
+        background-color: #A9A9A9; 
+        transform: scale(0.98);     /* 点击时轻微缩小，模拟物理按压 */
     }
     </style>
 """, unsafe_allow_html=True)
@@ -312,6 +320,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

@@ -302,7 +302,7 @@ if pwd == ADMIN_PWD:
     df_main = load_data()
     
     if not df_main.empty:
-        st.write("📅 **时间维度看板**")
+        st.subheader("📅 **时间维度看板**")
         
         # 1. 统一转换日期格式（核心修复）
         df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
@@ -389,6 +389,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

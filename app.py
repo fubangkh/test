@@ -325,7 +325,7 @@ if pwd == ADMIN_PWD:
         # 上个月逻辑处理
         lm = 12 if sel_month == 1 else sel_month - 1
         ly = sel_year - 1 if sel_month == 1 else sel_year
-        df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['日期'].dt.year == ly)]
+        df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['提交时间'].dt.year == ly)]
         
         # 计算本月和上月的具体数值
         tm_inc = df_this_month['收入'].sum()
@@ -399,6 +399,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

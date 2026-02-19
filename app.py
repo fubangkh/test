@@ -102,11 +102,11 @@ def entry_dialog():
     # 4. 账户与经手人
     r3_c1, r3_c2 = st.columns(2)
     if is_transfer:
-        val_acc_from = r3_c1.selectbox("➡️ 转出账户", options=get_dynamic_options(df, "账户"))
-        val_acc_to = r3_c2.selectbox("⬅️ 转入账户", options=get_dynamic_options(df, "账户"))
+        val_acc_from = r3_c1.selectbox("➡️ 转出账户", options=get_dynamic_options(df, "结算账户"))
+        val_acc_to = r3_c2.selectbox("⬅️ 转入账户", options=get_dynamic_options(df, "结算账户"))
         val_hand = "系统自动结转"
     else:
-        sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "账户"))
+        sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "结算账户"))
         val_acc = st.text_input("✍️ 录入新账户") if sel_acc == "➕ 新增..." else sel_acc
         sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
         val_hand = st.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
@@ -252,7 +252,7 @@ def edit_dialog(df):
         u_hand = c6.text_input("经手人", value=str(old.get("经手人", "")))
         
         c7, c8 = st.columns(2)
-        u_acc = c7.text_input("结算账户", value=str(old.get("账户", "")))
+        u_acc = c7.text_input("结算账户", value=str(old.get("结算账户", "")))
         u_inv = c8.text_input("审批/发票编号", value=str(old.get("审批/发票编号", "")))
         
         u_prop = st.selectbox("资金性质", ["工程收入", "施工成本", "管理费用", "预收款", "其他"])
@@ -308,6 +308,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

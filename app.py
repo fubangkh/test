@@ -109,8 +109,8 @@ def entry_dialog():
     
     # 2. 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
-    val_amt = r2_c1.number_input("金额", min_value=0.0, step=100.0)
-    val_curr = r2_c2.selectbox("币种", list(live_rates.keys()))
+    val_amt = r2_c1.number_input("实际金额", min_value=0.0, step=100.0)
+    val_curr = r2_c2.selectbox("实际币种", list(live_rates.keys()))
     val_rate = r2_c3.number_input("实时汇率", value=float(live_rates[val_curr]), format="%.4f")
     
     # 实时换算显示
@@ -399,6 +399,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

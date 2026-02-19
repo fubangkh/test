@@ -465,7 +465,7 @@ if pwd == ADMIN_PWD:
         use_container_width=True,
         hide_index=True,
         column_config={
-            "录入编号": st.column_config.TextColumn("录入编号", width="small", alignment="left"),
+            "录入编号": st.column_config.TextColumn("录入编号", width="small"),
             "摘要": st.column_config.TextColumn("摘要", width="large", alignment="left"),
             "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium", alignment="left"),
             "结算账户": st.column_config.TextColumn("结算账户", width="medium", alignment="left"),
@@ -482,6 +482,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

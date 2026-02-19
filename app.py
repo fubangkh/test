@@ -298,49 +298,53 @@ def edit_dialog(df):
 # --- 6. 主页面 ---
 pwd = st.sidebar.text_input("🔑 访问密码", type="password")
 if pwd == ADMIN_PWD:
-    st.title("📊 实时汇总统计")
+    st.title("📊 汇总统计")
     df_main = load_data()
-    
     if not df_main.empty:
-        st.subheader("📅 **时间维度看板**")
-        
-        # 1. 统一转换日期格式（核心修复）
+        # --- 第一步：先做数据预处理 (必须在 UI 显示前算出数字) ---
         df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
         df_main = df_main.dropna(subset=['提交时间'])
-
-        # 2. 获取下拉菜单的选项
+        
         year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
         month_list = list(range(1, 13))
-        
-        c1, c2 = st.columns(2)
-        sel_year = c1.selectbox("年份选择", year_list, index=0)
-        sel_month = c2.selectbox("月份选择", month_list, index=datetime.now().month - 1)
 
-        # 3. 计算选中月和上个月的数据
-        df_this_month = df_main[(df_main['提交时间'].dt.month == sel_month) & (df_main['提交时间'].dt.year == sel_year)]
-        
-        lm = 12 if sel_month == 1 else sel_month - 1
-        ly = sel_year - 1 if sel_month == 1 else sel_year
-        df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['提交时间'].dt.year == ly)]
-        
-        # 4. 计算指标值
-        tm_inc = df_this_month['收入'].sum()
-        tm_exp = df_this_month['支出'].sum()
-        lm_inc = df_last_month['收入'].sum()
-        lm_exp = df_last_month['支出'].sum()
-        
-        inc_delta = tm_inc - lm_inc
-        exp_delta = tm_exp - lm_exp
+        # --- 第二步：插入你刚才看中的这个 UI 容器 ---
+        with st.container(border=True):
+            st.markdown("### 📅 时间维度看板") 
+            
+            c1, c2, c3 = st.columns([2, 2, 5]) 
+            with c1:
+                sel_year = st.selectbox("年份", year_list, index=0, label_visibility="collapsed")
+            with c2:
+                sel_month = st.selectbox("月份", month_list, index=datetime.now().month - 1, label_visibility="collapsed")
+            
+            # --- 第三步：在这里计算选中月份的数值 (tm_inc, tm_exp 等) ---
+            df_this_month = df_main[(df_main['提交时间'].dt.month == sel_month) & (df_main['提交时间'].dt.year == sel_year)]
+            
+            lm = 12 if sel_month == 1 else sel_month - 1
+            ly = sel_year - 1 if sel_month == 1 else sel_year
+            df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['提交时间'].dt.year == ly)]
+            
+            tm_inc = df_this_month['收入'].sum()
+            tm_exp = df_this_month['支出'].sum()
+            lm_inc = df_last_month['收入'].sum()
+            lm_exp = df_last_month['支出'].sum()
+            inc_delta = tm_inc - lm_inc
+            exp_delta = tm_exp - lm_exp
+            t_balance = df_main['收入'].sum() - df_main['支出'].sum()
 
-        # 5. 渲染指标卡片
-        m1, m2, m3 = st.columns(3)
-        m1.metric(f"{sel_month}月总收入", f"${tm_inc:,.2f}", delta=f"{inc_delta:,.2f}")
-        m2.metric(f"{sel_month}月总支出", f"${tm_exp:,.2f}", delta=f"{exp_delta:,.2f}", delta_color="inverse")
-        
-        # 总结余看全量的（基于你之前的代码逻辑）
-        t_balance = df_main['收入'].sum() - df_main['支出'].sum()
-        m3.metric("当前总结余", f"${t_balance:,.2f}")
-        
+            with c3:
+                st.caption(f"💡 当前统计周期：{sel_year}年{sel_month}月")
+
+            st.markdown("---") 
+            
+            # --- 第四步：渲染指标卡片 ---
+            m1, m2, m3 = st.columns(3)
+            m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}", delta=f"{inc_delta:,.2f}")
+            m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}", delta=f"{exp_delta:,.2f}", delta_color="inverse")
+            m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
+
+        # 下面接着你之前的 st.divider() 和 维度 B & C (账户余额/排行)
         st.divider()
 
         # 6. 下方账户余额和排行（建议也联动 sel_month）
@@ -389,6 +393,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

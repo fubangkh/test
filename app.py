@@ -13,17 +13,20 @@ LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
 st.markdown("""
     <style>
-    div.stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #0056b3 0%, #007bff 100%) !important;
-        color: white !important; font-size: 20px !important; font-weight: bold !important;
-        padding: 10px !important; border-radius: 10px !important;
+    /* 让主按钮（确认提交）在鼠标悬停时变色 */
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #2e7d32; /* 这里换成你喜欢的颜色，比如深绿色 */
+        border-color: #2e7d32;
+        color: white;
     }
-    .red-btn > div > button {
-        color: #ff4b4b !important; border: 1px solid #ff4b4b !important;
-        background-color: white !important;
+    
+    /* 增加点击时的缩放效果，让它更有动感 */
+    div.stButton > button:active {
+        transform: scale(0.95);
+        transition: 0.1s;
     }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # --- 2. 核心功能：实时汇率 ---
 @st.cache_data(ttl=3600)
@@ -309,6 +312,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

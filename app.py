@@ -106,7 +106,7 @@ def entry_dialog():
     # 5. 项目与备注
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
-    val_proj = st.text_input("✍️ 录入新项目名称") if sel_proj == "➕ 新增..." else sel_proj
+    val_proj = st.text_input("✍️ 录入新客户/项目") if sel_proj == "➕ 新增..." else sel_proj
     val_note = st.text_area("备注详情")
     
     st.divider()
@@ -280,6 +280,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

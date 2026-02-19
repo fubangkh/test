@@ -261,7 +261,7 @@ def edit_dialog(df):
 
         st.divider()
         sv, ex = st.columns(2)
-        if sv.button("💾 确认保存修正", type="primary", use_container_width=True):
+        if sv.button("💾 确认保存", type="primary", use_container_width=True):
             st.balloons()
             st.success("修正成功！")
             time.sleep(1.2)
@@ -309,6 +309,7 @@ if pwd == ADMIN_PWD:
     )
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

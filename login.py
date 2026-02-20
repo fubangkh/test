@@ -132,33 +132,7 @@ def show_login_page():
     }}
 
     /* 密码眼睛区域统一 */
-    div[data-baseweb="input"] > div > div:last-child {{
-        background: #f1f5f9 !important;
-        height: 3.3rem !important;
-        display: flex !important;
-        align-items: center !important;
-        padding: 0 12px !important;
-        border-left: none !important;
-    }}
-
-    div[data-baseweb="input"] input {{
-        padding-right: 50px !important;
-    }}
-
-    div[data-baseweb="input"] button,
-    div[data-baseweb="input"] [role="button"] {{
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-    }}
-
-    div[data-baseweb="input"] button svg,
-    div[data-baseweb="input"] [role="button"] svg {{
-        fill: var(--icon) !important;
-        stroke: var(--icon) !important;
-    }}
-
+    div[data-baseweb="input"] > div >
     /* 按钮 */
     .stButton > button {{
         width: 100% !important;

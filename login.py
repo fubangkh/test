@@ -56,7 +56,7 @@ def show_login_page():
 
             # 3. 输入区域 (移除所有可能导致冲突的 HTML 包裹)
             username = st.text_input("用户名", placeholder="👤请输入账号，测试账号123", key="user")
-            password = st.text_input("密码", placeholder="🔒      请输入密码，测试密码123", type="password", key="pwd")
+            password = st.text_input("密码", placeholder="🔒    请输入密码，测试密码123", type="password", key="pwd")
             
             st.write("") 
 

@@ -7,36 +7,32 @@ def show_login_page():
 
     st.markdown("""
         <style>
-        /* 1. 强制覆盖所有主题下的背景色，锁定为浅灰 */
-    .stApp, [data-testid="stAppViewContainer"] {
-        background-color: #f8fafc !important;
-    }
-
-    /* 2. 强制卡片容器永远为纯白色，不随深色模式改变 */
-    div[data-testid="stVerticalBlockBorderWrapper"], 
-    div[data-testid="stVerticalBlock"] > div {
-        background-color: white !important;
-    }
-
-    /* 3. 强制所有文本颜色锁定为深灰色，防止在深色模式下变白导致看不见 */
-    .stMarkdown, p, span, label, h1, h2, h3, h4 {
-        color: #1e293b !important;
-    }
-
-    /* 4. 针对手机深色模式的特殊强制指令 */
-    @media (prefers-color-scheme: dark) {
-        .stApp {
+        /* 1. 强制浅色背景 */
+        .stApp, [data-testid="stAppViewContainer"] {
             background-color: #f8fafc !important;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            background-color: white !important;
-        }
-        /* 保持输入框等组件的对比度 */
-        input {
-            background-color: #ffffff !important;
+
+        /* 2. 隐藏页眉 */
+        header { visibility: hidden; }
+
+        /* 3. 登录框容器宽度限制 */
+        .block-container { max-width: 450px !important; padding-top: 5rem !important; }
+
+        /* 4. 强制所有文本颜色（适配深色模式） */
+        .stMarkdown, p, span, label, h1, h2, h3, h4 {
             color: #1e293b !important;
         }
-    }
+
+        /* 5. 强制深色模式下依然保持白底黑字 */
+        @media (prefers-color-scheme: dark) {
+            .stApp { background-color: #f8fafc !important; }
+            div[data-testid="stVerticalBlockBorderWrapper"] { background-color: white !important; }
+            input {
+                background-color: white !important;
+                color: #1e293b !important;
+                -webkit-text-fill-color: #1e293b !important; /* 解决 iOS 输入框文字变白 */
+            }
+        }
         .stApp {{ background-color: #f8fafc !important; }}
         header {{ visibility: hidden; }}
         .block-container {{ max-width: 500px !important; padding-top: 5rem !important; }}

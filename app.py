@@ -3,28 +3,32 @@ import pandas as pd
 import time
 import pytz
 import requests
+from datetime import datetime
+from streamlit_gsheets import GSheetsConnection
 
-# 1. 必须是第一条 Streamlit 命令
+# --- 1. 全局配置 (必须放在最前面) ---
 st.set_page_config(page_title="富邦日记账", layout="wide")
 
-# 2. 初始化状态
+# --- 2. 核心定义 (时区定义，全局可用) ---
+LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
+
+# --- 3. 登录拦截系统 ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
-# 3. 拦截器
 if not st.session_state.logged_in:
     from login import show_login_page
     show_login_page()
     st.stop()
 
-# 4. 登录成功后的界面
+# --- 4. 登录成功后的主程序逻辑 ---
 st.title("💰 欢迎使用富邦日记账")
 if st.sidebar.button("安全退出"):
     st.session_state.logged_in = False
     st.rerun()
 
-# --- 1. 配置与全局样式 ---
-LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
+# 数据库连接
+conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.markdown("""
     <style>
@@ -510,5 +514,6 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或或点击录入。")
+
 
 

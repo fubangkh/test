@@ -46,18 +46,20 @@ def show_login_page():
         div[data-testid="stTextInput"] label {{ display: none !important; }}
 
         /* --- 自定义报错框样式 --- */
-        .custom-error-box {{
+        .custom-error-box {
             background-color: #fee2e2 !important; /* 浅红色背景 */
             color: #b91c1c !important;            /* 深红色文字 */
             border-radius: 12px !important;
             height: 2.8rem !important;
             display: flex !important;
-            align-items: center !important;
+            align-items: center !important;      /* 垂直居中 */
+            justify-content: center !important;   /* 水平居中 */
             padding: 0 15px !important;
             font-size: 0.9rem !important;
             font-weight: 500 !important;
             margin-top: 15px !important;
-        }}
+            width: 100% !important;               /* 确保占满宽度 */
+        }
         
         /* --- 按钮样式 --- */
         div.stButton > button {{

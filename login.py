@@ -13,7 +13,7 @@ def show_login_page():
 
         /* 外框容器 */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
-            border: 1.5px solid #e2e8f0 !important; /* 细外框 */
+            border: 1.5px solid #e2e8f0 !important; 
             border-radius: 50px !important;       
             background-color: white !important;
             padding: 2.5rem 2rem !important;
@@ -45,7 +45,8 @@ def show_login_page():
         }}
         div[data-testid="stTextInput"] label {{ display: none !important; }}
 
-        /* --- 错误/成功提示框优化 (st.error / st.success) --- */
+        /* --- 终极修正：错误/成功提示框 --- */
+        /* 针对最外层容器 */
         div[data-testid="stNotification"] {{
             border-radius: 12px !important;
             min-height: 2.8rem !important;
@@ -53,25 +54,39 @@ def show_login_page():
             padding: 0 12px !important;
             border: none !important;
             margin-top: 15px !important;
-        }}
-        /* 修正报错框内部布局，强制内容垂直居中 */
-        div[data-testid="stNotification"] > div {{
+            overflow: hidden !important; /* 确保圆角不被内部颜色撑破 */
             display: flex !important;
             align-items: center !important;
-            height: 100% !important;
-            padding: 0 !important;
         }}
-        /* 缩小图标大小防止撑开高度 */
+        
+        /* 针对内部文字和图标的通用容器 */
+        div[data-testid="stNotification"] > div {{
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            width: 100% !important;
+        }}
+
+        /* 针对文字容器 */
+        div[data-testid="stNotificationContent"] {{
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            line-height: 2.8rem !important;
+        }}
+
+        /* 针对图标控制 */
         div[data-testid="stNotification"] svg {{
             width: 18px !important;
             height: 18px !important;
+            margin-right: 8px !important;
         }}
         
-        /* --- 按钮样式：白底、细灰框 --- */
+        /* --- 按钮样式 --- */
         div.stButton > button {{
-            background-color: white !important;   /* 纯白底 */
-            color: #64748b !important;            /* 默认灰色文字，不扎眼 */
-            border: 1.5px solid #e2e8f0 !important; /* 与外框一致的细浅灰框 */
+            background-color: white !important;
+            color: #64748b !important;
+            border: 1.5px solid #e2e8f0 !important;
             border-radius: 12px !important; 
             height: 2.8rem !important; 
             min-height: 2.8rem !important;
@@ -82,7 +97,6 @@ def show_login_page():
             transition: all 0.3s ease !important;
         }}
 
-        /* 鼠标悬停：变成品牌绿 */
         div.stButton > button:hover {{
             background-color: #1f7a3f !important; 
             color: white !important;              
@@ -119,9 +133,9 @@ def show_login_page():
         if st.button("立即登录", use_container_width=True):
             if u == "123" and p == "123":
                 st.session_state.logged_in = True
-                st.success("验证通过，正在加载系统...")
+                st.success("验证通过")
                 st.rerun()
             else:
-                st.error("❌ 账号或密码不正确")
+                st.error("账号或密码不正确")
 
         st.markdown("<hr style='margin: 25px 0; border:none; border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)

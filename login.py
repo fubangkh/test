@@ -1,6 +1,6 @@
 import streamlit as st
 
-def login_page():
+def show_login_page():
     # 1. 样式必须放在最前面，确保全局生效
     st.markdown("""
         <style>

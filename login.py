@@ -1,17 +1,16 @@
 import streamlit as st
 
 def show_login_page():
-    # 颜色变量
+    # 颜色变量统一
     primary_green = "#1f7a3f"
-    icon_color = "#64748b" # 灰蓝色图标，更具高级感
+    icon_gray = "#64748b" # 统一灰色图标颜色
 
-    # 1. 深度样式定制
     st.markdown(f"""
         <style>
         .stApp {{ background-color: #f8fafc !important; }}
         .block-container {{ max-width: 500px !important; padding-top: 5rem !important; }}
 
-        /* 外框卡片 */
+        /* 外框卡片 - 加大圆滑度 */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: white !important;
             border-radius: 24px !important; 
@@ -20,7 +19,7 @@ def show_login_page():
             padding: 3rem 2.5rem !important;
         }}
 
-        /* FB Logo 徽章 */
+        /* 标题区 */
         .brand-header {{ display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; }}
         .fb-logo {{
             background-color: {primary_green}; color: white;
@@ -32,21 +31,19 @@ def show_login_page():
         }}
         .brand-text {{ color: #064e3b; font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin: 0; }}
 
-        /* SVG 图标对齐逻辑 */
-        .icon-label {{
-            display: flex;
-            align-items: center;
-            gap: 8px; /* 图标和文字的间距 */
-            font-weight: 700;
-            color: #334155;
-            font-size: 0.95rem;
+        /* 自定义 Label 容器 */
+        .custom-label {{
+            display: flex; align-items: center; gap: 8px;
+            font-weight: 700; color: #334155; font-size: 0.95rem;
+            margin-bottom: 8px;
         }}
 
-        /* 输入框底色与垂直居中 */
+        /* 输入框底色与对齐 */
         div[data-testid="stTextInput"] > div[data-baseweb="input"] {{
             background-color: #f1f5f9 !important;
             border: 1px solid #e2e8f0 !important;
             border-radius: 12px !important;
+            height: 3.2rem !important;
         }}
         div[data-testid="stTextInput"] input {{
             color: #1e293b !important;
@@ -54,9 +51,11 @@ def show_login_page():
             height: 3.2rem !important;
             line-height: 3.2rem !important;
             padding: 0 15px !important;
-            display: flex !important;
-            align-items: center !important;
+            display: flex !important; align-items: center !important;
         }}
+        
+        /* 隐藏原生 Label */
+        div[data-testid="stTextInput"] label {{ display: none !important; }}
 
         /* 登录按钮 */
         div.stButton > button {{
@@ -72,12 +71,11 @@ def show_login_page():
         </style>
     """, unsafe_allow_html=True)
 
-    # 2. 定义 SVG 图标代码 (Heroicons)
-    user_svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{icon_color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
-    lock_svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{icon_color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+    # 统一色系、统一尺寸、统一粗细的 SVG
+    user_svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{icon_gray}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+    lock_svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="{icon_gray}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
 
-    with st.container(border=True):
-        # 顶部品牌区
+    with st.container():
         st.markdown(f"""
             <div class="brand-header">
                 <div class="fb-logo">FB</div>
@@ -86,38 +84,25 @@ def show_login_page():
             </div>
         """, unsafe_allow_html=True)
 
-        # 3. 输入区 - 组合 SVG 和 文字
-        u = st.text_input(
-            label="账号", 
-            placeholder="请输入账号", 
-            key="user", 
-            label_visibility="visible"
-        )
-        # 通过 hack 方式将 SVG 注入到 label 之前的说明（由于 Streamlit 不直接支持 label HTML）
-        # 我们用 markdown 的自定义容器来模拟对齐的效果
-        st.markdown(f'<div class="icon-label" style="margin-top:-38px; margin-bottom:8px;">{user_svg} 账号</div>', unsafe_allow_html=True)
+        # 账号
+        st.markdown(f'<div class="custom-label">{user_svg} 账号</div>', unsafe_allow_html=True)
+        u = st.text_input("账号", placeholder="请输入账号", key="user", label_visibility="collapsed")
         
         st.write("") # 间距
 
-        p = st.text_input(
-            label="密码", 
-            placeholder="请输入密码", 
-            type="password", 
-            key="pwd"
-        )
-        st.markdown(f'<div class="icon-label" style="margin-top:-38px; margin-bottom:8px;">{lock_svg} 密码</div>', unsafe_allow_html=True)
+        # 密码
+        st.markdown(f'<div class="custom-label">{lock_svg} 密码</div>', unsafe_allow_html=True)
+        p = st.text_input("密码", placeholder="请输入密码", type="password", key="pwd", label_visibility="collapsed")
 
-        # 记住我 与 忘记密码
+        # 辅助功能
         c1, c2 = st.columns([1, 1])
-        with c1:
-            st.checkbox("记住我", value=True)
-        with c2:
-            st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.9rem;'>忘记密码？</div>", unsafe_allow_html=True)
+        with c1: st.checkbox("记住我", value=True)
+        with c2: st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.9rem;'>忘记密码？</div>", unsafe_allow_html=True)
 
+        # 提交
         if st.button("立即登录", use_container_width=True):
             if u == "123" and p == "123":
                 st.session_state.logged_in = True
-                st.success("验证成功")
                 st.rerun()
             else:
                 st.error("账号或密码错误")

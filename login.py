@@ -1,102 +1,136 @@
 import streamlit as st
 
 def show_login_page():
-    # 1. 样式注入：解决居中、间距和 Label 图标显示问题
+    # 1. 样式精修：复刻参考图的 SaaS 质感
     st.markdown("""
         <style>
-        /* 全局背景 */
-        .stApp { background-color: #f8fafc !important; }
-        
-        /* 页面容器：上移并控制宽度 */
-        .block-container { 
-            max-width: 500px !important; 
-            padding-top: 5rem !important; 
+        /* 全局背景色 */
+        .stApp { background-color: #f9fafb !important; }
+
+        /* 登录卡片上移与宽度控制 */
+        .block-container {
+            max-width: 480px !important;
+            padding-top: 4rem !important;
         }
 
-        /* 登录卡片容器（原生 container） */
+        /* 复刻参考图的卡片容器 */
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background-color: white !important;
-            border-radius: 20px !important;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.05) !important;
-            padding: 2.5rem !important;
-            border: 1px solid #edf2f7 !important;
+            border-radius: 16px !important;
+            border: 1px solid #e5e7eb !important;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05) !important;
+            padding: 2.5rem 1.5rem !important;
         }
 
-        /* 标题：绿色、加粗、不换行 */
-        .main-title {
-            color: #166534;
-            font-weight: 800;
-            font-size: 1.8rem;
-            white-space: nowrap;
+        /* 顶部 FB 徽章与标题对齐 */
+        .brand-container {
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 12px;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+        }
+        .fb-badge {
+            background-color: #1f7a3f;
+            color: white;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .brand-title {
+            color: #1f7a3f;
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .brand-subtitle {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.95rem;
+            margin-bottom: 30px;
         }
 
-        /* Label 样式：让 Emoji 和文字对齐 */
+        /* 输入框 Label 美化 (复刻灰色图标对齐) */
         div[data-testid="stTextInput"] label {
-            font-weight: 600 !important;
-            color: #475569 !important;
-            margin-bottom: 8px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 8px !important;
+            font-size: 0.95rem !important;
+            color: #374151 !important;
+            font-weight: 500 !important;
+            margin-bottom: 6px !important;
         }
 
-        /* 按钮样式 */
-        div.stButton > button {
-            background-color: #166534 !important;
-            color: white !important;
+        /* 输入框内边距与背景 */
+        div[data-testid="stTextInput"] input {
+            background-color: #fcfcfc !important;
+            border: 1px solid #e5e7eb !important;
             border-radius: 10px !important;
+            height: 2.8rem !important;
+        }
+
+        /* 立即登录按钮 (复刻深绿色与高度) */
+        div.stButton > button {
+            background-color: #1f7a3f !important;
+            color: white !important;
+            border-radius: 8px !important;
             height: 3.2rem !important;
-            font-weight: 700 !important;
+            font-size: 1rem !important;
+            font-weight: 600 !important;
             border: none !important;
-            margin-top: 15px;
-            transition: all 0.2s ease;
+            margin-top: 10px;
+            transition: all 0.2s;
         }
         div.stButton > button:hover {
-            background-color: #15803d !important;
-            transform: translateY(-1px);
+            background-color: #166534 !important;
+            box-shadow: 0 4px 12px rgba(31, 122, 63, 0.15) !important;
         }
 
-        /* 输入框圆角 */
-        div[data-testid="stTextInput"] input {
-            border-radius: 8px !important;
+        /* 底部提示文字 */
+        .footer-text {
+            font-size: 0.85rem;
+            color: #6b7280;
+            line-height: 1.5;
+            margin-top: 20px;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # 2. 居中列布局
-    _, col_mid, _ = st.columns([0.1, 0.8, 0.1]) # 进一步收窄中间区域
+    # 2. 页面布局
+    with st.container(border=True):
+        # 复刻参考图顶部：徽章 + 标题
+        st.markdown("""
+            <div class="brand-container">
+                <div class="fb-badge">FB</div>
+                <h1 class="brand-title">富邦日记账</h1>
+            </div>
+            <div class="brand-subtitle">请输入管理员授权的凭证以继续</div>
+        """, unsafe_allow_html=True)
 
-    with col_mid:
-        with st.container(border=True):
-            # 顶部标题区
-            st.markdown("""
-                <div style='text-align: center; margin-bottom: 25px;'>
-                    <div class="main-title">📒 富邦日记账</div>
-                    <div style='color: #94a3b8; font-size: 0.85rem;'>欢迎回来，请登录您的管理员账号</div>
-                </div>
-            """, unsafe_allow_html=True)
+        # 3. 输入区域 (Label 使用文本 + 图标组合)
+        username = st.text_input("👤 账号", placeholder="请输入账号", key="user")
+        password = st.text_input("🔒 密码", placeholder="请输入密码", type="password", key="pwd")
 
-            # 3. 输入区域：将 Emoji 放在 Label 里
-            # 这里通过 st.text_input 的第一个参数传递带图标的 Label
-            username = st.text_input("👤 账号", placeholder="请输入账号", key="user")
-            
-            st.write("") # 增加间距
-            
-            password = st.text_input("🔒 密码", placeholder="请输入密码", type="password", key="pwd")
-            
-            # 4. 登录验证
-            if st.button("立即安全登录", use_container_width=True):
-                if username == "123" and password == "123":
-                    st.session_state.logged_in = True
-                    st.success("验证成功，正在进入...")
-                    st.rerun()
-                else:
-                    st.error("❌ 账号或密码错误")
+        # 记住我 与 忘记密码 (复刻参考图)
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            st.checkbox("记住我", value=True)
+        with c2:
+            st.markdown("<div style='text-align:right; padding-top:10px;'><a href='#' style='color:#6b7280; text-decoration:none; font-size:13px;'>忘记密码？</a></div>", unsafe_allow_html=True)
 
-            st.divider()
-            st.caption("<div style='text-align:center; color:#cbd5e1;'>© 2024 富邦日记账 · 财务管理系统</div>", unsafe_allow_html=True)
+        # 4. 登录验证
+        if st.button("立即登录", use_container_width=True):
+            if username == "123" and password == "123":
+                st.session_state.logged_in = True
+                st.success("验证成功")
+                st.rerun()
+            else:
+                st.error("账号或密码错误")
+
+        # 5. 底部页脚
+        st.markdown("""
+            <hr style='margin: 20px 0; border:none; border-top:1px solid #eee;'>
+            <div class="footer-text">提示：这是示例页面，你可以把认证逻辑接到数据库 / API / OAuth。</div>
+        """, unsafe_allow_html=True)

@@ -24,7 +24,19 @@ st.markdown("""
     <style>
     /* 1. 全局背景与隐藏原生页眉 */
     .stApp { background-color: #f8fafc !important; }
-    header { visibility: hidden; }
+    /* 修复：隐藏 header 背景和彩虹条，但保留侧边栏按钮 */
+    header[data-testid="stHeader"] {
+        background: rgba(0,0,0,0) !important;
+        border-bottom: none !important;
+    }
+    
+    /* 让侧边栏按钮更明显一点（可选） */
+    button[data-testid="stSidebarCollapseIcon"] {
+        background-color: white !important;
+        border-radius: 8px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        margin-left: 10px !important;
+    }
     
     /* 2. 顶部导航条：精简、对齐、适配手机 */
     .nav-container {
@@ -544,3 +556,4 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+

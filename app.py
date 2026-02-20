@@ -333,131 +333,130 @@ def edit_dialog(df):
 st.title("📊 汇总统计")
 df_main = load_data()
 
-if not df_main.empty:
-    # --- 第一步：数据预处理 ---
-    df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
-    df_main = df_main.dropna(subset=['提交时间'])
+if df_main.empty:
+    st.warning("⚠️ 数据库目前没有数据，请点击下方按钮开始录入第一笔账单。")
+    if st.button("➕ 立即录入"):
+        entry_dialog()
+    st.stop()
+
+# --- 第一步：数据预处理 ---
+df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
+df_main = df_main.dropna(subset=['提交时间'])
+
+year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
+month_list = list(range(1, 13))
+
+# --- 第二步：时间维度看板 ---
+with st.container(border=True):
+    st.markdown("### 📅 时间维度看板") 
     
-    year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
-    month_list = list(range(1, 13))
+    c1, c2, c3 = st.columns([2, 2, 5]) 
+    with c1:
+        sel_year = st.selectbox("年份", year_list, index=0, label_visibility="collapsed")
+    with c2:
+        sel_month = st.selectbox("月份", month_list, index=datetime.now().month - 1, label_visibility="collapsed")
+    
+    # 计算月份数值
+    df_this_month = df_main[(df_main['提交时间'].dt.month == sel_month) & (df_main['提交时间'].dt.year == sel_year)]
+    
+    lm = 12 if sel_month == 1 else sel_month - 1
+    ly = sel_year - 1 if sel_month == 1 else sel_year
+    df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['提交时间'].dt.year == ly)]
+    
+    tm_inc = df_this_month['收入'].sum()
+    tm_exp = df_this_month['支出'].sum()
+    lm_inc = df_last_month['收入'].sum()
+    lm_exp = df_last_month['支出'].sum()
+    inc_delta = tm_inc - lm_inc
+    exp_delta = tm_exp - lm_exp
+    t_balance = df_main['收入'].sum() - df_main['支出'].sum()
 
-    # --- 第二步：时间维度看板 ---
-    with st.container(border=True):
-        st.markdown("### 📅 时间维度看板") 
+    with c3:
+        st.markdown(f"""
+            <div style="margin-top: 7px; padding-left: 5px;">
+                <span style="font-size: 1.2rem; font-weight: bold; color: #31333F;">
+                    💡 当前统计周期：<span style="color: #4CAF50;">{sel_year}年{sel_month}月</span>
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+    st.markdown("---")
+    
+    m1, m2, m3 = st.columns(3)
+    m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}", delta=f"{inc_delta:,.2f}")
+    m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}", delta=f"{exp_delta:,.2f}", delta_color="inverse")
+    m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
+
+st.divider()
+
+# --- 账户余额与排行 ---
+col_l, col_r = st.columns(2)
+with col_l:
+    st.write("🏦 **各账户当前余额 (原币对账)**")
         
-        c1, c2, c3 = st.columns([2, 2, 5]) 
-        with c1:
-            sel_year = st.selectbox("年份", year_list, index=0, label_visibility="collapsed")
-        with c2:
-            sel_month = st.selectbox("月份", month_list, index=datetime.now().month - 1, label_visibility="collapsed")
+    def calc_bank_balance(group):
+        # 统一转为数值，防止字符串导致 sum() 报错
+        inc_clean = pd.to_numeric(group['收入'], errors='coerce').fillna(0)
+        exp_clean = pd.to_numeric(group['支出'], errors='coerce').fillna(0)
+        amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
+        usd_bal = inc_clean.sum() - exp_clean.sum()
         
-        # 计算月份数值
-        df_this_month = df_main[(df_main['提交时间'].dt.month == sel_month) & (df_main['提交时间'].dt.year == sel_year)]
+        # 计算原币余额逻辑：收入为正，支出为负
+        def get_raw_val(idx):
+            if val == 0: 
+                val = inc_clean.loc[idx] if inc_clean.loc[idx] > 0 else exp_clean.loc[idx]
+            return -val if exp_clean.loc[idx] > 0 else val
+
+        raw_bal = sum(get_raw_val(idx) for idx in group.index)
+
+        # 自动识别该账户的币种（取最后一次录入的币种）
+        valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
+        cur_name = valid_currencies[-1] if valid_currencies else "USD"
         
-        lm = 12 if sel_month == 1 else sel_month - 1
-        ly = sel_year - 1 if sel_month == 1 else sel_year
-        df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['提交时间'].dt.year == ly)]
+        return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
+
+    try:
+        # 分组计算每个账户的统计量
+        acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
         
-        tm_inc = df_this_month['收入'].sum()
-        tm_exp = df_this_month['支出'].sum()
-        lm_inc = df_last_month['收入'].sum()
-        lm_exp = df_last_month['支出'].sum()
-        inc_delta = tm_inc - lm_inc
-        exp_delta = tm_exp - lm_exp
-        t_balance = df_main['收入'].sum() - df_main['支出'].sum()
-
-        with c3:
-            st.markdown(f"""
-                <div style="margin-top: 7px; padding-left: 5px;">
-                    <span style="font-size: 1.2rem; font-weight: bold; color: #31333F;">
-                        💡 当前统计周期：<span style="color: #4CAF50;">{sel_year}年{sel_month}月</span>
-                    </span>
-                </div>
-                """, unsafe_allow_html=True)
-        st.markdown("---")
+        # 定义符号映射表（涵盖中英文，防止录入不规范）
+        sym_map = {
+            "人民币": "¥", "RMB": "¥", "CNY": "¥", 
+            "港币": "HK$", "HKD": "HK$", 
+            "印尼盾": "Rp", "IDR": "Rp", 
+            "越南盾": "₫", "VND": "₫", 
+            "美元": "$", "USD": "$"
+        }
         
-        m1, m2, m3 = st.columns(3)
-        m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}", delta=f"{inc_delta:,.2f}")
-        m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}", delta=f"{exp_delta:,.2f}", delta_color="inverse")
-        m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
-
-    st.divider()
-
-    # --- 第三步：账户余额与排行 ---
-    col_l, col_r = st.columns(2)
-    with col_l:
-        st.write("🏦 **各账户当前余额 (原币对账)**")
-            
-        def calc_bank_balance(group):
-            # 1. 强制数值转换，防止 NaN 字符导致计算崩溃
-            inc_clean = pd.to_numeric(group['收入'], errors='coerce').fillna(0)
-            exp_clean = pd.to_numeric(group['支出'], errors='coerce').fillna(0)
-            amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
-            
-            usd_bal = inc_clean.sum() - exp_clean.sum()
-            
-            # 2. 原币对账逻辑（兼容旧账：如果实际金额为0，则用折合金额补位）
-            def get_raw_val(idx):
-                val = amt_clean.loc[idx]
-                if val == 0:  # 针对旧数据
-                    val = inc_clean.loc[idx] if inc_clean.loc[idx] > 0 else exp_clean.loc[idx]
-                
-                is_exp = exp_clean.loc[idx] > 0
-                return -val if is_exp else val
-
-            raw_bal = sum(get_raw_val(idx) for idx in group.index)
-            
-            # 3. 币种识别
-            valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
-            cur_name = valid_currencies[-1] if valid_currencies else "美元"
-            return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
-
-        try:
-            acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
-
-            # 4. 符号映射
-            def symbol_format(row):
-                val = row['RAW']
-                cur = row['CUR']
-                # 关键：确保这里的 key 和录入时选的值（RMB, USD等）完全一致
-                sym_map = {
-                    "人民币": "¥",
-                    "RMB": "¥",
-                    "港币": "HK$",
-                    "HKD": "HK$",
-                    "印尼盾": "Rp",
-                    "IDR": "Rp",
-                    "越南盾": "₫",
-                    "VND": "₫",
-                    "美元": "$",
-                    "USD": "$"
-                }
-                sym = sym_map.get(cur, "$")
-                prefix = "-" if val < -0.01 else "" 
-                return f"{prefix}{sym}{abs(val):,.2f}"
-
-            acc_stats['银行卡实际金额'] = acc_stats.apply(symbol_format, axis=1)
-
-            st.dataframe(
-                acc_stats[['结算账户', 'USD', '银行卡实际金额']],
-                column_config={
-                    "结算账户": "账户名称",
-                    "USD": st.column_config.NumberColumn("折合美元", format="$%.2f"),
-                    "银行卡实际金额": "银行对账单余额"
-                },
-                use_container_width=True, 
-                hide_index=True
-            )
-        except Exception as e:
-            st.error(f"余额计算异常: {e}")
+        # 格式化显示：处理负号、符号和千分位
+        acc_stats['银行卡实际金额'] = acc_stats.apply(
+            lambda r: f"{'-' if r['RAW'] < -0.01 else ''}{sym_map.get(r['CUR'], '$')}{abs(r['RAW']):,.2f}", 
+            axis=1
+        )
+        
+        st.dataframe(
+            acc_stats[['结算账户', 'USD', '银行卡实际金额']], 
+            column_config={
+                "USD": st.column_config.NumberColumn("折合美元", format="$%.2f"),
+                "银行卡实际金额": "银行对账单余额"
+            },
+            use_container_width=True, 
+            hide_index=True
+        )
+    except Exception as e:
+        st.error(f"余额计算异常: {e}")
 
 with col_r:
     st.write(f"🏷️ **{sel_month}月支出排行**")
+    # 筛选本月支出数据并按性质分组
     exp_stats = df_this_month[df_this_month['支出'] > 0].groupby('资金性质')['支出'].sum().sort_values(ascending=False).reset_index()
     if not exp_stats.empty:
-        st.dataframe(exp_stats.style.format({"支出": "${:,.2f}"}), use_container_width=True, hide_index=True)
+        st.dataframe(
+            exp_stats.style.format({"支出": "${:,.2f}"}), 
+            use_container_width=True, 
+            hide_index=True
+        )
     else:
-        st.caption("该月暂无支出")
+        st.caption("该月暂无支出记录")
 
 st.divider()
 
@@ -465,55 +464,52 @@ st.divider()
 h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
 h_col.subheader("📑 流水明细表")
 with b_add:
-    if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): entry_dialog()
+if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): entry_dialog()
 with b_edit:
-    if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): edit_dialog(df_main)
+if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): edit_dialog(df_main)
 
 # 数据准备
 df_display = df_main.copy()
 df_display = df_display[
-    (df_display['提交时间'].dt.year == sel_year) & 
-    (df_display['提交时间'].dt.month == sel_month)
+(df_display['提交时间'].dt.year == sel_year) & 
+(df_display['提交时间'].dt.month == sel_month)
 ]
 df_display = df_display.sort_values("录入编号", ascending=False)
 
 # 搜索框
 search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
 if search_query:
-    q = search_query.lower()
-    mask = (
-        df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
-        df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
-    )
-    df_display = df_display[mask]
+q = search_query.lower()
+mask = (
+    df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
+    df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
+)
+df_display = df_display[mask]
 
 # 金额格式化 (注意：这里格式化后数据变字符串，仅用于显示)
 # 提示：实际显示时我们用 column_config 格式化更好，这里保持原始数值
 
 if not df_display.empty:
-    st.dataframe(
-        df_display,
-        use_container_width=True,
-        hide_index=True,
-        height=500,
-        column_config={
-            "录入编号": st.column_config.TextColumn("录入编号", width="small"),
-            "摘要": st.column_config.TextColumn("摘要", width="large"),
-            "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
-            "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
-            "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
-            "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-            "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
-            "实际币种": st.column_config.TextColumn("实际币种", width="small"),
-            "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
-            "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
-            "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
-            "经手人": st.column_config.TextColumn("经手人", width="small"),
-            "备注": st.column_config.TextColumn("备注", width="medium"),
-        }
-    )
+st.dataframe(
+    df_display,
+    use_container_width=True,
+    hide_index=True,
+    height=500,
+    column_config={
+        "录入编号": st.column_config.TextColumn("录入编号", width="small"),
+        "摘要": st.column_config.TextColumn("摘要", width="large"),
+        "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
+        "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
+        "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
+        "资金性质": st.column_config.TextColumn("资金性质", width="small"),
+        "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
+        "实际币种": st.column_config.TextColumn("实际币种", width="small"),
+        "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
+        "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
+        "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
+        "经手人": st.column_config.TextColumn("经手人", width="small"),
+        "备注": st.column_config.TextColumn("备注", width="medium"),
+    }
+)
 else:
-    st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或或点击录入。")
-
-
-
+st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或或点击录入。")

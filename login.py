@@ -18,16 +18,14 @@ def show_login_page():
         --shadow: 0 18px 48px rgba(15, 23, 42, 0.12);
         --radius: 32px;
         --inner-radius: 18px;
+        --input-bg: #f1f5f9;
+        --input-border: #e2e8f0;
     }}
 
-    /* 始终显示滚动条，避免抖动 */
-    html {{
-        overflow-y: scroll;
-    }}
+    /* 始终显示滚动条，避免布局抖动 */
+    html {{ overflow-y: scroll; }}
 
-    .stApp {{
-        background: var(--bg) !important;
-    }}
+    .stApp {{ background: var(--bg) !important; }}
 
     .block-container {{
         max-width: 560px !important;
@@ -35,7 +33,7 @@ def show_login_page():
         padding-bottom: 4rem !important;
     }}
 
-    /* 卡片 */
+    /* 卡片（container(border=True) 的 wrapper） */
     div[data-testid="stVerticalBlockBorderWrapper"] {{
         background:#fff !important;
         border:1px solid var(--card-border) !important;
@@ -44,13 +42,13 @@ def show_login_page():
         padding: 3rem 2.6rem 2.6rem 2.6rem !important;
     }}
 
-    /* 内容统一宽度 */
+    /* 内容统一宽度：输入/按钮/提示同宽 */
     .content-wrap {{
         width: 92%;
         margin: 0 auto;
     }}
 
-    /* 标题区 */
+    /* 标题区：logo + 文本同行 */
     .brand-header {{
         display:flex;
         align-items:center;
@@ -89,7 +87,7 @@ def show_login_page():
         margin-bottom: 28px;
     }}
 
-    /* label */
+    /* label：图标+文字 */
     .custom-label {{
         display:flex;
         align-items:center;
@@ -106,24 +104,85 @@ def show_login_page():
         stroke: var(--icon);
     }}
 
-    /* 输入框 */
+    /* =========================================
+       ✅ BaseWeb Input 彻底统一（含密码眼睛）
+       关键：只允许最外层容器有背景，其余全部透明
+       ========================================= */
+
+    /* 真实输入外壳（负责背景/边框/圆角） */
     div[data-baseweb="input"] > div {{
+        background: var(--input-bg) !important;
+        border: 1px solid var(--input-border) !important;
         border-radius: var(--inner-radius) !important;
-        border: 1px solid #e2e8f0 !important;
-        background: #f1f5f9 !important;
         height: 3.3rem !important;
         display: flex !important;
         align-items: center !important;
         overflow: hidden !important;
     }}
 
+    /* 把内部所有层背景清掉（解决你说的右侧偏深） */
+    div[data-baseweb="input"] > div > div {{
+        background: transparent !important;
+        box-shadow: none !important;
+    }}
+    div[data-baseweb="input"] > div * {{
+        background: transparent !important;
+        box-shadow: none !important;
+    }}
+
+    /* 输入文本垂直居中 + 右侧给眼睛预留 */
     div[data-baseweb="input"] input {{
         background: transparent !important;
         color: #0f172a !important;
         font-size: 14.5px !important;
         height: 3.3rem !important;
         line-height: 3.3rem !important;
+        padding: 0 52px 0 14px !important; /* right padding for eye */
+        border: none !important;
+        outline: none !important;
+    }}
+
+    /* 眼睛区域容器（透明） */
+    div[data-baseweb="input"] > div > div:last-child {{
+        background: transparent !important;
+        border-left: 0 !important;
+        height: 3.3rem !important;
+        display: flex !important;
+        align-items: center !important;
         padding: 0 14px !important;
+    }}
+
+    /* 眼睛按钮：所有状态都透明，避免 hover 变深 */
+    div[data-baseweb="input"] button,
+    div[data-baseweb="input"] [role="button"] {{
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        outline: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }}
+
+    div[data-baseweb="input"] button:hover,
+    div[data-baseweb="input"] button:active,
+    div[data-baseweb="input"] button:focus,
+    div[data-baseweb="input"] [role="button"]:hover,
+    div[data-baseweb="input"] [role="button"]:active,
+    div[data-baseweb="input"] [role="button"]:focus {{
+        background: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }}
+
+    /* 眼睛图标颜色统一 */
+    div[data-baseweb="input"] svg {{
+        fill: var(--icon) !important;
+        stroke: var(--icon) !important;
+        color: var(--icon) !important;
+    }}
+    div[data-baseweb="input"] svg path {{
+        fill: var(--icon) !important;
+        stroke: var(--icon) !important;
     }}
 
     /* 隐藏默认 label */
@@ -131,8 +190,6 @@ def show_login_page():
         display:none !important;
     }}
 
-    /* 密码眼睛区域统一 */
-    div[data-baseweb="input"] > div >
     /* 按钮 */
     .stButton > button {{
         width: 100% !important;
@@ -152,7 +209,7 @@ def show_login_page():
         transform: translateY(-1px);
     }}
 
-    /* 错误提示 */
+    /* 消息槽（固定高度，避免跳动） */
     .msg-slot {{
         min-height: 78px;
         margin-top: 16px;
@@ -181,6 +238,7 @@ def show_login_page():
     </style>
     """, unsafe_allow_html=True)
 
+    # SVG（同风格同尺寸同色）
     user_svg = f"""
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
          fill="none" stroke="{icon_gray}" stroke-width="2.5"
@@ -200,7 +258,6 @@ def show_login_page():
     """
 
     with st.container(border=True):
-
         st.markdown("""
             <div class="brand-header">
                 <div class="fb-logo">FB</div>
@@ -217,11 +274,14 @@ def show_login_page():
         st.markdown(f'<div class="custom-label">{lock_svg}<span>密码</span></div>', unsafe_allow_html=True)
         p = st.text_input("密码", placeholder="请输入密码", type="password", key="pwd", label_visibility="collapsed")
 
-        col1, col2 = st.columns([1,1])
+        col1, col2 = st.columns([1, 1])
         with col1:
             st.checkbox("记住我", value=True)
         with col2:
-            st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.9rem;'>忘记密码？</div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.9rem;'>忘记密码？</div>",
+                unsafe_allow_html=True
+            )
 
         clicked = st.button("立即登录", use_container_width=True)
 
@@ -247,3 +307,7 @@ def show_login_page():
 
         st.markdown('<hr class="divider">', unsafe_allow_html=True)
         st.markdown('<div class="footer-tip">忘记密码请联系系统管理员</div>', unsafe_allow_html=True)
+
+
+# 需要运行时取消注释
+# show_login_page()

@@ -513,9 +513,18 @@ with col_r:
 st.divider()
 
 # --- 第四步：流水明细表 ---
+# 1. 先准备数据（确保变量在被使用前已经生成）
+df_display = df_main.copy()
+df_display = df_display[
+    (df_display['提交时间'].dt.year == sel_year) & 
+    (df_display['提交时间'].dt.month == sel_month)
+]
+df_display = df_display.sort_values("录入编号", ascending=False)
+
+# 2. 再进入容器渲染 UI
 with st.container(border=True):
     h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
-    h_col.markdown("### 📑 流水明细表")  # 统一风格建议用 markdown
+    h_col.markdown("### 📑 流水明细表")
     
     with b_add:
         if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): 
@@ -524,10 +533,8 @@ with st.container(border=True):
         if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): 
             edit_dialog(df_main)
 
-    # 搜索框（已缩进）
+    # 搜索框逻辑
     search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
-    
-    # 筛选逻辑（已缩进）
     if search_query:
         q = search_query.lower()
         mask = (
@@ -536,7 +543,7 @@ with st.container(border=True):
         )
         df_display = df_display[mask]
 
-    # 表格显示逻辑（已缩进）
+    # 表格显示逻辑
     if not df_display.empty:
         st.dataframe(
             df_display,
@@ -560,5 +567,5 @@ with st.container(border=True):
             }
         )
     else:
-        # 这个 else 现在正确地缩进在 container 内部了
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+

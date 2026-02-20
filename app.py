@@ -26,32 +26,37 @@ if not st.session_state.logged_in:
 # A. 整合后的 CSS：包含导航条样式、按钮样式、以及白卡片样式
 st.markdown("""
     <style>
-    /* 1. 强制覆盖所有主题下的背景色，锁定为浅灰 */
-    .stApp, [data-testid="stAppViewContainer"] {
-        background-color: #f8fafc !important;
+    /* --- 专项修复：侧边栏深色模式强制转白 --- */
+    
+    /* 1. 强制侧边栏整体背景 */
+    [data-testid="stSidebar"], 
+    [data-testid="stSidebarContent"] {
+        background-color: #f1f5f9 !important; /* 浅灰蓝色背景 */
     }
 
-    /* 2. 强制卡片容器永远为纯白色，不随深色模式改变 */
-    div[data-testid="stVerticalBlockBorderWrapper"], 
-    div[data-testid="stVerticalBlock"] > div {
-        background-color: white !important;
-    }
-
-    /* 3. 强制所有文本颜色锁定为深灰色，防止在深色模式下变白导致看不见 */
-    .stMarkdown, p, span, label, h1, h2, h3, h4 {
+    /* 2. 强制侧边栏内所有文字颜色 */
+    [data-testid="stSidebar"] .stMarkdown, 
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] span, 
+    [data-testid="stSidebar"] label {
         color: #1e293b !important;
     }
 
-    /* 4. 针对手机深色模式的特殊强制指令 */
+    /* 3. 特别针对侧边栏内的按钮（安全退出按钮） */
+    [data-testid="stSidebar"] button {
+        background-color: #ffffff !important; /* 按钮背景强制白 */
+        color: #1e293b !important;            /* 按钮文字强制深色 */
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+    }
+
+    /* 4. 针对手机端可能存在的深色模式媒体查询进行终极覆盖 */
     @media (prefers-color-scheme: dark) {
-        .stApp {
-            background-color: #f8fafc !important;
+        [data-testid="stSidebar"], 
+        [data-testid="stSidebarContent"] {
+            background-color: #f1f5f9 !important;
         }
-        div[data-testid="stVerticalBlockBorderWrapper"] {
-            background-color: white !important;
-        }
-        /* 保持输入框等组件的对比度 */
-        input {
+        [data-testid="stSidebar"] button {
             background-color: #ffffff !important;
             color: #1e293b !important;
         }
@@ -549,6 +554,7 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

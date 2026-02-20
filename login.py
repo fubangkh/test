@@ -1,10 +1,10 @@
 import streamlit as st
 
 def show_login_page():
-    # 1. 深度 CSS 覆盖：锁定所有输入组件的底色
+    # 1. 深度 CSS 覆盖：锁定底色并修复小眼睛图标背景
     st.markdown("""
         <style>
-        /* 全局背景与容器 */
+        /* 全局背景 */
         .stApp { background-color: #f8fafc !important; }
         .block-container { 
             max-width: 520px !important; 
@@ -55,27 +55,30 @@ def show_login_page():
             margin-bottom: 30px;
         }
 
-        /* --- 核心修复：深度锁定底色 --- */
-        /* 1. 覆盖外层容器 */
-        div[data-baseweb="input"] {
+        /* --- 核心修复：消除白色方块破绽 --- */
+        /* 1. 统一所有输入框容器底色 */
+        div[data-baseweb="input"], 
+        div[data-baseweb="base-input"],
+        div[data-testid="stTextInput"] div[role="presentation"] {
             background-color: #f8fafc !important;
             border-radius: 8px !important;
             border: 1px solid #e2e8f0 !important;
         }
         
-        /* 2. 覆盖内层输入框（包括账号框和密码框） */
-        div[data-testid="stTextInput"] input {
-            background-color: transparent !important; /* 让底色透出来 */
+        /* 2. 让内部 input 和 按钮 背景全部透明，透出底层的灰色 */
+        div[data-testid="stTextInput"] input,
+        div[data-testid="stTextInput"] button {
+            background-color: transparent !important;
             border: none !important;
-            height: 3rem !important;
+            box-shadow: none !important;
         }
 
-        /* 3. 针对账号框特别强制（防止它变白） */
-        div[data-testid="stTextInput"] div[data-baseweb="input"] {
-            background-color: #f8fafc !important;
+        /* 3. 修复点击时的蓝色外边框，保持干净 */
+        div[data-baseweb="input"]:focus-within {
+            border: 1px solid #1f7a3f !important;
         }
 
-        /* 4. 隐藏原生 Label 并美化自定义 Label */
+        /* Label 美化 */
         div[data-testid="stTextInput"] label {
             font-size: 0.95rem !important;
             color: #475569 !important;
@@ -83,7 +86,7 @@ def show_login_page():
             margin-bottom: 8px !important;
         }
 
-        /* 按钮与其它 */
+        /* 登录按钮 */
         div.stButton > button {
             background-color: #1f7a3f !important;
             color: white !important;
@@ -94,6 +97,7 @@ def show_login_page():
             margin-top: 15px;
         }
         div.stButton > button:hover { background-color: #166534 !important; }
+        
         .forgot-link { text-align: right; padding-top: 15px; color: #64748b; font-size: 13px; }
         </style>
     """, unsafe_allow_html=True)
@@ -107,7 +111,6 @@ def show_login_page():
             <p class="brand-sub">请输入管理员授权的凭证以继续</p>
         """, unsafe_allow_html=True)
 
-        # 输入组件
         username = st.text_input("👤 账号", placeholder="请输入账号", key="user")
         password = st.text_input("🔒 密码", placeholder="请输入密码", type="password", key="pwd")
 

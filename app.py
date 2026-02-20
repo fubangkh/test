@@ -19,7 +19,6 @@ if not st.session_state.logged_in:
     st.stop()
 
 # --- 3. 登录成功后的主程序逻辑 ---
-
 # A. 整合后的 CSS：包含导航条样式、按钮样式、以及白卡片样式
 st.markdown("""
     <style>
@@ -545,7 +544,3 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
-
-
-
-

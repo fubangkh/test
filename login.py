@@ -11,7 +11,7 @@ def show_login_page():
         header {{ visibility: hidden; }}
         .block-container {{ max-width: 500px !important; padding-top: 5rem !important; }}
 
-        /* 强制 st.container(border=True) 的边框可见 */
+        /* 外框容器 */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             border: 2px solid #e2e8f0 !important; 
             border-radius: 50px !important;       
@@ -30,7 +30,8 @@ def show_login_page():
             display: flex; align-items: center; justify-content: center;
             font-weight: 800; font-size: 1.2rem;
         }}
-        .title-text {{ color: #166534; font-size: 1.8rem; font-weight: 800; margin: 0; }}
+        /* 标题颜色修改：与 Logo 绿色一致 */
+        .title-text {{ color: #1f7a3f; font-size: 1.8rem; font-weight: 800; margin: 0; }}
 
         .label-with-icon {{
             display: flex; align-items: center; gap: 8px;
@@ -40,14 +41,33 @@ def show_login_page():
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{
             background-color: #f1f5f9 !important;
             border: 1px solid #e2e8f0 !important;
-            border-radius: 10px !important;
+            border-radius: 12px !important;
         }}
         div[data-testid="stTextInput"] label {{ display: none !important; }}
 
+        /* --- 按钮样式修改 --- */
         div.stButton > button {{
-            background-color: #1f7a3f !important; color: white !important;
-            border-radius: 10px !important; height: 3.2rem !important;
-            width: 100% !important; font-weight: 700 !important;
+            background-color: #f8fafc !important; /* 默认浅灰色背景 */
+            color: #1f7a3f !important;           /* 默认绿色文字 */
+            border: 2px solid #1f7a3f !important; /* 默认绿色边框 */
+            border-radius: 12px !important; 
+            height: 3.5rem !important;
+            width: 100% !important; 
+            font-weight: 700 !important;
+            transition: all 0.3s ease !important; /* 平滑过渡动画 */
+        }}
+
+        /* 鼠标悬停（Hover）状态 */
+        div.stButton > button:hover {{
+            background-color: #1f7a3f !important; /* 背景变绿 */
+            color: white !important;              /* 文字变白 */
+            border: 2px solid #1f7a3f !important;
+            box-shadow: 0 4px 12px rgba(31, 122, 63, 0.2) !important;
+        }}
+        
+        /* 点击时的缩放效果 */
+        div.stButton > button:active {{
+            transform: scale(0.98) !important;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -61,24 +81,24 @@ def show_login_page():
         """, unsafe_allow_html=True)
 
         st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> 账号</div>', unsafe_allow_html=True)
-        u = st.text_input("账号", placeholder="请输入账号，测试账号123", key="user", label_visibility="collapsed")
+        u = st.text_input("账号", placeholder="请输入账号", key="user", label_visibility="collapsed")
         
         st.write("") 
 
         st.markdown(f'<div class="label-with-icon"><img src="{lock_svg}"> 密码</div>', unsafe_allow_html=True)
-        p = st.text_input("密码", placeholder="请输入密码，测试密码123", type="password", key="pwd", label_visibility="collapsed")
+        p = st.text_input("密码", placeholder="请输入密码", type="password", key="pwd", label_visibility="collapsed")
 
         c1, c2 = st.columns([1, 1])
         with c1: st.checkbox("记住我", value=True)
         with c2: st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.88rem;'>忘记密码？</div>", unsafe_allow_html=True)
 
-        # --- 核心修改：统一登录逻辑在这里 ---
+        # 登录逻辑
         if st.button("立即登录", use_container_width=True):
             if u == "123" and p == "123":
-                st.session_state.logged_in = True  # 1. 设置状态
-                st.success("验证通过，正在加载系统...")  # 2. 提示
-                st.rerun()  # 3. 关键：触发 app.py 刷新并识别新状态
+                st.session_state.logged_in = True
+                st.success("验证通过，正在加载系统...")
+                st.rerun()
             else:
                 st.error("❌ 账号或密码不正确")
 
-# 函数外面不要再放按钮逻辑了
+        st.markdown("<hr style='margin: 25px 0; border:none; border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)

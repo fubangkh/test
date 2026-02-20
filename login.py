@@ -48,18 +48,23 @@ def show_login_page():
         /* --- 错误/成功提示框优化 (st.error / st.success) --- */
         div[data-testid="stNotification"] {{
             border-radius: 12px !important;
-            border: none !important;
             min-height: 2.8rem !important;
             height: 2.8rem !important;
-            display: flex !important;
-            align-items: center !important;
-            padding: 0 1rem !important;
-            margin-top: 10px !important;
+            padding: 0 12px !important;
+            border: none !important;
+            margin-top: 15px !important;
         }}
-        /* 让提示框里的文字居中对齐 */
-        div[data-testid="stNotificationContent"] {{
+        /* 修正报错框内部布局，强制内容垂直居中 */
+        div[data-testid="stNotification"] > div {{
             display: flex !important;
             align-items: center !important;
+            height: 100% !important;
+            padding: 0 !important;
+        }}
+        /* 缩小图标大小防止撑开高度 */
+        div[data-testid="stNotification"] svg {{
+            width: 18px !important;
+            height: 18px !important;
         }}
         
         /* --- 按钮样式：白底、细灰框 --- */

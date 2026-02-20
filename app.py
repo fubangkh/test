@@ -445,7 +445,7 @@ if pwd == ADMIN_PWD:
                 st.caption("该月暂无支出")
         st.divider()
         h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
-        h_col.subheader("📑 原始流水明细")
+        h_col.subheader("📑 流水明细表")
         with b_add:
             if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
         with b_edit:
@@ -508,6 +508,7 @@ if pwd == ADMIN_PWD:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击右上角录入。")
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

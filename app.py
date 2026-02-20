@@ -346,6 +346,21 @@ df_main = df_main.dropna(subset=['提交时间'])
 year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
 month_list = list(range(1, 13))
 
+# 注入 CSS 样式来放大下拉框（Selectbox）的文字
+st.markdown("""
+    <style>
+    /* 针对年份和月份下拉框的文字大小 */
+    div[data-baseweb="select"] > div {
+        font-size: 1.5rem !important; /* 原本约 1rem，改为 1.5rem 变大一号 */
+        font-weight: bold !important;
+    }
+    /* 针对下拉列表展开后的文字大小 */
+    div[data-baseweb="popover"] li {
+        font-size: 1.2rem !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- 第二步：时间维度看板 ---
 with st.container(border=True):
     st.markdown("### 📅 时间维度看板") 
@@ -525,6 +540,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

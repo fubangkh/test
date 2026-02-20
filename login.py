@@ -1,40 +1,33 @@
 import streamlit as st
 
-# --- 1. 初始化登录状态 ---
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-
-def login():
-    """验证用户名和密码"""
-    if st.session_state.username == "admin" and st.session_state.password == "123456":
-        st.session_state.logged_in = True
-        st.rerun() # 登录成功后刷新页面
-    else:
-        st.error("❌ 用户名或密码错误")
-
-# --- 2. 页面显示逻辑 ---
-if not st.session_state.logged_in:
-    # --- 登录界面：正中间布局 ---
-    # 创建三列，比例为 1:2:1，中间那列最宽
+def show_login_page():
+    # 1. 页面居中布局：[左1, 中2, 右1] 比例，让登录框锁死在屏幕中间
     _, col_mid, _ = st.columns([1, 2, 1])
     
     with col_mid:
-        st.markdown("<br><br><br>", unsafe_allow_html=True) # 往下挪一点，看起来在正中
+        # 增加一些顶部间距
+        st.write("<br><br><br>", unsafe_allow_html=True)
+        
+        # 使用带边框的容器，增加“卡片感”
         with st.container(border=True):
-            st.title("🔒 富邦流水账")
-            st.text_input("用户名", key="username")
-            st.text_input("密码", type="password", key="password")
-            st.button("登录", type="primary", use_container_width=True, on_click=login)
-            st.caption("提示：请输入管理员授权的账号访问")
-
-else:
-    # --- 3. 登录成功后的流水账模块 ---
-    # 这里放你之前写的所有代码（时间看板、余额排行、流水明细等）
-    st.sidebar.success("✅ 已登录：管理员")
-    if st.sidebar.button("登出"):
-        st.session_state.logged_in = False
-        st.rerun()
-
-    # --- 下面接你原本的财务模块代码 ---
-    # st.title("💰 现金流水账模块")
-    # ... 原有逻辑 ...
+            st.markdown("### 🔒 富邦流水账")
+            st.caption("请输入管理员授权的凭证以继续")
+            st.divider()
+            
+            # 输入框
+            user = st.text_input("用户名", placeholder="请输入账号")
+            pw = st.text_input("密码", type="password", placeholder="请输入密码")
+            
+            # 2. 登录验证按钮
+            if st.button("立即登录", type="primary", use_container_width=True):
+                # --- 硬编码验证逻辑 ---
+                # 你可以在这里修改你想要的用户名和密码
+                if user == "123" and pw == "456":
+                    st.session_state.logged_in = True
+                    st.success("验证通过，正在加载系统...")
+                    st.rerun() # 立即刷新，进入主程序
+                else:
+                    st.error("❌ 账号或密码不正确")
+            
+            st.markdown("---")
+            st.caption("💡 忘记密码请联系系统管理员")

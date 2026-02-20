@@ -400,13 +400,23 @@ with col_l:
         amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
         usd_bal = inc_clean.sum() - exp_clean.sum()
         
-        # 计算原币余额逻辑：收入为正，支出为负
+        # 计算原币余额逻辑
         def get_raw_val(idx):
-            if val == 0: 
-                val = inc_clean.loc[idx] if inc_clean.loc[idx] > 0 else exp_clean.loc[idx]
-            return -val if exp_clean.loc[idx] > 0 else val
-
-        raw_bal = sum(get_raw_val(idx) for idx in group.index)
+            # 1. 先尝试获取实际金额，并确保它是数值
+            current_val = amt_clean.loc[idx]
+            
+            # 2. 如果实际金额缺失或为0，则根据收入/支出寻找替代值（兼容旧账）
+            if current_val == 0 or pd.isna(current_val):
+                if inc_clean.loc[idx] > 0:
+                    current_val = inc_clean.loc[idx]
+                elif exp_clean.loc[idx] > 0:
+                    current_val = exp_clean.loc[idx]
+                else:
+                    current_val = 0 # 实在没数据就给0
+            
+            # 3. 确定正负号：支出为负，收入为正
+            is_expense = exp_clean.loc[idx] > 0
+            return -current_val if is_expense else current_val
 
         # 自动识别该账户的币种（取最后一次录入的币种）
         valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
@@ -513,4 +523,5 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 

@@ -26,78 +26,43 @@ if not st.session_state.logged_in:
 # A. 整合后的 CSS：包含导航条样式、按钮样式、以及白卡片样式
 st.markdown("""
     <style>
-    /* 强力开启 header 并置顶 */
-    header, [data-testid="stHeader"] {
-        visibility: visible !important;
-        display: block !important;
-        opacity: 1 !important;
-        background-color: rgba(0,0,0,0) !important;
+    /* 1. 强制覆盖所有主题下的背景色，锁定为浅灰 */
+    .stApp, [data-testid="stAppViewContainer"] {
+        background-color: #f8fafc !important;
     }
 
-    /* 强制显示侧边栏按钮 */
-    button[data-testid="stSidebarCollapseIcon"] {
-        display: flex !important;
-        visibility: visible !important;
-        color: #1f7a3f !important; /* 改成富邦绿，显眼一点 */
-        background-color: white !important; /* 给它一个小白底 */
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 8px !important;
-        position: fixed !important;
-        top: 15px !important; /* 距离顶部高度 */
-        left: 15px !important; /* 距离左侧宽度 */
-        z-index: 9999999 !important; /* 确保它在最最最上层 */
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+    /* 2. 强制卡片容器永远为纯白色，不随深色模式改变 */
+    div[data-testid="stVerticalBlockBorderWrapper"], 
+    div[data-testid="stVerticalBlock"] > div {
+        background-color: white !important;
     }
 
-    /* 手机端适配：稍微调小一点 */
-    @media (max-width: 640px) {
-        button[data-testid="stSidebarCollapseIcon"] {
-            top: 10px !important;
-            left: 10px !important;
+    /* 3. 强制所有文本颜色锁定为深灰色，防止在深色模式下变白导致看不见 */
+    .stMarkdown, p, span, label, h1, h2, h3, h4 {
+        color: #1e293b !important;
+    }
+
+    /* 4. 针对手机深色模式的特殊强制指令 */
+    @media (prefers-color-scheme: dark) {
+        .stApp {
+            background-color: #f8fafc !important;
+        }
+        div[data-testid="stVerticalBlockBorderWrapper"] {
+            background-color: white !important;
+        }
+        /* 保持输入框等组件的对比度 */
+        input {
+            background-color: #ffffff !important;
+            color: #1e293b !important;
         }
     }
-    
-    /* 2. 顶部导航条：精简、对齐、适配手机 */
-    .nav-container {
-        display: flex; 
-        align-items: center;
-        padding: 12px 18px; 
-        background: white;
-        border: 1px solid #e2e8f0; 
-        border-radius: 16px;       
-        margin-bottom: 1.2rem;     
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
-    }
-    .nav-logo { display: flex; align-items: center; gap: 12px; }
-    .logo-sq {
-        background: #1f7a3f; color: white; width: 32px; height: 32px;
-        border-radius: 8px; display: flex; align-items: center; justify-content: center;
-        font-weight: bold; font-size: 14px;
-    }
 
-    /* 3. 按钮样式升级 (Primary & Secondary) */
-    div.stButton > button[kind="primary"] {
-        background-color: #1F883D !important;
-        color: white !important;
-        border-radius: 12px !important;
-        border: none !important;
-        transition: all 0.3s ease;
+    /* 5. 修复侧边栏在深色模式下的样式 */
+    [data-testid="stSidebar"] {
+        background-color: #f1f5f9 !important;
     }
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #66BB6A !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
-    }
-    div.stButton > button[kind="secondary"] {
-        border-radius: 12px !important;
-        background-color: white !important;
-    }
-
-    /* 4. 强制卡片容器风格 (针对 st.container border=True) */
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        background-color: white !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 16px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
+    [data-testid="stSidebar"] * {
+        color: #1e293b !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -584,6 +549,7 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

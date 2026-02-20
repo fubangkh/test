@@ -54,7 +54,7 @@ def show_login_page():
             min-height: 3.2rem !important;
             line-height: 3.2rem !important;
             padding: 0 !important;
-            width: 90% !important; 
+            width: 60% !important; 
             font-weight: 600 !important;
             transition: all 0.3s ease !important;
         }}

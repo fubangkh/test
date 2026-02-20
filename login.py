@@ -1,14 +1,15 @@
 import streamlit as st
 
 def show_login_page():
-    # 注入 CSS 样式
+    # 注入 CSS：利用垂直块选择器将整个容器上移
     st.markdown("""
         <style>
-        /* 1. 登录框整体上移 */
-        [data-testid="stVerticalBlock"] > div:has(div.login-container) {
-            margin-top: -50px !important; 
+        /* 1. 关键：将包含 login-box 的整个父容器上移 */
+        /* 我们通过这个特定的 class 来定位并移动整个卡片 */
+        div.stColumn > div > div > div.stVerticalBlock:has(div.login-box) {
+            margin-top: -120px !important; 
         }
-        
+
         /* 2. 按钮样式 */
         div.stButton > button {
             background-color: #1F883D !important;
@@ -16,18 +17,20 @@ def show_login_page():
             border-radius: 8px !important;
             height: 3rem !important;
             border: none !important;
-            margin-top: 10px;
+            margin-top: 20px;
         }
         div.stButton > button:hover {
             background-color: #66BB6A !important;
         }
-        
-        /* 3. 输入框风格 */
-        div[data-testid="stTextInput"] input {
-            border: 1px solid #dcdfe6 !important;
-            border-radius: 4px !important;
+
+        /* 3. 居中标题的样式优化 */
+        .title-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
         }
-        div[data-testid="stTextInput"] label { display: none !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -35,30 +38,23 @@ def show_login_page():
     _, col_mid, _ = st.columns([1, 2, 1])
     
     with col_mid:
-        # 减少顶部间距，只留一个很小的位置
-        st.write("#") 
+        # 给容器套一个 class 方便 CSS 定位
+        st.markdown('<div class="login-box">', unsafe_allow_html=True)
         
-        # 给容器包一层，方便 CSS 识别并整体上移
         with st.container(border=True):
-            st.markdown('<div class="login-container">', unsafe_allow_html=True)
-            
-            # 1. 图标与文字水平居中
-            st.markdown(
-                "<h2 style='text-align: center;'>📒 富邦日记账</h2>", 
-                unsafe_allow_html=True
-            )
-            st.markdown(
-                "<p style='text-align: center; color: gray;'>请输入管理员授权的凭证以继续</p>", 
-                unsafe_allow_html=True
-            )
+            # 标题和图标强制整体居中
+            st.markdown("""
+                <div class="title-container">
+                    <h2 style='margin: 0;'>📒 富邦日记账</h2>
+                    <p style='color: gray; margin-top: 5px;'>请输入管理员授权的凭证以继续</p>
+                </div>
+            """, unsafe_allow_html=True)
 
-            # 2. 输入区域
-            username = st.text_input("用户名", placeholder="👤 请输入账号", key="user")
-            password = st.text_input("密码", placeholder="🔒 请输入密码", type="password", key="pwd")
+            # 输入区域
+            username = st.text_input("用户名", placeholder="👤 请输入账号", key="user", label_visibility="collapsed")
+            password = st.text_input("密码", placeholder="🔒 请输入密码", type="password", key="pwd", label_visibility="collapsed")
             
-            st.write("") 
-            
-            # 3. 登录验证
+            # 登录验证
             if st.button("立即登录", use_container_width=True):
                 if username == "123" and password == "123":
                     st.session_state.logged_in = True
@@ -70,4 +66,4 @@ def show_login_page():
             st.divider()
             st.caption("💡 忘记密码请联系系统管理员")
             
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)

@@ -1,14 +1,29 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import time
 import pytz
 import requests
-from datetime import datetime
+
+# 1. 必须是第一条 Streamlit 命令
+st.set_page_config(page_title="富邦日记账", layout="wide")
+
+# 2. 初始化状态
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+# 3. 拦截器
+if not st.session_state.logged_in:
+    from login import show_login_page
+    show_login_page()
+    st.stop()
+
+# 4. 登录成功后的界面
+st.title("💰 欢迎使用富邦日记账")
+if st.sidebar.button("安全退出"):
+    st.session_state.logged_in = False
+    st.rerun()
 
 # --- 1. 配置与全局样式 ---
-st.set_page_config(page_title="富邦日记账", layout="wide")
-ADMIN_PWD = "123"
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
 st.markdown("""
@@ -311,67 +326,63 @@ def edit_dialog(df):
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 6. 主页面 ---
-pwd = st.sidebar.text_input("🔑 访问密码", type="password")
-if pwd == ADMIN_PWD:
-    st.title("📊 汇总统计")
-    df_main = load_data()
-    if not df_main.empty:
-        # --- 第一步：先做数据预处理 (必须在 UI 显示前算出数字) ---
-        df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
-        df_main = df_main.dropna(subset=['提交时间'])
+st.title("📊 汇总统计")
+df_main = load_data()
+
+if not df_main.empty:
+    # --- 第一步：数据预处理 ---
+    df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
+    df_main = df_main.dropna(subset=['提交时间'])
+    
+    year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
+    month_list = list(range(1, 13))
+
+    # --- 第二步：时间维度看板 ---
+    with st.container(border=True):
+        st.markdown("### 📅 时间维度看板") 
         
-        year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
-        month_list = list(range(1, 13))
+        c1, c2, c3 = st.columns([2, 2, 5]) 
+        with c1:
+            sel_year = st.selectbox("年份", year_list, index=0, label_visibility="collapsed")
+        with c2:
+            sel_month = st.selectbox("月份", month_list, index=datetime.now().month - 1, label_visibility="collapsed")
+        
+        # 计算月份数值
+        df_this_month = df_main[(df_main['提交时间'].dt.month == sel_month) & (df_main['提交时间'].dt.year == sel_year)]
+        
+        lm = 12 if sel_month == 1 else sel_month - 1
+        ly = sel_year - 1 if sel_month == 1 else sel_year
+        df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['提交时间'].dt.year == ly)]
+        
+        tm_inc = df_this_month['收入'].sum()
+        tm_exp = df_this_month['支出'].sum()
+        lm_inc = df_last_month['收入'].sum()
+        lm_exp = df_last_month['支出'].sum()
+        inc_delta = tm_inc - lm_inc
+        exp_delta = tm_exp - lm_exp
+        t_balance = df_main['收入'].sum() - df_main['支出'].sum()
 
-        # --- 第二步：插入你刚才看中的这个 UI 容器 ---
-        with st.container(border=True):
-            st.markdown("### 📅 时间维度看板") 
-            
-            c1, c2, c3 = st.columns([2, 2, 5]) 
-            with c1:
-                sel_year = st.selectbox("年份", year_list, index=0, label_visibility="collapsed")
-            with c2:
-                sel_month = st.selectbox("月份", month_list, index=datetime.now().month - 1, label_visibility="collapsed")
-            
-            # --- 第三步：在这里计算选中月份的数值 (tm_inc, tm_exp 等) ---
-            df_this_month = df_main[(df_main['提交时间'].dt.month == sel_month) & (df_main['提交时间'].dt.year == sel_year)]
-            
-            lm = 12 if sel_month == 1 else sel_month - 1
-            ly = sel_year - 1 if sel_month == 1 else sel_year
-            df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['提交时间'].dt.year == ly)]
-            
-            tm_inc = df_this_month['收入'].sum()
-            tm_exp = df_this_month['支出'].sum()
-            lm_inc = df_last_month['收入'].sum()
-            lm_exp = df_last_month['支出'].sum()
-            inc_delta = tm_inc - lm_inc
-            exp_delta = tm_exp - lm_exp
-            t_balance = df_main['收入'].sum() - df_main['支出'].sum()
+        with c3:
+            st.markdown(f"""
+                <div style="margin-top: 7px; padding-left: 5px;">
+                    <span style="font-size: 1.2rem; font-weight: bold; color: #31333F;">
+                        💡 当前统计周期：<span style="color: #4CAF50;">{sel_year}年{sel_month}月</span>
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
+        st.markdown("---")
+        
+        m1, m2, m3 = st.columns(3)
+        m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}", delta=f"{inc_delta:,.2f}")
+        m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}", delta=f"{exp_delta:,.2f}", delta_color="inverse")
+        m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
 
-            with c3:
-                # margin-top: 5px 或 8px 通常能让文字与下拉框的中轴线对齐
-                st.markdown(f"""
-                    <div style="margin-top: 7px; padding-left: 5px;">
-                        <span style="font-size: 1.2rem; font-weight: bold; color: #31333F;">
-                            💡 当前统计周期：<span style="color: #4CAF50;">{sel_year}年{sel_month}月</span>
-                        </span>
-                    </div>
-                    """, unsafe_allow_html=True)
-            st.markdown("---")
-            
-            # --- 第四步：渲染指标卡片 ---
-            m1, m2, m3 = st.columns(3)
-            m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}", delta=f"{inc_delta:,.2f}")
-            m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}", delta=f"{exp_delta:,.2f}", delta_color="inverse")
-            m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
+    st.divider()
 
-        # 下面接着你之前的 st.divider() 和 维度 B & C (账户余额/排行)
-        st.divider()
-
-        # 6. 下方账户余额和排行
-        col_l, col_r = st.columns(2)
-        with col_l:
-            st.write("🏦 **各账户当前余额 (原币对账)**")
+    # --- 第三步：账户余额与排行 ---
+    col_l, col_r = st.columns(2)
+    with col_l:
+        st.write("🏦 **各账户当前余额 (原币对账)**")
             
             def calc_bank_balance(group):
                 # 1. 强制数值转换，防止 NaN 字符导致计算崩溃
@@ -400,21 +411,21 @@ if pwd == ADMIN_PWD:
             try:
                 acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
 
-                # 4. 符号映射（修改这里）
+                # 4. 符号映射
                 def symbol_format(row):
                     val = row['RAW']
                     cur = row['CUR']
-                    # 关键：确保这里的 key 和你录入时选的值（RMB, USD等）完全一致
+                    # 关键：确保这里的 key 和录入时选的值（RMB, USD等）完全一致
                     sym_map = {
-                        "人民币": "¥", 
-                        "RMB": "¥",      # 新增这一行
+                        "人民币": "¥",
+                        "RMB": "¥",
                         "港币": "HK$",
                         "HKD": "HK$",
-                        "印尼盾": "Rp", 
-                        "IDR": "Rp",     # 建议顺便把缩写都加上
-                        "越南盾": "₫", 
+                        "印尼盾": "Rp",
+                        "IDR": "Rp",
+                        "越南盾": "₫",
                         "VND": "₫",
-                        "美元": "$", 
+                        "美元": "$",
                         "USD": "$"
                     }
                     sym = sym_map.get(cur, "$")
@@ -436,57 +447,51 @@ if pwd == ADMIN_PWD:
             except Exception as e:
                 st.error(f"余额计算异常: {e}")
 
-        with col_r:
-            st.write(f"🏷️ **{sel_month}月支出排行**")
-            exp_stats = df_this_month[df_this_month['支出'] > 0].groupby('资金性质')['支出'].sum().sort_values(ascending=False).reset_index()
-            if not exp_stats.empty:
-                st.dataframe(exp_stats.style.format({"支出": "${:,.2f}"}), use_container_width=True, hide_index=True)
-            else:
-                st.caption("该月暂无支出")
-        st.divider()
-        h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
-        h_col.subheader("📑 流水明细表")
-        with b_add:
-            if st.button("➕ 录入", type="primary", use_container_width=True): entry_dialog()
-        with b_edit:
-            if st.button("🛠️ 修正", type="primary", use_container_width=True): edit_dialog(df_main)
-   # 1. 准备数据并按时间筛选
-        df_display = df_main.copy()
-        df_display['提交时间'] = pd.to_datetime(df_display['提交时间'], errors='coerce')
-        
-        # 核心逻辑：利用上方选定的 sel_year 和 sel_month 过滤数据
-        df_display = df_display[
-            (df_display['提交时间'].dt.year == sel_year) & 
-            (df_display['提交时间'].dt.month == sel_month)
-        ]
-        
-        # 排序
-        df_display = df_display.sort_values("录入编号", ascending=False)
-        
-        # 2. 搜索框逻辑 (在当前月份结果中搜索)
-        search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
-        if search_query:
-            q = search_query.lower()
-            mask = (
-                df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
-                df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
-            )
-            df_display = df_display[mask]
-    
-    # 2. 格式化金额（紧接着下方，保持对齐）
-    money_cols = ['收入', '支出', '余额']
-    for col in money_cols:
-        if col in df_display.columns:
-            df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).map('{:,.2f}'.format)
+    with col_r:
+        st.write(f"🏷️ **{sel_month}月支出排行**")
+        exp_stats = df_this_month[df_this_month['支出'] > 0].groupby('资金性质')['支出'].sum().sort_values(ascending=False).reset_index()
+        if not exp_stats.empty:
+            st.dataframe(exp_stats.style.format({"支出": "${:,.2f}"}), use_container_width=True, hide_index=True)
+        else:
+            st.caption("该月暂无支出")
 
-    # --- 3. 显示表格逻辑 ---
-    # 如果筛选后有数据，显示表格
+    st.divider()
+
+    # --- 第四步：流水明细表 (含搜索和格式化) ---
+    h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
+    h_col.subheader("📑 流水明细表")
+    with b_add:
+        if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): entry_dialog()
+    with b_edit:
+        if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): edit_dialog(df_main)
+
+    # 数据准备
+    df_display = df_main.copy()
+    df_display = df_display[
+        (df_display['提交时间'].dt.year == sel_year) & 
+        (df_display['提交时间'].dt.month == sel_month)
+    ]
+    df_display = df_display.sort_values("录入编号", ascending=False)
+    
+    # 搜索框
+    search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
+    if search_query:
+        q = search_query.lower()
+        mask = (
+            df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
+            df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
+        )
+        df_display = df_display[mask]
+
+    # 金额格式化 (注意：这里格式化后数据变字符串，仅用于显示)
+    # 提示：实际显示时我们用 column_config 格式化更好，这里保持原始数值
+    
     if not df_display.empty:
         st.dataframe(
             df_display,
             use_container_width=True,
             hide_index=True,
-            height=500,  # 给表格固定高度
+            height=500,
             column_config={
                 "录入编号": st.column_config.TextColumn("录入编号", width="small"),
                 "摘要": st.column_config.TextColumn("摘要", width="large"),
@@ -503,22 +508,8 @@ if pwd == ADMIN_PWD:
                 "备注": st.column_config.TextColumn("备注", width="medium"),
             }
         )
-    # 如果筛选后是空的，显示温馨提示
     else:
-        st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击右上角录入。")
+        st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份。")
+
 else:
-    st.info("请输入密码解锁系统")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    st.warning("⚠️ 数据库为空，请点击上方录入按钮开始记账")

@@ -13,7 +13,7 @@ def show_login_page():
 
         /* 外框容器 */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
-            border: 2px solid #e2e8f0 !important; 
+            border: 1.5px solid #e2e8f0 !important; /* 细外框 */
             border-radius: 50px !important;       
             background-color: white !important;
             padding: 2.5rem 2rem !important;
@@ -30,7 +30,6 @@ def show_login_page():
             display: flex; align-items: center; justify-content: center;
             font-weight: 800; font-size: 1.2rem;
         }}
-        /* 标题颜色修改：与 Logo 绿色一致 */
         .title-text {{ color: #1f7a3f; font-size: 1.8rem; font-weight: 800; margin: 0; }}
 
         .label-with-icon {{
@@ -45,29 +44,28 @@ def show_login_page():
         }}
         div[data-testid="stTextInput"] label {{ display: none !important; }}
 
-        /* --- 按钮样式修改 --- */
+        /* --- 按钮样式：白底、细灰框 --- */
         div.stButton > button {{
-            background-color: #f8fafc !important; /* 默认浅灰色背景 */
-            color: #1f7a3f !important;           /* 默认绿色文字 */
-            border: 2px solid #1f7a3f !important; /* 默认绿色边框 */
+            background-color: white !important;   /* 纯白底 */
+            color: #64748b !important;            /* 默认灰色文字，不扎眼 */
+            border: 1.5px solid #e2e8f0 !important; /* 与外框一致的细浅灰框 */
             border-radius: 12px !important; 
             height: 3.5rem !important;
             width: 100% !important; 
-            font-weight: 700 !important;
-            transition: all 0.3s ease !important; /* 平滑过渡动画 */
+            font-weight: 600 !important;
+            transition: all 0.3s ease !important;
         }}
 
-        /* 鼠标悬停（Hover）状态 */
+        /* 鼠标悬停：变成品牌绿 */
         div.stButton > button:hover {{
-            background-color: #1f7a3f !important; /* 背景变绿 */
-            color: white !important;              /* 文字变白 */
-            border: 2px solid #1f7a3f !important;
-            box-shadow: 0 4px 12px rgba(31, 122, 63, 0.2) !important;
+            background-color: #1f7a3f !important; 
+            color: white !important;              
+            border: 1.5px solid #1f7a3f !important;
+            box-shadow: 0 4px 12px rgba(31, 122, 63, 0.15) !important;
         }}
         
-        /* 点击时的缩放效果 */
         div.stButton > button:active {{
-            transform: scale(0.98) !important;
+            transform: scale(0.99) !important;
         }}
         </style>
     """, unsafe_allow_html=True)
@@ -90,9 +88,8 @@ def show_login_page():
 
         c1, c2 = st.columns([1, 1])
         with c1: st.checkbox("记住我", value=True)
-        with c2: st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.88rem;'>忘记密码？</div>", unsafe_allow_html=True)
+        with c2: st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.88rem; cursor:pointer;'>忘记密码？</div>", unsafe_allow_html=True)
 
-        # 登录逻辑
         if st.button("立即登录", use_container_width=True):
             if u == "123" and p == "123":
                 st.session_state.logged_in = True

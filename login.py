@@ -5,11 +5,7 @@ def show_login_page():
     primary_green_hover = "#166534"
     icon_gray = "#64748b"
 
-    st.set_page_config(
-        page_title="富邦日记账 - 登录",
-        page_icon="🔐",
-        layout="centered"
-    )
+    st.set_page_config(page_title="富邦日记账 - 登录", page_icon="🔐", layout="centered")
 
     st.markdown(f"""
     <style>
@@ -24,14 +20,12 @@ def show_login_page():
         --inner-radius: 18px;
         --input-bg: #f1f5f9;
         --input-border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
     }}
 
-    /* 始终显示滚动条，避免布局抖动 */
     html {{ overflow-y: scroll; }}
-
-    .stApp {{
-        background: var(--bg) !important;
-    }}
+    .stApp {{ background: var(--bg) !important; }}
 
     .block-container {{
         max-width: 560px !important;
@@ -48,74 +42,54 @@ def show_login_page():
         padding: 3rem 2.6rem 2.6rem 2.6rem !important;
     }}
 
-    /* 内容同宽：输入/按钮/提示同宽 */
-    .content-wrap {{
-        width: 92%;
-        margin: 0 auto;
-    }}
+    .content-wrap {{ width: 92%; margin: 0 auto; }}
 
     /* 标题区 */
     .brand-header {{
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        gap:14px;
-        margin-bottom: 10px;
+        display:flex; align-items:center; justify-content:center;
+        gap:14px; margin-bottom: 10px;
     }}
-
-    /* Logo 圆形 */
     .fb-logo {{
-        width: 60px;
-        height: 60px;
-        border-radius: 9999px;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        background: var(--primary);
-        color:#fff;
-        font-weight: 900;
-        font-size: 1.6rem;
+        width: 60px; height: 60px; border-radius: 9999px;
+        display:flex; align-items:center; justify-content:center;
+        background: var(--primary); color:#fff;
+        font-weight: 900; font-size: 1.6rem;
         box-shadow: 0 10px 26px rgba(31, 122, 63, 0.25);
     }}
-
     .brand-text {{
-        margin: 0;
-        color: #0f172a;
-        font-size: 2.2rem;
-        font-weight: 900;
-        letter-spacing: -1px;
-        line-height: 1;
+        margin: 0; color: var(--text);
+        font-size: 2.2rem; font-weight: 900;
+        letter-spacing: -1px; line-height: 1;
     }}
-
     .brand-sub {{
-        text-align:center;
-        color:#64748b;
-        font-size:0.95rem;
-        margin-bottom: 28px;
+        text-align:center; color: var(--muted);
+        font-size:0.95rem; margin-bottom: 28px;
     }}
 
     /* label */
     .custom-label {{
-        display:flex;
-        align-items:center;
-        gap: 8px;
-        font-weight: 700;
-        color: #334155;
-        font-size: 0.95rem;
-        margin-bottom: 8px;
+        display:flex; align-items:center; gap: 8px;
+        font-weight: 700; color: #334155;
+        font-size: 0.95rem; margin-bottom: 8px;
     }}
-
     .custom-label svg {{
-        width: 20px;
-        height: 20px;
+        width: 20px; height: 20px;
         stroke: var(--icon);
     }}
 
-    /* =======================
-       输入框统一（含密码眼睛）
-       ======================= */
+    /* =====================================================
+       ✅ 终极：打通 BaseWeb Input 全层级（解决“套娃边框”）
+       目标：只有最外壳一层有背景/边框/圆角；其余层全透明无边框
+       ===================================================== */
 
-    /* 外壳 */
+    /* 0) 不要让 stTextInput 自己产生额外边框效果 */
+    div[data-testid="stTextInput"] {{
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }}
+
+    /* 1) 最外壳（唯一允许有背景/边框/圆角的层） */
     div[data-baseweb="input"] > div {{
         background: var(--input-bg) !important;
         border: 1px solid var(--input-border) !important;
@@ -123,47 +97,66 @@ def show_login_page():
         height: 3.3rem !important;
         display: flex !important;
         align-items: center !important;
-        overflow: hidden !important;
+        overflow: hidden !important;   /* ✅ 用它来裁切内部所有圆角/边框 */
+        box-shadow: none !important;
     }}
 
-    /* 输入文本 */
-    div[data-baseweb="input"] input {{
+    /* 2) 内层所有 div：全部透明、无边框、无圆角（解决灰框套娃） */
+    div[data-baseweb="input"] > div > div {{
         background: transparent !important;
-        color: #0f172a !important;
-        font-size: 14.5px !important;
-        height: 3.3rem !important;
-        line-height: 3.3rem !important;
-        padding: 0 52px 0 14px !important; /* 右侧为眼睛预留 */
         border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
         outline: none !important;
     }}
 
-    /* ✅ 关键：精准命中眼睛区域容器（第二个子 div）同背景 */
-    div[data-baseweb="input"] > div > div:nth-child(2) {{
-        background: var(--input-bg) !important;
-        border-left: none !important;
+    /* 3) 更深层级：彻底禁止“任何子孙层”画背景/边框/阴影/圆角 */
+    div[data-baseweb="input"] > div * {{
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        outline: none !important;
+    }}
+
+    /* 4) 输入本体：文字垂直居中 + 右侧预留眼睛按钮空间 */
+    div[data-baseweb="input"] input {{
+        background: transparent !important;
+        color: var(--text) !important;
+        font-size: 14.5px !important;
+        height: 3.3rem !important;
+        line-height: 3.3rem !important;
+        padding: 0 52px 0 14px !important;
+        margin: 0 !important;
+    }}
+
+    /* 5) endEnhancer（眼睛区域）：
+          - 本身同背景（避免右侧色块差异）
+          - 禁止伪元素分隔线
+     */
+    div[data-baseweb="input"] > div > div:nth-child(2),
+    div[data-baseweb="input"] > div > div:last-child {{
+        background: var(--input-bg) !important;   /* ✅ 右侧同色 */
         height: 3.3rem !important;
         display: flex !important;
         align-items: center !important;
         padding: 0 14px !important;
     }}
 
-    /* 眼睛按钮：内部透明，避免叠色 */
-    div[data-baseweb="input"] > div > div:nth-child(2) * {{
-        background: transparent !important;
-        box-shadow: none !important;
+    div[data-baseweb="input"] > div > div:nth-child(2)::before,
+    div[data-baseweb="input"] > div > div:nth-child(2)::after,
+    div[data-baseweb="input"] > div > div:last-child::before,
+    div[data-baseweb="input"] > div > div:last-child::after {{
+        content: none !important;
+        display: none !important;
     }}
 
+    /* 6) 眼睛按钮：所有状态透明 */
     div[data-baseweb="input"] button,
     div[data-baseweb="input"] [role="button"] {{
         background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        outline: none !important;
         padding: 0 !important;
         margin: 0 !important;
     }}
-
     div[data-baseweb="input"] button:hover,
     div[data-baseweb="input"] button:active,
     div[data-baseweb="input"] button:focus,
@@ -173,7 +166,7 @@ def show_login_page():
         outline: none !important;
     }}
 
-    /* 图标颜色统一 */
+    /* 7) 眼睛图标颜色 */
     div[data-baseweb="input"] svg,
     div[data-baseweb="input"] svg path {{
         fill: var(--icon) !important;
@@ -185,9 +178,9 @@ def show_login_page():
         display:none !important;
     }}
 
-    /* =======================
-       登录按钮
-       ======================= */
+    /* =====================================================
+       按钮
+       ===================================================== */
     .stButton > button {{
         width: 100% !important;
         height: 3.3rem !important;
@@ -200,7 +193,6 @@ def show_login_page():
         margin-top: 12px;
         transition: all .15s ease-in-out;
     }}
-
     .stButton > button:hover {{
         background: var(--primary-hover) !important;
         transform: translateY(-1px);
@@ -211,7 +203,6 @@ def show_login_page():
         min-height: 78px;
         margin-top: 16px;
     }}
-
     .alert {{
         border-radius: var(--inner-radius);
         padding: 16px 18px;
@@ -226,7 +217,6 @@ def show_login_page():
         border:none;
         border-top:1px solid #f1f5f9;
     }}
-
     .footer-tip {{
         text-align:center;
         color:#94a3b8;
@@ -235,7 +225,6 @@ def show_login_page():
     </style>
     """, unsafe_allow_html=True)
 
-    # SVG 图标（同风格同尺寸同色）
     user_svg = f"""
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
          fill="none" stroke="{icon_gray}" stroke-width="2.5"
@@ -287,17 +276,13 @@ def show_login_page():
 
         if clicked:
             if not u or not p:
-                msg_area.markdown(
-                    '<div class="msg-slot"><div class="alert">请先输入账号和密码</div></div>',
-                    unsafe_allow_html=True
-                )
+                msg_area.markdown('<div class="msg-slot"><div class="alert">请先输入账号和密码</div></div>',
+                                  unsafe_allow_html=True)
             elif u == "123" and p == "123":
                 st.success("登录成功")
             else:
-                msg_area.markdown(
-                    '<div class="msg-slot"><div class="alert">账号或密码错误</div></div>',
-                    unsafe_allow_html=True
-                )
+                msg_area.markdown('<div class="msg-slot"><div class="alert">账号或密码错误</div></div>',
+                                  unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
 

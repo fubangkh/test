@@ -394,34 +394,36 @@ with col_l:
     st.write("🏦 **各账户当前余额 (原币对账)**")
         
     def calc_bank_balance(group):
-        # 统一转为数值，防止字符串导致 sum() 报错
+        # 1. 统一转为数值
         inc_clean = pd.to_numeric(group['收入'], errors='coerce').fillna(0)
         exp_clean = pd.to_numeric(group['支出'], errors='coerce').fillna(0)
         amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
-        usd_bal = inc_clean.sum() - exp_clean.sum()
         
-        # 计算原币余额逻辑
+        # 2. 定义内部计算逻辑
         def get_raw_val(idx):
-            # 1. 先尝试获取实际金额，并确保它是数值
             current_val = amt_clean.loc[idx]
-            
-            # 2. 如果实际金额缺失或为0，则根据收入/支出寻找替代值（兼容旧账）
             if current_val == 0 or pd.isna(current_val):
                 if inc_clean.loc[idx] > 0:
                     current_val = inc_clean.loc[idx]
                 elif exp_clean.loc[idx] > 0:
                     current_val = exp_clean.loc[idx]
                 else:
-                    current_val = 0 # 实在没数据就给0
-            
-            # 3. 确定正负号：支出为负，收入为正
+                    current_val = 0
             is_expense = exp_clean.loc[idx] > 0
             return -current_val if is_expense else current_val
 
-        # 自动识别该账户的币种（取最后一次录入的币种）
+        # --- 核心修复区：确保这些变量在 return 之前被定义 ---
+        # 3. 计算 USD 总余额
+        usd_bal = inc_clean.sum() - exp_clean.sum()
+        
+        # 4. 计算原币总余额 (这里定义了 raw_bal)
+        raw_bal = sum(get_raw_val(idx) for idx in group.index)
+        
+        # 5. 获取币种
         valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
         cur_name = valid_currencies[-1] if valid_currencies else "USD"
         
+        # 6. 返回结果
         return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
 
     try:
@@ -523,5 +525,6 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 

@@ -46,7 +46,7 @@ def show_login_page():
         div[data-testid="stTextInput"] label {{ display: none !important; }}
 
         /* --- 自定义报错框样式 --- */
-        .custom-error-box {
+        .custom-error-box {{
             background-color: #fee2e2 !important; /* 浅红色背景 */
             color: #b91c1c !important;            /* 深红色文字 */
             border-radius: 12px !important;
@@ -59,7 +59,7 @@ def show_login_page():
             font-weight: 500 !important;
             margin-top: 15px !important;
             width: 100% !important;               /* 确保占满宽度 */
-        }
+        }}
         
         /* --- 按钮样式 --- */
         div.stButton > button {{

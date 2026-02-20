@@ -464,9 +464,9 @@ st.divider()
 h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
 h_col.subheader("📑 流水明细表")
 with b_add:
-if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): entry_dialog()
+    if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): entry_dialog()
 with b_edit:
-if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): edit_dialog(df_main)
+    if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): edit_dialog(df_main)
 
 # 数据准备
 df_display = df_main.copy()
@@ -479,37 +479,38 @@ df_display = df_display.sort_values("录入编号", ascending=False)
 # 搜索框
 search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
 if search_query:
-q = search_query.lower()
-mask = (
-    df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
-    df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
-)
-df_display = df_display[mask]
+    q = search_query.lower()
+    mask = (
+        df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
+        df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
+    )
+    df_display = df_display[mask]
 
 # 金额格式化 (注意：这里格式化后数据变字符串，仅用于显示)
 # 提示：实际显示时我们用 column_config 格式化更好，这里保持原始数值
 
 if not df_display.empty:
-st.dataframe(
-    df_display,
-    use_container_width=True,
-    hide_index=True,
-    height=500,
-    column_config={
-        "录入编号": st.column_config.TextColumn("录入编号", width="small"),
-        "摘要": st.column_config.TextColumn("摘要", width="large"),
-        "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
-        "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
-        "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
-        "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-        "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
-        "实际币种": st.column_config.TextColumn("实际币种", width="small"),
-        "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
-        "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
-        "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
-        "经手人": st.column_config.TextColumn("经手人", width="small"),
-        "备注": st.column_config.TextColumn("备注", width="medium"),
-    }
-)
+    st.dataframe(
+        df_display,
+        use_container_width=True,
+        hide_index=True,
+        height=500,
+        column_config={
+            "录入编号": st.column_config.TextColumn("录入编号", width="small"),
+            "摘要": st.column_config.TextColumn("摘要", width="large"),
+            "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
+            "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
+            "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
+            "资金性质": st.column_config.TextColumn("资金性质", width="small"),
+            "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
+            "实际币种": st.column_config.TextColumn("实际币种", width="small"),
+            "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
+            "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
+            "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
+            "经手人": st.column_config.TextColumn("经手人", width="small"),
+            "备注": st.column_config.TextColumn("备注", width="medium"),
+        }
+    )
 else:
-st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或或点击录入。")
+    st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+

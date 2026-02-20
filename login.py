@@ -57,7 +57,8 @@ def show_login_page():
             padding: 0 15px !important;
             font-size: 0.9rem !important;
             font-weight: 500 !important;
-            margin-top: 15px !important;
+            margin-top: -15px !important;
+            margin-bottom: 10px !important;
             width: 100% !important;               /* 确保占满宽度 */
         }}
         

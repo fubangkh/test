@@ -22,7 +22,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # --- 4. 登录成功后的主程序逻辑 ---
-st.title("💰 欢迎使用富邦日记账")
+st.title("💰 富邦日记账")
 if st.sidebar.button("安全退出"):
     st.session_state.logged_in = False
     st.rerun()
@@ -525,6 +525,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

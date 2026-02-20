@@ -46,8 +46,8 @@ def show_login_page():
             """, unsafe_allow_html=True)
 
             # 输入区域
-            username = st.text_input("用户名", placeholder="👤  请输入账号，测试账号: 123", key="user")
-            password = st.text_input("密码", placeholder="🔒  请输入密码，测试密码：123", type="password", key="pwd")
+            username = st.text_input("用户名", placeholder="👤  请输入账号，测试账号123", key="user")
+            password = st.text_input("密码", placeholder="🔒  请输入密码，测试密码123", type="password", key="pwd")
             
             if st.button("立即登录", use_container_width=True):
                 # 你的校验逻辑...

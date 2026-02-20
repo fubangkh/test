@@ -43,6 +43,9 @@ def show_login_page():
             border: 1px solid #e2e8f0 !important;
             border-radius: 12px !important;
         }}
+        div[data-testid="stTextInput"] label {{ display: none !important; }}
+
+        /* --- 错误/成功提示框优化 (st.error / st.success) --- */
         div[data-testid="stNotification"] {{
             border-radius: 12px !important;
             border: none !important;
@@ -53,12 +56,12 @@ def show_login_page():
             padding: 0 1rem !important;
             margin-top: 10px !important;
         }}
-        
+        /* 让提示框里的文字居中对齐 */
         div[data-testid="stNotificationContent"] {{
             display: flex !important;
             align-items: center !important;
         }}
-
+        
         /* --- 按钮样式：白底、细灰框 --- */
         div.stButton > button {{
             background-color: white !important;   /* 纯白底 */

@@ -501,7 +501,7 @@ df_display = df_display.sort_values("录入编号", ascending=False)
 # 2. 再进入容器渲染 UI
 with st.container(border=True):
     h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
-    h_col.markdown("### 📑 流水明细表")
+    h_col.markdown("#### 📑 流水明细表")
     
     with b_add:
         if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): 
@@ -545,6 +545,7 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

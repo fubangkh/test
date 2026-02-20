@@ -7,92 +7,66 @@ from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
 # --- 1. 全局配置 (必须放在最前面) ---
-st.set_page_config(
-    page_title="富邦日记账", 
-    layout="wide", 
-    initial_sidebar_state="expanded" # 强制展开
-)
+st.set_page_config(page_title="富邦日记账", layout="wide")
+
+# --- 2. 核心定义 (时区定义，全局可用) ---
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
-# --- 2. 登录拦截 ---
+# --- 3. 登录拦截系统 ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
+
 if not st.session_state.logged_in:
     from login import show_login_page
     show_login_page()
     st.stop()
 
-# --- 3. 登录成功后的主程序逻辑 ---
-# A. 整合后的 CSS：包含导航条样式、按钮样式、以及白卡片样式
+# --- 4. 登录成功后的主程序逻辑 ---
+st.title("💰 富邦日记账")
+if st.sidebar.button("安全退出"):
+    st.session_state.logged_in = False
+    st.rerun()
+
+# 数据库连接
+conn = st.connection("gsheets", type=GSheetsConnection)
+
 st.markdown("""
     <style>
-    /* --- 专项修复：侧边栏深色模式强制转白 --- */
-    
-    /* 1. 强制侧边栏整体背景 */
-    [data-testid="stSidebar"], 
-    [data-testid="stSidebarContent"] {
-        background-color: #f1f5f9 !important; /* 浅灰蓝色背景 */
+    /* 1. 确认提交按钮：默认是清爽的浅绿灰色 */
+    div.stButton > button[kind="primary"] {
+        background-color: #1F883D; /* 默认：清爽绿 */
+        color: white;
+        border: none;
+        border-radius: 8px;        /* 圆角稍微圆润一点，更现代 */
+        padding: 0.5rem 1rem;
+        transition: all 0.3s ease;
+        font-weight: 500;
     }
 
-    /* 2. 强制侧边栏内所有文字颜色 */
-    [data-testid="stSidebar"] .stMarkdown, 
-    [data-testid="stSidebar"] p, 
-    [data-testid="stSidebar"] span, 
-    [data-testid="stSidebar"] label {
-        color: #1e293b !important;
+    /* 2. 悬停状态：变成明亮的绿色，并有一点点阴影 */
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #66BB6A; /* 悬停：亮绿 */
+        color: white;
+        border-color: #66BB6A;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* 增加一点点悬浮阴影感 */
     }
 
-    /* 3. 特别针对侧边栏内的按钮（安全退出按钮） */
-    [data-testid="stSidebar"] button {
-        background-color: #ffffff !important; /* 按钮背景强制白 */
-        color: #1e293b !important;            /* 按钮文字强制深色 */
-        border: 1px solid #e2e8f0 !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+    /* 3. 取消返回按钮：极简浅灰色 */
+    div.stButton > button[kind="secondary"] {
+        background-color: #F8F9FA; 
+        color: #444;
+        border: 1px solid #E0E0E0;
+        border-radius: 8px;
     }
 
-    /* 4. 针对手机端可能存在的深色模式媒体查询进行终极覆盖 */
-    @media (prefers-color-scheme: dark) {
-        [data-testid="stSidebar"], 
-        [data-testid="stSidebarContent"] {
-            background-color: #f1f5f9 !important;
-        }
-        [data-testid="stSidebar"] button {
-            background-color: #ffffff !important;
-            color: #1e293b !important;
-        }
-    }
-
-    /* 5. 修复侧边栏在深色模式下的样式 */
-    [data-testid="stSidebar"] {
-        background-color: #f1f5f9 !important;
-    }
-    [data-testid="stSidebar"] * {
-        color: #1e293b !important;
+    /* 4. 取消按钮悬停：稍微深一点的灰 */
+    div.stButton > button[kind="secondary"]:hover {
+        background-color: #EEEEEE;
+        border-color: #CCCCCC;
+        color: #000;
     }
     </style>
 """, unsafe_allow_html=True)
-
-# B. 渲染导航栏
-with st.container():
-    st.markdown(f"""
-        <div class="nav-container">
-            <div class="nav-logo">
-                <div class="logo-sq">FB</div>
-                <div style="font-size: 1.15rem; font-weight: 800; color: #1f7a3f; letter-spacing: 0.5px;">
-                    富邦日记账
-                </div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-# C. 强制定义侧边栏（必须写，否则箭头不显示）
-with st.sidebar:
-    st.markdown("### 🛠️管理菜单")
-    st.write("") 
-    if st.button("安全退出", use_container_width=True):
-        st.session_state.logged_in = False
-        st.rerun()
-    st.divider()
-    st.caption("富邦日记账 v1.2")
 
 # --- 2. 核心功能：实时汇率 ---
 @st.cache_data(ttl=3600)
@@ -374,7 +348,7 @@ month_list = list(range(1, 13))
 
 # --- 第二步：时间维度看板 ---
 with st.container(border=True):
-    st.markdown("#### 📅 时间维度看板") 
+    st.markdown("### 📅 时间维度看板") 
     
     c1, c2, c3 = st.columns([2, 2, 5]) 
     with c1:
@@ -498,66 +472,56 @@ with col_r:
 
 st.divider()
 
-# --- 第四步：流水明细表 ---
-# 1. 先准备数据（确保变量在被使用前已经生成）
+# --- 第四步：流水明细表 (含搜索和格式化) ---
+h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
+h_col.subheader("📑 流水明细表")
+with b_add:
+    if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): entry_dialog()
+with b_edit:
+    if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): edit_dialog(df_main)
+
+# 数据准备
 df_display = df_main.copy()
 df_display = df_display[
-    (df_display['提交时间'].dt.year == sel_year) & 
-    (df_display['提交时间'].dt.month == sel_month)
+(df_display['提交时间'].dt.year == sel_year) & 
+(df_display['提交时间'].dt.month == sel_month)
 ]
 df_display = df_display.sort_values("录入编号", ascending=False)
 
-# 2. 再进入容器渲染 UI
-with st.container(border=True):
-    h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
-    h_col.markdown("#### 📑 流水明细表")
-    
-    with b_add:
-        if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): 
-            entry_dialog()
-    with b_edit:
-        if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): 
-            edit_dialog(df_main)
+# 搜索框
+search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
+if search_query:
+    q = search_query.lower()
+    mask = (
+        df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
+        df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
+    )
+    df_display = df_display[mask]
 
-    # 搜索框逻辑
-    search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
-    if search_query:
-        q = search_query.lower()
-        mask = (
-            df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
-            df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
-        )
-        df_display = df_display[mask]
+# 金额格式化 (注意：这里格式化后数据变字符串，仅用于显示)
+# 提示：实际显示时我们用 column_config 格式化更好，这里保持原始数值
 
-    # 表格显示逻辑
-    if not df_display.empty:
-        st.dataframe(
-            df_display,
-            use_container_width=True,
-            hide_index=True,
-            height=500,
-            column_config={
-                "录入编号": st.column_config.TextColumn("录入编号", width="small"),
-                "摘要": st.column_config.TextColumn("摘要", width="large"),
-                "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
-                "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
-                "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
-                "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-                "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
-                "实际币种": st.column_config.TextColumn("实际币种", width="small"),
-                "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
-                "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
-                "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
-                "经手人": st.column_config.TextColumn("经手人", width="small"),
-                "备注": st.column_config.TextColumn("备注", width="medium"),
-            }
-        )
-    else:
-        st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
-
-
-
-
-
-
-
+if not df_display.empty:
+    st.dataframe(
+        df_display,
+        use_container_width=True,
+        hide_index=True,
+        height=500,
+        column_config={
+            "录入编号": st.column_config.TextColumn("录入编号", width="small"),
+            "摘要": st.column_config.TextColumn("摘要", width="large"),
+            "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
+            "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
+            "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
+            "资金性质": st.column_config.TextColumn("资金性质", width="small"),
+            "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
+            "实际币种": st.column_config.TextColumn("实际币种", width="small"),
+            "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
+            "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
+            "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
+            "经手人": st.column_config.TextColumn("经手人", width="small"),
+            "备注": st.column_config.TextColumn("备注", width="medium"),
+        }
+    )
+else:
+    st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")

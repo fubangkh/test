@@ -19,18 +19,24 @@ if not st.session_state.logged_in:
     st.stop()
 
 # --- 3. 登录成功后的主程序逻辑 ---
-# A. 这里的 CSS 必须插入，用来实现“灰底白卡片”风格
+
+# A. 整合后的 CSS：包含导航条样式、按钮样式、以及白卡片样式
 st.markdown("""
     <style>
-    /* 全局背景色 */
+    /* 1. 全局背景与隐藏原生页眉 */
     .stApp { background-color: #f8fafc !important; }
     header { visibility: hidden; }
     
-    /* 自定义导航条样式 */
+    /* 2. 顶部导航条：精简、对齐、适配手机 */
     .nav-container {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 10px 20px; background: white;
-        border-bottom: 1px solid #e2e8f0; margin: -50px -50px 30px -50px;
+        display: flex; 
+        align-items: center;
+        padding: 12px 18px; 
+        background: white;
+        border: 1px solid #e2e8f0; 
+        border-radius: 16px;       
+        margin-bottom: 1.2rem;     
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
     }
     .nav-logo { display: flex; align-items: center; gap: 12px; }
     .logo-sq {
@@ -39,7 +45,24 @@ st.markdown("""
         font-weight: bold; font-size: 14px;
     }
 
-    /* 强制所有带 border 的容器变为圆角白卡片 */
+    /* 3. 按钮样式升级 (Primary & Secondary) */
+    div.stButton > button[kind="primary"] {
+        background-color: #1F883D !important;
+        color: white !important;
+        border-radius: 12px !important;
+        border: none !important;
+        transition: all 0.3s ease;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #66BB6A !important;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+    }
+    div.stButton > button[kind="secondary"] {
+        border-radius: 12px !important;
+        background-color: white !important;
+    }
+
+    /* 4. 强制卡片容器风格 (针对 st.container border=True) */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background-color: white !important;
         border: 1px solid #e2e8f0 !important;
@@ -49,64 +72,18 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# B. 插入自定义的顶部导航栏 (替代原有的 st.title)
-st.markdown(f"""
-    <div class="nav-container">
-        <div class="nav-logo">
-            <div class="logo-sq">FB</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #1f7a3f;">富邦日记账管理系统</div>
+# B. 渲染导航栏
+with st.container():
+    st.markdown(f"""
+        <div class="nav-container">
+            <div class="nav-logo">
+                <div class="logo-sq">FB</div>
+                <div style="font-size: 1.15rem; font-weight: 800; color: #1f7a3f; letter-spacing: 0.5px;">
+                    富邦日记账管理系统
+                </div>
+            </div>
         </div>
-        <div style="color: #64748b; font-size: 0.85rem;">
-            📅 {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d')} | 管理员已登录
-        </div>
-    </div>
-""", unsafe_allow_html=True)
-
-# 侧边栏保持极简
-if st.sidebar.button("🚪 安全退出"):
-    st.session_state.logged_in = False
-    st.rerun()
-
-# 数据库连接
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-st.markdown("""
-    <style>
-    /* 1. 确认提交按钮：默认是清爽的浅绿灰色 */
-    div.stButton > button[kind="primary"] {
-        background-color: #1F883D; /* 默认：清爽绿 */
-        color: white;
-        border: none;
-        border-radius: 8px;        /* 圆角稍微圆润一点，更现代 */
-        padding: 0.5rem 1rem;
-        transition: all 0.3s ease;
-        font-weight: 500;
-    }
-
-    /* 2. 悬停状态：变成明亮的绿色，并有一点点阴影 */
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #66BB6A; /* 悬停：亮绿 */
-        color: white;
-        border-color: #66BB6A;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* 增加一点点悬浮阴影感 */
-    }
-
-    /* 3. 取消返回按钮：极简浅灰色 */
-    div.stButton > button[kind="secondary"] {
-        background-color: #F8F9FA; 
-        color: #444;
-        border: 1px solid #E0E0E0;
-        border-radius: 8px;
-    }
-
-    /* 4. 取消按钮悬停：稍微深一点的灰 */
-    div.stButton > button[kind="secondary"]:hover {
-        background-color: #EEEEEE;
-        border-color: #CCCCCC;
-        color: #000;
-    }
-    </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 # --- 2. 核心功能：实时汇率 ---
 @st.cache_data(ttl=3600)
@@ -568,4 +545,5 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 

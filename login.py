@@ -92,7 +92,7 @@ def show_login_page():
 
 if st.button("立即登录", use_container_width=True):
     # 注意：这里的 u 和 p 是你在文本框里定义的 key
-    if username == "123" and password == "123": 
+    if u == "123" and p == "123": 
         st.session_state.logged_in = True  # 修改全局状态
         st.success("验证通过，正在加载系统...")
         st.rerun()  # 这一步会跳回 app.py 的顶部重新判断

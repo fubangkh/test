@@ -58,8 +58,16 @@ def show_login_page():
             font-size: 0.9rem !important;
             font-weight: 500 !important;
             margin-top: -10px !important;
-            margin-bottom: 15px !important;
+            margin-bottom: -10px !important;
             width: 100% !important;               /* 确保占满宽度 */
+        }}
+        
+        /* --- 底部分割线优化 --- */
+        .custom-hr {{
+            margin-top: 5px !important;
+            margin-bottom: -10px !important;
+            border: none !important;
+            border-top: 1px solid #f1f5f9 !important;
         }}
         
         /* --- 按钮样式 --- */
@@ -100,14 +108,14 @@ def show_login_page():
         with c1: st.checkbox("记住我", value=True)
         with c2: st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.88rem; cursor:pointer;'>忘记密码？</div>", unsafe_allow_html=True)
 
-        # 核心逻辑改动：手动渲染报错
+        # 按钮下方逻辑
         if st.button("立即登录", use_container_width=True):
             if u == "123" and p == "123":
                 st.session_state.logged_in = True
                 st.success("验证通过")
                 st.rerun()
             else:
-                # 不再使用 st.error，改用自定义 HTML
+                # 用自定义 HTML
                 st.markdown('<div class="custom-error-box">⚠️ 账号或密码不正确</div>', unsafe_allow_html=True)
 
-        st.markdown("<hr style='margin: 25px 0; border:none; border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 10px 0 -10px 0; border:none; border-top:1.5px solid #f1f5f9;'>", unsafe_allow_html=True)

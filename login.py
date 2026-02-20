@@ -1,7 +1,7 @@
 import streamlit as st
 
 def show_login_page():
-    # 1. 样式精修：复刻参考图的 SaaS 风格
+    # 1. 样式精修：复刻参考图的 SaaS 风格，并统一底色
     st.markdown("""
         <style>
         /* 全局背景与容器宽度 */
@@ -11,7 +11,7 @@ def show_login_page():
             padding-top: 5rem !important; 
         }
 
-        /* 登录卡片容器（原生 container 增强） */
+        /* 登录卡片容器 */
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background-color: white !important;
             border-radius: 12px !important;
@@ -39,14 +39,14 @@ def show_login_page():
             justify-content: center;
             font-weight: 800;
             font-size: 1.2rem;
-            flex-shrink: 0; /* 防止徽章被压缩 */
+            flex-shrink: 0;
         }
         .brand-text {
             color: #1f7a3f;
             font-size: 2.2rem;
             font-weight: 700;
             margin: 0;
-            white-space: nowrap; /* 绝对禁止换行 */
+            white-space: nowrap;
         }
         .brand-sub {
             text-align: center;
@@ -63,15 +63,21 @@ def show_login_page():
             margin-bottom: 8px !important;
         }
 
-        /* 输入框：背景浅灰，边框极淡 */
+        /* --- 核心修复：强制账号框和密码框底色统一 --- */
         div[data-testid="stTextInput"] input {
-            background-color: #f8fafc !important;
+            background-color: #f8fafc !important; /* 统一浅蓝灰色底 */
             border: 1px solid #e2e8f0 !important;
             border-radius: 8px !important;
             height: 3rem !important;
         }
+        
+        /* 针对 Streamlit 内部渲染的额外强制覆盖 */
+        div[data-baseweb="input"] {
+            background-color: #f8fafc !important;
+            border-radius: 8px !important;
+        }
 
-        /* 登录按钮：深绿背景，无边框 */
+        /* 登录按钮 */
         div.stButton > button {
             background-color: #1f7a3f !important;
             color: white !important;
@@ -86,8 +92,6 @@ def show_login_page():
             background-color: #166534 !important;
         }
 
-        /* 记住我 与 忘记密码 对齐微调 */
-        .stCheckbox { margin-top: 10px; }
         .forgot-link {
             text-align: right;
             padding-top: 15px;
@@ -97,9 +101,8 @@ def show_login_page():
         </style>
     """, unsafe_allow_html=True)
 
-    # 2. 页面布局
+    # 2. 页面内容
     with st.container(border=True):
-        # 顶部品牌区
         st.markdown("""
             <div class="brand-header">
                 <div class="fb-logo">FB</div>
@@ -112,7 +115,7 @@ def show_login_page():
         username = st.text_input("👤 账号", placeholder="请输入账号 (测试账号:123)", key="user")
         password = st.text_input("🔒 密码", placeholder="请输入密码 (测试密码:123)", type="password", key="pwd")
 
-        # 4. 复刻：记住我 与 忘记密码 布局
+        # 4. 记住我 与 忘记密码
         c1, c2 = st.columns([1, 1])
         with c1:
             st.checkbox("记住我", value=True)

@@ -91,17 +91,21 @@ def show_login_page():
         st.markdown("<hr style='margin: 25px 0; border:none; border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    # 初始化登录状态
+    # 初始化 session 状态，如果没登录，设为 False
     if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
 
     if not st.session_state.logged_in:
-        # 如果未登录，显示登录页
+        # 显示你辛苦调好的大圆角登录页
         show_login_page()
     else:
-        # 如果已登录，显示主功能页
-        st.balloons() # 庆祝一下
-        st.title("欢迎回来，富邦日记账主系统")
-        if st.button("退出登录"):
+        # 这里就是登录成功后看到的内容
+        st.title("💰 富邦日记账 - 管理后台")
+        st.sidebar.success(f"当前用户：{st.session_state.user if 'user' in st.session_state else '管理员'}")
+        
+        if st.sidebar.button("退出系统"):
             st.session_state.logged_in = False
             st.rerun()
+
+        # 下面可以开始写你的主功能代码了
+        st.write("欢迎进入系统，请开始您的账务操作。")

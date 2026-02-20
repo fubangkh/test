@@ -97,12 +97,12 @@ def show_login_page():
         st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">富邦日记账</h1></div>', unsafe_allow_html=True)
 
         st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> 账号</div>', unsafe_allow_html=True)
-        u = st.text_input("账号", placeholder="请输入账号", key="user", label_visibility="collapsed")
+        u = st.text_input("账号", placeholder="请输入账号，测试账号123", key="user", label_visibility="collapsed")
         
         st.write("") 
 
         st.markdown(f'<div class="label-with-icon"><img src="{lock_svg}"> 密码</div>', unsafe_allow_html=True)
-        p = st.text_input("密码", placeholder="请输入密码", type="password", key="pwd", label_visibility="collapsed")
+        p = st.text_input("密码", placeholder="请输入密码，测试密码123", type="password", key="pwd", label_visibility="collapsed")
 
         c1, c2 = st.columns([1, 1])
         with c1: st.checkbox("记住我", value=True)

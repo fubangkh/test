@@ -15,7 +15,7 @@ def show_login_page():
 
             # 输入框
             username = st.text_input("用户名", placeholder="请输入账号", key="user")
-            password = st.text_input("密码", type="password", placeholder="请输入密码", type="password", key="pwd")
+            password = st.text_input("密码", type="password", placeholder="请输入密码", key="pwd")
             
             # 登录验证
             if st.button("立即登录", use_container_width=True):

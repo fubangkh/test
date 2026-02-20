@@ -121,7 +121,6 @@ def show_login_page():
     }}
 
     /* 把内部所有层背景清掉（解决你说的右侧偏深） */
-    div[data-baseweb="input"] > div > div {{
         background: transparent !important;
         box-shadow: none !important;
     }}

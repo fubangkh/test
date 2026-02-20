@@ -50,11 +50,11 @@ def show_login_page():
             color: #64748b !important;            /* 默认灰色文字，不扎眼 */
             border: 1.5px solid #e2e8f0 !important; /* 与外框一致的细浅灰框 */
             border-radius: 12px !important; 
-            height: 3.2rem !important; 
-            min-height: 3.2rem !important;
-            line-height: 3.2rem !important;
+            height: 3.0rem !important; 
+            min-height: 3.0rem !important;
+            line-height: 3.0rem !important;
             padding: 0 !important;
-            width: 60% !important; 
+            width: 100% !important; 
             font-weight: 600 !important;
             transition: all 0.3s ease !important;
         }}

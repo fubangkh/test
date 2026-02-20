@@ -464,7 +464,7 @@ if pwd == ADMIN_PWD:
         df_display = df_display.sort_values("录入编号", ascending=False)
         
         # 2. 搜索框逻辑 (在当前月份结果中搜索)
-        search_query = st.text_input("🔍 搜索本月流水", placeholder="输入关键词...", label_visibility="collapsed")
+        search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
         if search_query:
             q = search_query.lower()
             mask = (
@@ -508,6 +508,7 @@ if pwd == ADMIN_PWD:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击右上角录入。")
 else:
     st.info("请输入密码解锁系统")
+
 
 
 

@@ -8,22 +8,62 @@ from streamlit_gsheets import GSheetsConnection
 
 # --- 1. 全局配置 (必须放在最前面) ---
 st.set_page_config(page_title="富邦日记账", layout="wide")
-
-# --- 2. 核心定义 (时区定义，全局可用) ---
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
-# --- 3. 登录拦截系统 ---
+# --- 2. 登录拦截 ---
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
-
 if not st.session_state.logged_in:
     from login import show_login_page
     show_login_page()
     st.stop()
 
-# --- 4. 登录成功后的主程序逻辑 ---
-st.title("💰 富邦日记账")
-if st.sidebar.button("安全退出"):
+# --- 3. 登录成功后的主程序逻辑 ---
+# A. 这里的 CSS 必须插入，用来实现“灰底白卡片”风格
+st.markdown("""
+    <style>
+    /* 全局背景色 */
+    .stApp { background-color: #f8fafc !important; }
+    header { visibility: hidden; }
+    
+    /* 自定义导航条样式 */
+    .nav-container {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 20px; background: white;
+        border-bottom: 1px solid #e2e8f0; margin: -50px -50px 30px -50px;
+    }
+    .nav-logo { display: flex; align-items: center; gap: 12px; }
+    .logo-sq {
+        background: #1f7a3f; color: white; width: 32px; height: 32px;
+        border-radius: 8px; display: flex; align-items: center; justify-content: center;
+        font-weight: bold; font-size: 14px;
+    }
+
+    /* 强制所有带 border 的容器变为圆角白卡片 */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: white !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 16px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02) !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# B. 插入自定义的顶部导航栏 (替代原有的 st.title)
+st.markdown(f"""
+    <div class="nav-container">
+        <div class="nav-logo">
+            <div class="logo-sq">FB</div>
+            <div style="font-size: 1.1rem; font-weight: 800; color: #1f7a3f;">富邦日记账管理系统</div>
+        </div>
+        <div style="color: #64748b; font-size: 0.85rem;">
+            📅 {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d')} | 管理员已登录
+        </div>
+    </div>
+""", unsafe_allow_html=True)
+
+# 侧边栏保持极简
+if st.sidebar.button("🚪 安全退出"):
     st.session_state.logged_in = False
     st.rerun()
 
@@ -348,7 +388,7 @@ month_list = list(range(1, 13))
 
 # --- 第二步：时间维度看板 ---
 with st.container(border=True):
-    st.markdown("### 📅 时间维度看板") 
+    st.markdown("#### 📅 时间维度看板") 
     
     c1, c2, c3 = st.columns([2, 2, 5]) 
     with c1:
@@ -473,6 +513,7 @@ with col_r:
 st.divider()
 
 # --- 第四步：流水明细表 (含搜索和格式化) ---
+with st.container(border=True):
 h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
 h_col.subheader("📑 流水明细表")
 with b_add:
@@ -525,6 +566,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

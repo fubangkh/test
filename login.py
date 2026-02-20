@@ -14,7 +14,7 @@ def show_login_page():
         /* 重点：强制 st.container(border=True) 的边框可见 */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             border: 2px solid #e2e8f0 !important; /* 明显的灰色外框线 */
-            border-radius: 40px !important;       /* 圆角 */
+            border-radius: 50px !important;       /* 圆角 */
             background-color: white !important;
             padding: 2.5rem 2rem !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03) !important;

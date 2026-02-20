@@ -103,9 +103,9 @@ with st.container():
     """, unsafe_allow_html=True)
 # C. 强制定义侧边栏（必须写，否则箭头不显示）
 with st.sidebar:
-    st.markdown("### 🛠️ 管理菜单")
+    st.markdown("### 🛠️管理菜单")
     st.write("") 
-    if st.button("🚪 安全退出", use_container_width=True):
+    if st.button("安全退出", use_container_width=True):
         st.session_state.logged_in = False
         st.rerun()
     st.divider()
@@ -571,6 +571,7 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

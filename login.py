@@ -1,97 +1,102 @@
 import streamlit as st
 
 def show_login_page():
-    # 1. 样式增强：使用 CSS 变量和更精准的选择器
+    # 1. 样式注入：解决居中、间距和 Label 图标显示问题
     st.markdown("""
         <style>
         /* 全局背景 */
-        .stApp { background-color: #f5f7fb !important; }
+        .stApp { background-color: #f8fafc !important; }
         
-        /* 强制主容器最大宽度并居中 */
-        .block-container {
-            max-width: 450px !important;
-            padding-top: 5rem !important;
+        /* 页面容器：上移并控制宽度 */
+        .block-container { 
+            max-width: 500px !important; 
+            padding-top: 5rem !important; 
         }
 
-        /* 核心：利用 Streamlit 原生容器模拟卡片 */
-        /* 定位最外层的 border 容器并赋予阴影和圆角 */
+        /* 登录卡片容器（原生 container） */
         div[data-testid="stVerticalBlockBorderWrapper"] {
             background-color: white !important;
             border-radius: 20px !important;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.08) !important;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05) !important;
+            padding: 2.5rem !important;
             border: 1px solid #edf2f7 !important;
-            padding: 10px !important;
         }
 
-        /* 标题美化 */
-        .brand-h2 {
-            color: #1f7a3f;
+        /* 标题：绿色、加粗、不换行 */
+        .main-title {
+            color: #166534;
             font-weight: 800;
-            text-align: center;
-            margin: 0;
-            letter-spacing: -0.5px;
+            font-size: 1.8rem;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 5px;
         }
 
-        /* 按钮：SaaS 风格 */
+        /* Label 样式：让 Emoji 和文字对齐 */
+        div[data-testid="stTextInput"] label {
+            font-weight: 600 !important;
+            color: #475569 !important;
+            margin-bottom: 8px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 8px !important;
+        }
+
+        /* 按钮样式 */
         div.stButton > button {
-            background-color: #1f7a3f !important;
+            background-color: #166534 !important;
             color: white !important;
-            border-radius: 12px !important;
+            border-radius: 10px !important;
             height: 3.2rem !important;
             font-weight: 700 !important;
-            font-size: 1rem !important;
             border: none !important;
-            margin-top: 10px;
+            margin-top: 15px;
             transition: all 0.2s ease;
         }
         div.stButton > button:hover {
-            background-color: #166534 !important;
+            background-color: #15803d !important;
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(31, 122, 63, 0.2) !important;
         }
 
-        /* 修复图标大小差异：强制 placeholder 中的图标大小 */
-        input::placeholder {
-            font-size: 0.95rem !important;
+        /* 输入框圆角 */
+        div[data-testid="stTextInput"] input {
+            border-radius: 8px !important;
         }
-        /* 针对密码框图标微调 (nth-of-type 逻辑) */
-        div[data-testid="stTextInput"]:nth-of-type(2) input::placeholder {
-            font-size: 1.1rem !important;
-        }
-        
-        /* 隐藏原生 Label */
-        div[data-testid="stTextInput"] label { display: none !important; }
         </style>
     """, unsafe_allow_html=True)
 
-    # 2. 页面内容
-    # 使用带边框的容器作为“卡片壳子”
-    with st.container(border=True):
-        # 顶部品牌区
-        st.markdown("""
-            <div style='text-align: center; margin-bottom: 25px; margin-top: 10px;'>
-                <h2 class="brand-h2">📒 富邦日记账</h2>
-                <p style='color: #64748b; font-size: 0.9rem; margin-top: 8px;'>请输入管理员授权的凭证以继续</p>
-            </div>
-        """, unsafe_allow_html=True)
+    # 2. 居中列布局
+    _, col_mid, _ = st.columns([0.1, 0.8, 0.1]) # 进一步收窄中间区域
 
-        # 输入区 - 账号
-        # 在图标和提示文字间多加几个空格，视觉上会更整齐
-        username = st.text_input("账号", placeholder="👤   请输入账号", key="user")
-        
-        # 输入区 - 密码
-        password = st.text_input("密码", placeholder="🔒   请输入密码", type="password", key="pwd")
-        
-        st.write("") # 增加一点呼吸间距
+    with col_mid:
+        with st.container(border=True):
+            # 顶部标题区
+            st.markdown("""
+                <div style='text-align: center; margin-bottom: 25px;'>
+                    <div class="main-title">📒 富邦日记账</div>
+                    <div style='color: #94a3b8; font-size: 0.85rem;'>欢迎回来，请登录您的管理员账号</div>
+                </div>
+            """, unsafe_allow_html=True)
 
-        # 3. 登录逻辑 (原生组件，保证响应)
-        if st.button("立即登录", use_container_width=True):
-            if username == "123" and password == "123":
-                st.session_state.logged_in = True
-                st.success("登录成功，正在进入系统...")
-                st.rerun()
-            else:
-                st.error("❌ 账号或密码错误")
+            # 3. 输入区域：将 Emoji 放在 Label 里
+            # 这里通过 st.text_input 的第一个参数传递带图标的 Label
+            username = st.text_input("👤 账号", placeholder="请输入账号", key="user")
+            
+            st.write("") # 增加间距
+            
+            password = st.text_input("🔒 密码", placeholder="请输入密码", type="password", key="pwd")
+            
+            # 4. 登录验证
+            if st.button("立即安全登录", use_container_width=True):
+                if username == "123" and password == "123":
+                    st.session_state.logged_in = True
+                    st.success("验证成功，正在进入...")
+                    st.rerun()
+                else:
+                    st.error("❌ 账号或密码错误")
 
-        st.divider()
-        st.caption("💡 忘记密码请联系系统管理员")
+            st.divider()
+            st.caption("<div style='text-align:center; color:#cbd5e1;'>© 2024 富邦日记账 · 财务管理系统</div>", unsafe_allow_html=True)

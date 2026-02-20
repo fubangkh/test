@@ -509,8 +509,6 @@ if not df_display.empty:
         }
     )
 else:
-    st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份。")
+    st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或或点击录入。")
 
-else:
-st.warning("⚠️ 数据库为空，请点击上方录入按钮开始记账")
 

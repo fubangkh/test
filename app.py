@@ -34,14 +34,27 @@ st.markdown("""
         background-color: rgba(0,0,0,0) !important;
     }
 
-    /* 强制让侧边栏按钮变绿并悬浮在最前 */
+    /* 强制显示侧边栏按钮 */
     button[data-testid="stSidebarCollapseIcon"] {
-        background-color: #1f7a3f !important;
-        color: white !important;
-        border-radius: 50% !important;
-        z-index: 999999 !important;
-        visibility: visible !important;
         display: flex !important;
+        visibility: visible !important;
+        color: #1f7a3f !important; /* 改成富邦绿，显眼一点 */
+        background-color: white !important; /* 给它一个小白底 */
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        position: fixed !important;
+        top: 15px !important; /* 距离顶部高度 */
+        left: 15px !important; /* 距离左侧宽度 */
+        z-index: 9999999 !important; /* 确保它在最最最上层 */
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1) !important;
+    }
+
+    /* 手机端适配：稍微调小一点 */
+    @media (max-width: 640px) {
+        button[data-testid="stSidebarCollapseIcon"] {
+            top: 10px !important;
+            left: 10px !important;
+        }
     }
     
     /* 2. 顶部导航条：精简、对齐、适配手机 */
@@ -571,6 +584,7 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

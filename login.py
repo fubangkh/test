@@ -1,7 +1,7 @@
 import streamlit as st
 
 def show_login_page():
-    # 1. 灰色 SVG 图标
+    # 1. SVG 图标
     user_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"
     lock_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"
 
@@ -37,12 +37,27 @@ def show_login_page():
             font-weight: 700; color: #475569; font-size: 0.95rem; margin-bottom: 8px;
         }}
 
+        /* 输入框优化 */
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{
             background-color: #f1f5f9 !important;
             border: 1px solid #e2e8f0 !important;
             border-radius: 12px !important;
         }}
-        div[data-testid="stTextInput"] label {{ display: none !important; }}
+        div[data-testid="stNotification"] {{
+            border-radius: 12px !important;
+            border: none !important;
+            min-height: 2.8rem !important;
+            height: 2.8rem !important;
+            display: flex !important;
+            align-items: center !important;
+            padding: 0 1rem !important;
+            margin-top: 10px !important;
+        }}
+        
+        div[data-testid="stNotificationContent"] {{
+            display: flex !important;
+            align-items: center !important;
+        }}
 
         /* --- 按钮样式：白底、细灰框 --- */
         div.stButton > button {{

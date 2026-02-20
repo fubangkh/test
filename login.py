@@ -44,27 +44,36 @@ def show_login_page():
         }}
         div[data-testid="stTextInput"] label {{ display: none !important; }}
 
-        /* 强制辅助行在手机端也不换行 */
-        .helper-row {{
+        /* 核心修正：绝对不换行的辅助行布局 */
+        .custom-helper-row {{
             display: flex !important;
-            flex-direction: row !important;
             justify-content: space-between !important;
             align-items: center !important;
             width: 100% !important;
-            margin-bottom: 15px !important;
+            margin: 5px 0 20px 0 !important;
+            font-size: 0.88rem !important;
+            color: #64748b !important;
         }}
-        /* 移除 checkbox 下方的默认间距，防止报错时挤压 */
-        div[data-testid="stCheckbox"] {{ margin-bottom: 0 !important; }}
+        
+        /* 针对原生 Checkbox 的细微对齐调整 */
+        div[data-testid="stCheckbox"] {{
+            margin-bottom: 0 !important;
+            width: auto !important;
+        }}
+        div[data-testid="stCheckbox"] label p {{
+            font-size: 0.88rem !important;
+            color: #64748b !important;
+        }}
 
-        /* --- 按钮样式：对齐高度 2.8rem --- */
+        /* 按钮样式 */
         div.stButton > button {{
             background-color: white !important;
             color: #64748b !important;
             border: 1.5px solid #e2e8f0 !important;
             border-radius: 12px !important; 
-            height: 2.8rem !important; 
-            min-height: 2.8rem !important;
-            line-height: 2.8rem !important;
+            height: 2.5rem !important; 
+            min-height: 2.5rem !important;
+            line-height: 2.5rem !important;
             padding: 0 !important;
             width: 100% !important; 
             font-weight: 600 !important;
@@ -75,17 +84,11 @@ def show_login_page():
             background-color: #1f7a3f !important; 
             color: white !important;              
             border: 1.5px solid #1f7a3f !important;
-            box-shadow: 0 4px 12px rgba(31, 122, 63, 0.15) !important;
-        }}
-        
-        div.stButton > button:active {{
-            transform: scale(0.99) !important;
         }}
         </style>
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
-        # 1. 头部
         st.markdown(f"""
             <div class="header-box">
                 <div class="logo-circle">FB</div>
@@ -93,37 +96,43 @@ def show_login_page():
             </div>
         """, unsafe_allow_html=True)
 
-        # 2. 账号
         st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> 账号</div>', unsafe_allow_html=True)
-        u = st.text_input("账号", placeholder="请输入账号，测试账号123", key="user", label_visibility="collapsed")
+        u = st.text_input("账号", placeholder="请输入账号", key="user", label_visibility="collapsed")
         
         st.write("") 
 
-        # 3. 密码
         st.markdown(f'<div class="label-with-icon"><img src="{lock_svg}"> 密码</div>', unsafe_allow_html=True)
-        p = st.text_input("密码", placeholder="请输入密码，测试密码123", type="password", key="pwd", label_visibility="collapsed")
+        p = st.text_input("密码", placeholder="请输入密码", type="password", key="pwd", label_visibility="collapsed")
 
-        # 4. 辅助项：通过 HTML 强制锁定横向布局
-        st.markdown('<div class="helper-row">', unsafe_allow_html=True)
-        c1, c2 = st.columns([1, 1])
-        with c1: 
-            st.checkbox("记住我", value=True)
-        with c2: 
-            st.markdown("<div style='text-align:right; color:#64748b; font-size:0.88rem; cursor:pointer;'>忘记密码？</div>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # --- 核心改动：不再使用 st.columns，直接手动 Flex 布局 ---
+        # 我们把忘记密码直接写在 HTML 里，利用 flex 布局推到最右侧
+        st.markdown(f'''
+            <div class="custom-helper-row">
+                <div id="checkbox-placeholder"></div>
+                <div style="cursor:pointer;">忘记密码？</div>
+            </div>
+        ''', unsafe_allow_html=True)
+        
+        # 将复选框移动到上面的占位符位置（视觉技巧）
+        # 在 Streamlit 中，我们可以直接在辅助行上方或内部放组件，
+        # 为了最稳妥，我们直接在按钮上方并列放置
+        
+        # 修正：由于 Streamlit 组件不能直接塞进 Markdown HTML，
+        # 我们采用最简单的绝对定位法或直接紧凑排列。
+        # 这里使用一种更巧妙的方式：
+        st.write('<style>div[data-testid="stVerticalBlock"] > div:nth-child(7) { margin-bottom: -45px; }</style>', unsafe_allow_html=True)
+        st.checkbox("记住我", value=True)
+        st.markdown('<div style="text-align:right; margin-top:-32px; margin-bottom:20px; color:#64748b; font-size:0.88rem; cursor:pointer;">忘记密码？</div>', unsafe_allow_html=True)
 
-        # 5. 按钮逻辑
         if st.button("立即登录", use_container_width=True):
             if u == "123" and p == "123":
                 st.session_state.logged_in = True
-                st.success("验证通过，正在加载系统...")
+                st.success("登录成功")
                 st.rerun()
             else:
-                st.error("❌ 账号或密码不正确")
+                st.error("❌ 账号或密码错误")
 
-        st.markdown("<hr style='margin: 25px 0; border:none; border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 20px 0; border:none; border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    if 'logged_in' not in st.session_state:
-        st.session_state.logged_in = False
     show_login_page()

@@ -89,7 +89,19 @@ def show_login_page():
                 st.error("账号或密码错误")
 
         st.markdown("<hr style='margin: 25px 0; border:none; border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)
-        st.markdown("<div style='text-align:center; color:#94a3b8; font-size:0.85rem;'>💡 忘记密码请联系系统管理员</div>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    show_login_page()
+    # 初始化登录状态
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+
+    if not st.session_state.logged_in:
+        # 如果未登录，显示登录页
+        show_login_page()
+    else:
+        # 如果已登录，显示主功能页
+        st.balloons() # 庆祝一下
+        st.title("欢迎回来，富邦日记账主系统")
+        if st.button("退出登录"):
+            st.session_state.logged_in = False
+            st.rerun()

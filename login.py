@@ -45,41 +45,18 @@ def show_login_page():
         }}
         div[data-testid="stTextInput"] label {{ display: none !important; }}
 
-        /* --- 终极修正：错误/成功提示框 --- */
-        /* 针对最外层容器 */
-        div[data-testid="stNotification"] {{
+        /* --- 自定义报错框样式 --- */
+        .custom-error-box {{
+            background-color: #fee2e2 !important; /* 浅红色背景 */
+            color: #b91c1c !important;            /* 深红色文字 */
             border-radius: 12px !important;
-            min-height: 2.8rem !important;
             height: 2.8rem !important;
-            padding: 0 12px !important;
-            border: none !important;
+            display: flex !important;
+            align-items: center !important;
+            padding: 0 15px !important;
+            font-size: 0.9rem !important;
+            font-weight: 500 !important;
             margin-top: 15px !important;
-            overflow: hidden !important; /* 确保圆角不被内部颜色撑破 */
-            display: flex !important;
-            align-items: center !important;
-        }}
-        
-        /* 针对内部文字和图标的通用容器 */
-        div[data-testid="stNotification"] > div {{
-            padding: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            width: 100% !important;
-        }}
-
-        /* 针对文字容器 */
-        div[data-testid="stNotificationContent"] {{
-            padding: 0 !important;
-            display: flex !important;
-            align-items: center !important;
-            line-height: 2.8rem !important;
-        }}
-
-        /* 针对图标控制 */
-        div[data-testid="stNotification"] svg {{
-            width: 18px !important;
-            height: 18px !important;
-            margin-right: 8px !important;
         }}
         
         /* --- 按钮样式 --- */
@@ -101,41 +78,33 @@ def show_login_page():
             background-color: #1f7a3f !important; 
             color: white !important;              
             border: 1.5px solid #1f7a3f !important;
-            box-shadow: 0 4px 12px rgba(31, 122, 63, 0.15) !important;
-        }}
-        
-        div.stButton > button:active {{
-            transform: scale(0.99) !important;
         }}
         </style>
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
-        st.markdown(f"""
-            <div class="header-box">
-                <div class="logo-circle">FB</div>
-                <h1 class="title-text">富邦日记账</h1>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">富邦日记账</h1></div>', unsafe_allow_html=True)
 
         st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> 账号</div>', unsafe_allow_html=True)
-        u = st.text_input("账号", placeholder="请输入账号，测试账号123", key="user", label_visibility="collapsed")
+        u = st.text_input("账号", placeholder="请输入账号", key="user", label_visibility="collapsed")
         
         st.write("") 
 
         st.markdown(f'<div class="label-with-icon"><img src="{lock_svg}"> 密码</div>', unsafe_allow_html=True)
-        p = st.text_input("密码", placeholder="请输入密码，测试密码123", type="password", key="pwd", label_visibility="collapsed")
+        p = st.text_input("密码", placeholder="请输入密码", type="password", key="pwd", label_visibility="collapsed")
 
         c1, c2 = st.columns([1, 1])
         with c1: st.checkbox("记住我", value=True)
         with c2: st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.88rem; cursor:pointer;'>忘记密码？</div>", unsafe_allow_html=True)
 
+        # 核心逻辑改动：手动渲染报错
         if st.button("立即登录", use_container_width=True):
             if u == "123" and p == "123":
                 st.session_state.logged_in = True
                 st.success("验证通过")
                 st.rerun()
             else:
-                st.error("账号或密码不正确")
+                # 不再使用 st.error，改用自定义 HTML
+                st.markdown('<div class="custom-error-box">⚠️ 账号或密码不正确</div>', unsafe_allow_html=True)
 
         st.markdown("<hr style='margin: 25px 0; border:none; border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)

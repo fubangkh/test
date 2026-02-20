@@ -349,14 +349,25 @@ month_list = list(range(1, 13))
 # 注入 CSS 样式来放大下拉框（Selectbox）的文字
 st.markdown("""
     <style>
-    /* 针对年份和月份下拉框的文字大小 */
+    /* 1. 放大下拉框显示的文字，并调整容器高度防止显示不全 */
     div[data-baseweb="select"] > div {
-        font-size: 1.5rem !important; /* 原本约 1rem，改为 1.5rem 变大一号 */
+        font-size: 1.6rem !important; 
         font-weight: bold !important;
+        height: 3.5rem !important;     /* 增加高度 */
+        line-height: 1.2 !important;   /* 调整行高 */
+        display: flex !important;
+        align-items: center !important; /* 确保文字垂直居中 */
     }
-    /* 针对下拉列表展开后的文字大小 */
+
+    /* 2. 调整下拉框内边距，让文字位置更自然 */
+    div[data-baseweb="select"] [role="button"] {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+    /* 3. 放大下拉列表展开后的选项文字 */
     div[data-baseweb="popover"] li {
-        font-size: 1.2rem !important;
+        font-size: 1.3rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -540,6 +551,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

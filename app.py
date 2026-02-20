@@ -512,25 +512,22 @@ with col_r:
 
 st.divider()
 
-# --- 第四步：流水明细表 (含搜索和格式化) ---
+# --- 第四步：流水明细表 ---
 with st.container(border=True):
     h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
-    h_col.subheader("📑 流水明细表")
+    h_col.markdown("### 📑 流水明细表")  # 统一风格建议用 markdown
+    
     with b_add:
-        if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): entry_dialog()
+        if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): 
+            entry_dialog()
     with b_edit:
-        if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): edit_dialog(df_main)
+        if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): 
+            edit_dialog(df_main)
 
-# 数据准备
-df_display = df_main.copy()
-df_display = df_display[
-(df_display['提交时间'].dt.year == sel_year) & 
-(df_display['提交时间'].dt.month == sel_month)
-]
-df_display = df_display.sort_values("录入编号", ascending=False)
-
-# 搜索框
+    # 搜索框（已缩进）
     search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
+    
+    # 筛选逻辑（已缩进）
     if search_query:
         q = search_query.lower()
         mask = (
@@ -539,9 +536,7 @@ df_display = df_display.sort_values("录入编号", ascending=False)
         )
         df_display = df_display[mask]
 
-    # 金额格式化 (注意：这里格式化后数据变字符串，仅用于显示)
-    # 提示：实际显示时我们用 column_config 格式化更好，这里保持原始数值
-
+    # 表格显示逻辑（已缩进）
     if not df_display.empty:
         st.dataframe(
             df_display,
@@ -564,15 +559,6 @@ df_display = df_display.sort_values("录入编号", ascending=False)
                 "备注": st.column_config.TextColumn("备注", width="medium"),
             }
         )
-else:
-    st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
-
-
-
-
-
-
-
-
-
-
+    else:
+        # 这个 else 现在正确地缩进在 container 内部了
+        st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")

@@ -22,20 +22,26 @@ if not st.session_state.logged_in:
 # A. 整合后的 CSS：包含导航条样式、按钮样式、以及白卡片样式
 st.markdown("""
     <style>
-    /* 1. 全局背景与隐藏原生页眉 */
-    .stApp { background-color: #f8fafc !important; }
-    /* 修复：隐藏 header 背景和彩虹条，但保留侧边栏按钮 */
-    header[data-testid="stHeader"] {
-        background: rgba(0,0,0,0) !important;
-        border-bottom: none !important;
+    /* 1. 彻底移除旧的隐藏指令 */
+    header { visibility: visible !important; }
+
+    /* 2. 隐藏 header 的彩色横条和背景，但不影响里面的按钮 */
+    [data-testid="stHeader"] {
+        background-color: rgba(0,0,0,0) !important;
     }
-    
-    /* 让侧边栏按钮更明显一点（可选） */
+
+    /* 3. 强制侧边栏展开按钮显示，并美化它 */
     button[data-testid="stSidebarCollapseIcon"] {
-        background-color: white !important;
-        border-radius: 8px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        margin-left: 10px !important;
+        background-color: #1f7a3f !important; /* 富邦绿 */
+        color: white !important;               /* 白色箭头 */
+        border-radius: 50% !important;         /* 圆形按钮 */
+        width: 35px !important;
+        height: 35px !important;
+        position: fixed !important;
+        top: 10px !important;
+        left: 10px !important;
+        z-index: 999999 !important;            /* 确保在最顶层 */
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
     }
     
     /* 2. 顶部导航条：精简、对齐、适配手机 */
@@ -556,4 +562,5 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 

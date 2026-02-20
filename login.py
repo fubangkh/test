@@ -11,16 +11,15 @@ def show_login_page():
         header {{ visibility: hidden; }}
         .block-container {{ max-width: 500px !important; padding-top: 5rem !important; }}
 
-        /* 重点：强制 st.container(border=True) 的边框可见 */
+        /* 强制 st.container(border=True) 的边框可见 */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
-            border: 2px solid #e2e8f0 !important; /* 明显的灰色外框线 */
-            border-radius: 50px !important;       /* 圆角 */
+            border: 2px solid #e2e8f0 !important; 
+            border-radius: 50px !important;       
             background-color: white !important;
             padding: 2.5rem 2rem !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03) !important;
         }}
 
-        /* 标题对齐 */
         .header-box {{
             display: flex; align-items: center; justify-content: center;
             gap: 15px; margin-bottom: 35px;
@@ -33,13 +32,11 @@ def show_login_page():
         }}
         .title-text {{ color: #166534; font-size: 1.8rem; font-weight: 800; margin: 0; }}
 
-        /* 图标+文字 Label */
         .label-with-icon {{
             display: flex; align-items: center; gap: 8px;
             font-weight: 700; color: #475569; font-size: 0.95rem; margin-bottom: 8px;
         }}
 
-        /* 输入框优化 */
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{
             background-color: #f1f5f9 !important;
             border: 1px solid #e2e8f0 !important;
@@ -47,7 +44,6 @@ def show_login_page():
         }}
         div[data-testid="stTextInput"] label {{ display: none !important; }}
 
-        /* 按钮 */
         div.stButton > button {{
             background-color: #1f7a3f !important; color: white !important;
             border-radius: 10px !important; height: 3.2rem !important;
@@ -56,9 +52,7 @@ def show_login_page():
         </style>
     """, unsafe_allow_html=True)
 
-    # 使用原生容器并开启边框，CSS 会自动接管它的样式
     with st.container(border=True):
-        # 1. 头部
         st.markdown(f"""
             <div class="header-box">
                 <div class="logo-circle">FB</div>
@@ -66,35 +60,25 @@ def show_login_page():
             </div>
         """, unsafe_allow_html=True)
 
-        # 2. 账号
         st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> 账号</div>', unsafe_allow_html=True)
         u = st.text_input("账号", placeholder="请输入账号", key="user", label_visibility="collapsed")
         
         st.write("") 
 
-        # 3. 密码
         st.markdown(f'<div class="label-with-icon"><img src="{lock_svg}"> 密码</div>', unsafe_allow_html=True)
         p = st.text_input("密码", placeholder="请输入密码", type="password", key="pwd", label_visibility="collapsed")
 
-        # 4. 辅助
         c1, c2 = st.columns([1, 1])
         with c1: st.checkbox("记住我", value=True)
         with c2: st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.88rem;'>忘记密码？</div>", unsafe_allow_html=True)
 
-        # 5. 按钮
+        # --- 核心修改：统一登录逻辑在这里 ---
         if st.button("立即登录", use_container_width=True):
             if u == "123" and p == "123":
-                st.success("登录成功")
+                st.session_state.logged_in = True  # 1. 设置状态
+                st.success("验证通过，正在加载系统...")  # 2. 提示
+                st.rerun()  # 3. 关键：触发 app.py 刷新并识别新状态
             else:
-                st.error("账号或密码错误")
+                st.error("❌ 账号或密码不正确")
 
-        st.markdown("<hr style='margin: 25px 0; border:none; border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)
-
-if st.button("立即登录", use_container_width=True):
-    # 注意：这里的 u 和 p 是你在文本框里定义的 key
-    if u == "123" and p == "123": 
-        st.session_state.logged_in = True  # 修改全局状态
-        st.success("验证通过，正在加载系统...")
-        st.rerun()  # 这一步会跳回 app.py 的顶部重新判断
-    else:
-        st.error("❌ 账号或密码不正确")
+# 函数外面不要再放按钮逻辑了

@@ -330,7 +330,7 @@ def edit_dialog(df):
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 6. 主页面 ---
-st.title("📊 汇总统计")
+st.header("📊 汇总统计")
 df_main = load_data()
 
 if df_main.empty:
@@ -525,6 +525,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

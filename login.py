@@ -26,6 +26,7 @@ def show_login_page():
         --input-border: #e2e8f0;
     }}
 
+    /* 始终显示滚动条，避免布局抖动 */
     html {{ overflow-y: scroll; }}
 
     .stApp {{
@@ -38,6 +39,7 @@ def show_login_page():
         padding-bottom: 4rem !important;
     }}
 
+    /* 卡片 */
     div[data-testid="stVerticalBlockBorderWrapper"] {{
         background:#fff !important;
         border:1px solid var(--card-border) !important;
@@ -46,11 +48,13 @@ def show_login_page():
         padding: 3rem 2.6rem 2.6rem 2.6rem !important;
     }}
 
+    /* 内容同宽：输入/按钮/提示同宽 */
     .content-wrap {{
         width: 92%;
         margin: 0 auto;
     }}
 
+    /* 标题区 */
     .brand-header {{
         display:flex;
         align-items:center;
@@ -59,6 +63,7 @@ def show_login_page():
         margin-bottom: 10px;
     }}
 
+    /* Logo 圆形 */
     .fb-logo {{
         width: 60px;
         height: 60px;
@@ -89,6 +94,7 @@ def show_login_page():
         margin-bottom: 28px;
     }}
 
+    /* label */
     .custom-label {{
         display:flex;
         align-items:center;
@@ -106,9 +112,10 @@ def show_login_page():
     }}
 
     /* =======================
-       输入框统一
+       输入框统一（含密码眼睛）
        ======================= */
 
+    /* 外壳 */
     div[data-baseweb="input"] > div {{
         background: var(--input-bg) !important;
         border: 1px solid var(--input-border) !important;
@@ -119,19 +126,20 @@ def show_login_page():
         overflow: hidden !important;
     }}
 
+    /* 输入文本 */
     div[data-baseweb="input"] input {{
         background: transparent !important;
         color: #0f172a !important;
         font-size: 14.5px !important;
         height: 3.3rem !important;
         line-height: 3.3rem !important;
-        padding: 0 52px 0 14px !important;
+        padding: 0 52px 0 14px !important; /* 右侧为眼睛预留 */
         border: none !important;
         outline: none !important;
     }}
 
-    /* 👇 关键：眼睛区域背景统一 */
-    div[data-baseweb="input"] > div > div:last-child {{
+    /* ✅ 关键：精准命中眼睛区域容器（第二个子 div）同背景 */
+    div[data-baseweb="input"] > div > div:nth-child(2) {{
         background: var(--input-bg) !important;
         border-left: none !important;
         height: 3.3rem !important;
@@ -140,33 +148,46 @@ def show_login_page():
         padding: 0 14px !important;
     }}
 
+    /* 眼睛按钮：内部透明，避免叠色 */
+    div[data-baseweb="input"] > div > div:nth-child(2) * {{
+        background: transparent !important;
+        box-shadow: none !important;
+    }}
+
     div[data-baseweb="input"] button,
     div[data-baseweb="input"] [role="button"] {{
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         outline: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }}
 
     div[data-baseweb="input"] button:hover,
-    div[data-baseweb="input"] button:focus {{
+    div[data-baseweb="input"] button:active,
+    div[data-baseweb="input"] button:focus,
+    div[data-baseweb="input"] button:focus-visible {{
         background: transparent !important;
         box-shadow: none !important;
+        outline: none !important;
     }}
 
-    div[data-baseweb="input"] svg {{
+    /* 图标颜色统一 */
+    div[data-baseweb="input"] svg,
+    div[data-baseweb="input"] svg path {{
         fill: var(--icon) !important;
         stroke: var(--icon) !important;
     }}
 
+    /* 隐藏默认 label */
     div[data-testid="stTextInput"] label {{
         display:none !important;
     }}
 
     /* =======================
-       按钮
+       登录按钮
        ======================= */
-
     .stButton > button {{
         width: 100% !important;
         height: 3.3rem !important;
@@ -185,6 +206,7 @@ def show_login_page():
         transform: translateY(-1px);
     }}
 
+    /* 提示区固定高度，避免跳动 */
     .msg-slot {{
         min-height: 78px;
         margin-top: 16px;
@@ -213,6 +235,7 @@ def show_login_page():
     </style>
     """, unsafe_allow_html=True)
 
+    # SVG 图标（同风格同尺寸同色）
     user_svg = f"""
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
          fill="none" stroke="{icon_gray}" stroke-width="2.5"
@@ -232,7 +255,6 @@ def show_login_page():
     """
 
     with st.container(border=True):
-
         st.markdown("""
             <div class="brand-header">
                 <div class="fb-logo">FB</div>
@@ -249,11 +271,14 @@ def show_login_page():
         st.markdown(f'<div class="custom-label">{lock_svg}<span>密码</span></div>', unsafe_allow_html=True)
         p = st.text_input("密码", placeholder="请输入密码", type="password", key="pwd", label_visibility="collapsed")
 
-        col1, col2 = st.columns([1,1])
+        col1, col2 = st.columns([1, 1])
         with col1:
             st.checkbox("记住我", value=True)
         with col2:
-            st.markdown("<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.9rem;'>忘记密码？</div>", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='text-align:right; padding-top:10px; color:#64748b; font-size:0.9rem;'>忘记密码？</div>",
+                unsafe_allow_html=True
+            )
 
         clicked = st.button("立即登录", use_container_width=True)
 
@@ -262,11 +287,17 @@ def show_login_page():
 
         if clicked:
             if not u or not p:
-                msg_area.markdown('<div class="msg-slot"><div class="alert">请先输入账号和密码</div></div>', unsafe_allow_html=True)
+                msg_area.markdown(
+                    '<div class="msg-slot"><div class="alert">请先输入账号和密码</div></div>',
+                    unsafe_allow_html=True
+                )
             elif u == "123" and p == "123":
                 st.success("登录成功")
             else:
-                msg_area.markdown('<div class="msg-slot"><div class="alert">账号或密码错误</div></div>', unsafe_allow_html=True)
+                msg_area.markdown(
+                    '<div class="msg-slot"><div class="alert">账号或密码错误</div></div>',
+                    unsafe_allow_html=True
+                )
 
         st.markdown('</div>', unsafe_allow_html=True)
 

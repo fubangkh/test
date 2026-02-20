@@ -79,7 +79,7 @@ with st.container():
             <div class="nav-logo">
                 <div class="logo-sq">FB</div>
                 <div style="font-size: 1.15rem; font-weight: 800; color: #1f7a3f; letter-spacing: 0.5px;">
-                    富邦日记账管理系统
+                    富邦日记账
                 </div>
             </div>
         </div>
@@ -545,5 +545,6 @@ with st.container(border=True):
         )
     else:
         st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 

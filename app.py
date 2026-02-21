@@ -90,13 +90,13 @@ def load_data():
         df = pd.read_csv(csv_url)
         df = df.dropna(how="all")
         
-        # --- 核心修复：确保计算列是数字类型 ---
-        for col in ['收入', '支出']:
+        # 强制将这些涉及计算的列转为数字，空值填 0
+        numeric_cols = ['收入', '支出', '余额'] # 根据你表格的实际列名添加
+        for col in numeric_cols:
             if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
         
-        # 其他列（如分类、备注）再转为字符串，防止下拉菜单报错
-        df = df.fillna("") 
+        df = df.fillna("") # 其余列转为字符串
         return df
     except Exception as e:
         st.error(f"加载失败: {e}")
@@ -539,6 +539,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

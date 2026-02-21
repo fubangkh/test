@@ -85,21 +85,35 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 @st.cache_data(ttl=0)
 def load_data():
-    # 先读取数据并去掉全空行
-    df = conn.read(worksheet="Summary", ttl=0).dropna(how="all")
-    # --- 关键新增：把所有的空值 (NaN) 替换成干净的空字符串 ---
-    df = df.fillna("")
-    return df
+    # 1. 构造 CSV 导出链接（确保 gid=0 对应的是 Summary 标签页）
+    csv_url = "https://docs.google.com/spreadsheets/d/1AC572Eq96yIF9it1xCJQAOrxjEEnskProsLmifK3DAs/export?format=csv&gid=0"
+    
+    try:
+        # 2. 直接读取 CSV 数据
+        df = pd.read_csv(csv_url)
+        
+        # 3. 按照你原有的逻辑进行清理
+        # 去掉全空行
+        df = df.dropna(how="all")
+        # 把所有的空值 (NaN) 替换成干净的空字符串
+        df = df.fillna("")
+        
+        return df
+    except Exception as e:
+        st.error(f"⚠️ 数据加载失败，请检查网络或表格权限。错误详情: {e}")
+        # 如果读取失败，返回一个带有所需列名的空 Dataframe，防止后续 get_dynamic_options 报错
+        return pd.DataFrame()
 
+# get_dynamic_options 函数保持不变，它现在可以完美兼容上面返回的 df
 def get_dynamic_options(df, column_name):
     try:
         if not df.empty and column_name in df.columns:
+            # 这里的 x 已经是字符串了，因为上面做了 fillna("")
             raw_list = [str(x).strip() for x in df[column_name].unique() if x]
             clean_options = sorted([
                 x for x in raw_list 
                 if x and x not in ["--", "-", "nan", "None", "0", "0.0"] and "➕" not in x
             ])
-            # 核心改动：把 "-- 请选择 --" 放在最前面
             return ["-- 请选择 --"] + clean_options + ["➕ 新增..."]
     except:
         pass
@@ -525,3 +539,4 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+

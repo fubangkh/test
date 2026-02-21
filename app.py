@@ -99,7 +99,9 @@ def load_data():
                     df[col] = df[col].str.replace(',', '')
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
         
-        df = df.fillna("") 
+        df = df.fillna("")
+        pd.options.display.float_format = '{:,.2f}'.format
+        
         return df
     except Exception as e:
         st.error(f"加载失败: {e}")
@@ -542,6 +544,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

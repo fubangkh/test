@@ -91,7 +91,7 @@ def load_data():
         df = df.dropna(how="all")
         
         # 强制将这些涉及计算的列转为数字，空值填 0
-        numeric_cols = ['收入', '支出', '余额'] # 根据你表格的实际列名添加
+        numeric_cols = ['实际金额','收入', '支出', '余额'] # 根据你表格的实际列名添加
         for col in numeric_cols:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
@@ -539,6 +539,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

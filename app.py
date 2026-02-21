@@ -377,10 +377,12 @@ with st.container(border=True):
     ly = sel_year - 1 if sel_month == 1 else sel_year
     df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['提交时间'].dt.year == ly)]
     
-    tm_inc = df_this_month['收入'].sum()
-    tm_exp = df_this_month['支出'].sum()
-    lm_inc = df_last_month['收入'].sum()
-    lm_exp = df_last_month['支出'].sum()
+    # 使用 pd.to_numeric 确保这一列全是数字，无法转换的（如空字符串）会变成 NaN
+    # 然后用 .sum() 求和，NaN 会被自动忽略
+    tm_inc = pd.to_numeric(df_this_month['收入'], errors='coerce').sum()
+    tm_exp = pd.to_numeric(df_this_month['支出'], errors='coerce').sum()
+    lm_inc = pd.to_numeric(df_last_month['收入'], errors='coerce').sum()
+    lm_exp = pd.to_numeric(df_last_month['支出'], errors='coerce').sum()
     inc_delta = tm_inc - lm_inc
     exp_delta = tm_exp - lm_exp
     t_balance = df_main['收入'].sum() - df_main['支出'].sum()
@@ -539,4 +541,5 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 

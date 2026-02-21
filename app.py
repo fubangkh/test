@@ -94,9 +94,12 @@ def load_data():
         numeric_cols = ['实际金额','收入', '支出', '余额'] # 根据你表格的实际列名添加
         for col in numeric_cols:
             if col in df.columns:
+                # 转换前先去掉逗号（Google Sheets 导出的 CSV 有时会带 379,167.21 里的逗号）
+                if df[col].dtype == 'object':
+                    df[col] = df[col].str.replace(',', '')
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
         
-        df = df.fillna("") # 其余列转为字符串
+        df = df.fillna("") 
         return df
     except Exception as e:
         st.error(f"加载失败: {e}")
@@ -539,6 +542,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

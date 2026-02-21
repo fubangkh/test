@@ -85,23 +85,21 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 @st.cache_data(ttl=0)
 def load_data():
-    # 1. 构造 CSV 导出链接（确保 gid=0 对应的是 Summary 标签页）
     csv_url = "https://docs.google.com/spreadsheets/d/1AC572Eq96yIF9it1xCJQAOrxjEEnskProsLmifK3DAs/export?format=csv&gid=0"
-    
     try:
-        # 2. 直接读取 CSV 数据
         df = pd.read_csv(csv_url)
-        
-        # 3. 按照你原有的逻辑进行清理
-        # 去掉全空行
         df = df.dropna(how="all")
-        # 把所有的空值 (NaN) 替换成干净的空字符串
-        df = df.fillna("")
         
+        # --- 核心修复：确保计算列是数字类型 ---
+        for col in ['收入', '支出']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+        
+        # 其他列（如分类、备注）再转为字符串，防止下拉菜单报错
+        df = df.fillna("") 
         return df
     except Exception as e:
-        st.error(f"⚠️ 数据加载失败，请检查网络或表格权限。错误详情: {e}")
-        # 如果读取失败，返回一个带有所需列名的空 Dataframe，防止后续 get_dynamic_options 报错
+        st.error(f"加载失败: {e}")
         return pd.DataFrame()
 
 # get_dynamic_options 函数保持不变，它现在可以完美兼容上面返回的 df
@@ -541,5 +539,6 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 

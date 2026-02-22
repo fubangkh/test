@@ -408,114 +408,111 @@ st.divider()
 
 # --- 账户余额与排行 ---
 col_l, col_r = st.columns(2)
+
 with col_l:
     st.write("🏦 **各账户当前余额 (原币对账)**")
-        
-    def calc_bank_balance(group):
-        # 1. 统一转为数值
-        inc_clean = pd.to_numeric(group['收入'], errors='coerce').fillna(0)
-        exp_clean = pd.to_numeric(group['支出'], errors='coerce').fillna(0)
-        amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
-        
-        # 2. 定义内部计算逻辑
-        def get_raw_val(idx):
-            current_val = amt_clean.loc[idx]
-            if current_val == 0 or pd.isna(current_val):
-                if inc_clean.loc[idx] > 0:
-                    current_val = inc_clean.loc[idx]
-                elif exp_clean.loc[idx] > 0:
-                    current_val = exp_clean.loc[idx]
-                else:
-                    current_val = 0
-            is_expense = exp_clean.loc[idx] > 0
-            return -current_val if is_expense else current_val
 
-        # --- 核心修复区：确保这些变量在 return 之前被定义 ---
-        # 3. 计算 USD 总余额
-        usd_bal = inc_clean.sum() - exp_clean.sum()
-        
-        # 4. 计算原币总余额 (这里定义了 raw_bal)
-        raw_bal = sum(get_raw_val(idx) for idx in group.index)
-        
-        # 5. 获取币种
-        valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
-        cur_name = valid_currencies[-1] if valid_currencies else "USD"
-        
-        # 6. 返回结果
-        return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
+    def calc_bank_balance(group: pd.DataFrame) -> pd.Series:
+        # 1) 转数值（保持逻辑不变）
+        inc = pd.to_numeric(group['收入'], errors='coerce').fillna(0.0)
+        exp = pd.to_numeric(group['支出'], errors='coerce').fillna(0.0)
+        amt = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0.0)
+
+        # 2) USD 总余额（不变）
+        usd_bal = inc.sum() - exp.sum()
+
+        # 3) 原币流水值（矢量化实现 = 逻辑与你 get_raw_val 完全一致）
+        #    规则：优先用 实际金额；如果为 0，则用 收入 或 支出 回填；支出为负
+        fallback = amt.copy()
+        need_fill = (fallback == 0) | (fallback.isna())
+
+        # 用收入/支出回填（保持你原逻辑的优先级：先收入，再支出）
+        fill_from_inc = need_fill & (inc > 0)
+        fill_from_exp = need_fill & (~fill_from_inc) & (exp > 0)
+
+        fallback.loc[fill_from_inc] = inc.loc[fill_from_inc]
+        fallback.loc[fill_from_exp] = exp.loc[fill_from_exp]
+        fallback = fallback.fillna(0.0)
+
+        # 支出为负
+        raw_series = fallback.where(exp <= 0, -fallback)
+        raw_bal = raw_series.sum()
+
+        # 4) 币种（保持你“取最后一个有效币种”的逻辑，但更稳）
+        cur_series = group.get('实际币种', pd.Series([], dtype=str)).astype(str).str.strip()
+        cur_series = cur_series[~cur_series.isin(["", "nan", "None"])]
+        cur_name = cur_series.iloc[-1] if len(cur_series) else "USD"
+
+        return pd.Series({"USD": usd_bal, "RAW": raw_bal, "CUR": cur_name})
 
     try:
-        # 1. 计算逻辑（保持不变）
-        acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
-        
-        # 2. 预处理原币字符串
+        acc_stats = df_main.groupby('结算账户', dropna=False).apply(calc_bank_balance).reset_index()
+
         sym_map = {
-            "人民币": "¥", "RMB": "¥", "CNY": "¥", 
-            "港币": "HK$", "HKD": "HK$", 
-            "印尼盾": "Rp", "IDR": "Rp", 
-            "越南盾": "₫", "VND": "₫", 
+            "人民币": "¥", "RMB": "¥", "CNY": "¥",
+            "港币": "HK$", "HKD": "HK$",
+            "印尼盾": "Rp", "IDR": "Rp",
+            "越南盾": "₫", "VND": "₫",
             "美元": "$", "USD": "$"
         }
-        acc_stats['银行卡实际金额'] = acc_stats.apply(
-            lambda r: f"{'-' if r['RAW'] < -0.01 else ''}{sym_map.get(r['CUR'], '$')}{abs(r['RAW']):,.2f}", 
+
+        acc_stats["银行卡实际金额"] = acc_stats.apply(
+            lambda r: f"{'-' if r['RAW'] < -0.01 else ''}{sym_map.get(r['CUR'], '$')}{abs(r['RAW']):,.2f}",
             axis=1
         )
 
-        # 3. 应用 Styler（复刻流水表的“格式+颜色+右对齐”模式）
-        styled_acc = acc_stats[['结算账户', 'USD', '银行卡实际金额']].style.format({
-            'USD': '${:,.2f}'  # 强制千分位和美元符号
-        }).map(
-            # 对 USD 列：颜色判断 + 强制右对齐 CSS
-            lambda x: 'color: #d32f2f; text-align: right;' if x < -0.01 else 'color: #31333F; text-align: right;',
-            subset=['USD']
-        ).map(
-            # 对原币列：字符串负号判断 + 强制右对齐 CSS
-            lambda x: 'color: #d32f2f; text-align: right;' if '-' in str(x) else 'color: #31333F; text-align: right;',
-            subset=['银行卡实际金额']
+        # ===== Styler 全权接管：颜色 + 千分位 + 右对齐（对字符串列也有效）=====
+        display_acc = acc_stats[['结算账户', 'USD', '银行卡实际金额']].copy()
+
+        styled_acc = (
+            display_acc.style
+            .format({'USD': '${:,.2f}'})
+            .map(lambda x: 'color:#d32f2f;' if x < -0.01 else 'color:#31333F;', subset=['USD'])
+            .map(lambda x: 'color:#d32f2f;' if '-' in str(x) else 'color:#31333F;', subset=['银行卡实际金额'])
+            .set_properties(subset=['USD', '银行卡实际金额'], **{
+                "text-align": "right",
+                "font-variant-numeric": "tabular-nums",
+                "white-space": "nowrap"
+            })
         )
-        
-        # 4. 渲染表格（关键：USD 使用 NumberColumn 借用其右对齐外壳）
+
+        # ✅ 不再用 column_config 控制对齐（避免覆盖 Styler）
         st.dataframe(
             styled_acc,
-            use_container_width=True, 
-            hide_index=True,
-            column_config={
-                "结算账户": st.column_config.TextColumn("结算账户", width="large"),
-                # 这里必须是 NumberColumn，它能保证右对齐，且不会吞掉 Styler 的千分位符号
-                "USD": st.column_config.NumberColumn("折合美元", width="medium"), 
-                # 原币余额因为带非美元符号，用 TextColumn。如果它还不居右，Styler 里的 text-align 也会起辅助作用
-                "银行卡实际金额": st.column_config.TextColumn("银行对账单余额", width="medium") 
-            }
+            use_container_width=True,
+            hide_index=True
         )
-        
+
     except Exception as e:
         st.error(f"余额计算异常: {e}")
 
 with col_r:
     st.write(f"🏷️ **{sel_month}月支出排行**")
-    # 1. 筛选本月支出数据并按性质分组
-    exp_stats = df_this_month[df_this_month['支出'] > 0].groupby('资金性质')['支出'].sum().sort_values(ascending=False).reset_index()
-    
+
+    exp_stats = (
+        df_this_month[pd.to_numeric(df_this_month['支出'], errors='coerce').fillna(0) > 0]
+        .groupby('资金性质', dropna=False)['支出']
+        .sum()
+        .sort_values(ascending=False)
+        .reset_index()
+    )
+
     if not exp_stats.empty:
-        # 2. 应用 Styler：控制千分位 + 颜色（支出通常统一为红色或默认黑色）+ 右对齐
-        styled_exp = exp_stats.style.format({
-            "支出": "${:,.2f}"
-        }).map(
-            # 统一支出颜色为红色，并注入右对齐 CSS
-            lambda x: 'color: #d32f2f; text-align: right;', 
-            subset=['支出']
+        styled_exp = (
+            exp_stats.style
+            .format({"支出": "${:,.2f}"})
+            .map(lambda x: 'color:#d32f2f;', subset=['支出'])
+            .set_properties(subset=['支出'], **{
+                "text-align": "right",
+                "font-variant-numeric": "tabular-nums",
+                "white-space": "nowrap"
+            })
         )
-        
-        # 3. 渲染表格
+
         st.dataframe(
-            styled_exp, 
-            use_container_width=True, 
-            hide_index=True,
-            column_config={
-                "资金性质": st.column_config.TextColumn("资金性质", width="medium"),
-                # 使用 NumberColumn 借用其右对齐外壳，且不设 format
-                "支出": st.column_config.NumberColumn("支出金额", width="medium")
-            }
+            styled_exp,
+            use_container_width=True,
+            hide_index=True
         )
     else:
         st.caption("该月暂无支出记录")
@@ -609,6 +606,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

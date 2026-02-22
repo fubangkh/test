@@ -480,9 +480,27 @@ with col_l:
             column_config={
                 "结算账户": st.column_config.TextColumn("结算账户", width="large"),
                 "USD": st.column_config.NumberColumn("折合美元", width="medium"), 
-                # 关键：原币余额即便用 TextColumn，有了上面的 !important 也会强制右对齐
                 "银行卡实际金额": st.column_config.TextColumn("银行对账单余额", width="medium") 
             }
+        )
+
+        # --- 强制对齐黑科技：注入全局 CSS ---
+        # 针对包含货币符号的单元格进行物理右对齐
+        st.markdown(
+            """
+            <style>
+                /* 找到所有包含 ¥, $, Rp, ₫ 的单元格并强制右对齐 */
+                div[data-testid="stDataFrame"] td {
+                    text-align: right !important;
+                    font-variant-numeric: tabular-nums; /* 让数字等宽，小数点对齐更美观 */
+                }
+                /* 唯独让第一列（账户名称）保持左对齐 */
+                div[data-testid="stDataFrame"] td:first-child {
+                    text-align: left !important;
+                }
+            </style>
+            """, 
+            unsafe_allow_html=True
         )
         
     except Exception as e:
@@ -606,6 +624,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

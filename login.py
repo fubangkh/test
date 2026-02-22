@@ -43,13 +43,26 @@ def show_login_page():
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         .stApp {{ background-color: #f8fafc; }}
         
-        div[data-testid="stVerticalBlockBorderWrapper"]{{
+        /* 终极方案：针对所有可能带边框的容器层级应用圆角 */
+        div[data-testid="stVerticalBlockBorderWrapper"],
+        div[data-testid="stVerticalBlockBorderWrapper"] > div,
+        div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlock"] {{
+            border-radius: 80px !important;
+        }}
+
+        /* 专门针对那个白色背景的矩形块 */
+        div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 100px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
             padding: 2.2rem 2.2rem 3rem 2.2rem !important;
             height: auto !important;
+        }}
+
+        /* 强制切除所有超出圆角部分的子元素内容 */
+        [data-testid="stVerticalBlockBorderWrapper"] > div:first-child {{
+            border-radius: 80px !important;
+            overflow: hidden !important;
         }}
 
 

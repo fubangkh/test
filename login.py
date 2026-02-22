@@ -43,10 +43,11 @@ def show_login_page():
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         .stApp {{ background-color: #f8fafc; }}
         
-        div[data-testid="stVerticalBlockBorderWrapper"] {{
+        div[data-testid="stVerticalBlockBorderWrapper"]
+        div[data-testid="stVerticalBlockBorderWrapper"] > div{{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 60px !important;
+            border-radius: 100px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
             padding: 2.2rem 2.2rem 3rem 2.2rem !important;
             height: auto !important;

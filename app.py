@@ -215,58 +215,59 @@ def entry_dialog():
         else:
             val_hand = sel_hand
 
-    # --- 5. 项目与备注 (局部刷新修复版) ---
+    # --- 5. 项目与备注 (防闪退 + 自动回填版) ---
+    proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     
-    # 确保 session_state 初始化
+    # 1. 确保状态变量初始化
     if "opt_proj" not in st.session_state:
         st.session_state.opt_proj = get_dynamic_options(df, "客户/项目信息")
-    if "proj_index" not in st.session_state:
-        st.session_state.proj_index = 0
+    if "proj_index_val" not in st.session_state:
+        st.session_state.proj_index_val = 0
 
-    # 定义一个局部刷新的片段
-    @st.fragment
-    def project_selector_fragment():
-        proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
+    # 2. 下拉主框 (不使用 key，通过 index 手动控制)
+    sel_proj = st.selectbox(
+        proj_label, 
+        options=st.session_state.opt_proj, 
+        index=st.session_state.proj_index_val
+    )
+
+    # 3. 核心交互逻辑
+    if sel_proj == "➕ 新增...":
+        with st.container(border=True):
+            # 使用 key 保证输入值在点击确定前被保存
+            new_p = st.text_input("✍️ 录入新项目", key="k_input_box", placeholder="请输入...")
+            
+            c1, c2 = st.columns(2)
+            
+            # 【确定按钮】
+            if c2.button("确定项目", key="btn_confirm_pj", type="primary", use_container_width=True):
+                if new_p and new_p.strip():
+                    if new_p not in st.session_state.opt_proj:
+                        st.session_state.opt_proj.insert(1, new_p)
+                    
+                    # 关键：计算索引并修改 state，不写 rerun
+                    # 点击按钮本身会触发一次局部执行，selectbox 会读取新的 index
+                    st.session_state.proj_index_val = st.session_state.opt_proj.index(new_p)
+                    st.toast(f"✅ 已选中: {new_p}")
+                    # 这里绝不写 st.rerun()，让按钮自身的点击事件带起重绘
+                else:
+                    st.error("项目名不能为空")
+            
+            # 【取消按钮】
+            if c1.button("取消", key="btn_cancel_pj", use_container_width=True):
+                st.session_state.proj_index_val = 0
+                # 同理，不写 rerun，点完后 selectbox 会自动回到默认项，录入框消失
         
-        # 下拉主框
-        sel_proj = st.selectbox(
-            proj_label, 
-            options=st.session_state.opt_proj, 
-            index=st.session_state.proj_index,
-            key="sel_proj_active"
-        )
+        val_proj = new_p 
+    else:
+        val_proj = sel_proj
+        # 如果不是新增模式，重置索引状态，防止下次打开又是新增
+        if sel_proj in st.session_state.opt_proj:
+            st.session_state.proj_index_val = st.session_state.opt_proj.index(sel_proj)
 
-        # 录入新项目逻辑
-        if sel_proj == "➕ 新增...":
-            with st.container(border=True):
-                new_p = st.text_input("✍️ 录入新项目", key="input_new_proj_val")
-                btn_col1, btn_col2 = st.columns(2)
-                
-                # 确定按钮
-                if btn_col2.button("确定项目", key="btn_p_ok", type="primary", use_container_width=True):
-                    if new_p and new_p.strip():
-                        # 更新列表并定位索引
-                        if new_p not in st.session_state.opt_proj:
-                            st.session_state.opt_proj.insert(1, new_p)
-                        st.session_state.proj_index = st.session_state.opt_proj.index(new_p)
-                        st.toast(f"✅ 已选中新项目: {new_p}")
-                        st.rerun() # 这里的 rerun 只会刷新这个 fragment
-                    else:
-                        st.error("项目名不能为空")
-                
-                # 取消按钮
-                if btn_col1.button("取消", key="btn_p_no", use_container_width=True):
-                    st.session_state.proj_index = 0
-                    st.rerun() # 重置回第一个选项
-            return new_p
-        return sel_proj
-
-    # 执行局部刷新组件并获取最终值
-    val_proj = project_selector_fragment()
-
-    # --- 备注与其他 ---
+    # --- 6. 备注与提交 ---
     val_note = st.text_area("备注")
-    
+      
     st.divider()
 
     # --- 6. 核心提交逻辑函数 ---
@@ -658,6 +659,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

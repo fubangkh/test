@@ -164,25 +164,54 @@ def entry_dialog():
 
     # 4. 账户与经手人
     r3_c1, r3_c2 = st.columns(2)
+    
     if is_transfer:
         val_acc_from = r3_c1.selectbox("➡️ 转出账户", options=get_dynamic_options(df, "结算账户"))
         val_acc_to = r3_c2.selectbox("⬅️ 转入账户", options=get_dynamic_options(df, "结算账户"))
         val_hand = "系统自动结转"
-        val_acc = "资金结转" # 占位
+        val_acc = "资金结转" 
     else:
+        # --- 账户新增逻辑 (带小确认) ---
         sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "结算账户"))
-        val_acc = st.text_input("✍️ 录入新账户") if sel_acc == "➕ 新增..." else sel_acc
-        sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
-        val_hand = st.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
+        if sel_acc == "➕ 新增...":
+            with st.container(border=True):
+                val_acc = st.text_input("✍️ 录入新账户名")
+                c_acc1, c_acc2 = st.columns(2)
+                if c_acc2.button("确定", key="confirm_acc_mini"):
+                    st.toast(f"已暂存新账户: {val_acc}")
+                if c_acc1.button("取消", key="cancel_acc_mini"):
+                    st.rerun()
+        else:
+            val_acc = sel_acc
 
-    # --- 5. 项目与备注
+        # --- 经手人新增逻辑 (带小确认) ---
+        sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
+        if sel_hand == "➕ 新增...":
+            with st.container(border=True):
+                val_hand = st.text_input("✍️ 录入新姓名")
+                c_h1, c_h2 = st.columns(2)
+                if c_h2.button("确定", key="confirm_hand_mini"):
+                    st.toast(f"已暂存新姓名: {val_hand}")
+                if c_h1.button("取消", key="cancel_hand_mini"):
+                    st.rerun()
+        else:
+            val_hand = sel_hand
+
+    # --- 5. 项目与备注 (带小确认) ---
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
 
-    if sel_proj == "➕ 新增..." or sel_proj == "-- 请选择 --":
-        val_proj = st.text_input("✍️ 录入新客户/项目", value="", key="k_new_proj_input", placeholder="请输入或选择项目名称...")
+    if sel_proj == "➕ 新增...":
+        with st.container(border=True):
+            val_proj = st.text_input("✍️ 录入新项目", key="k_new_proj_input")
+            c_p1, c_p2 = st.columns(2)
+            if c_p2.button("确定项目", key="confirm_proj_mini", type="primary"):
+                st.toast(f"已暂存新项目: {val_proj}")
+            if c_p1.button("取消", key="cancel_proj_mini"):
+                st.rerun()
     else:
         val_proj = sel_proj
+
     val_note = st.text_area("备注详情")
     
     st.divider()
@@ -624,6 +653,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

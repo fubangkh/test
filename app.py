@@ -218,49 +218,57 @@ def entry_dialog():
     # --- 5. 项目与备注 (闭环交互版) ---
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     
-    # 初始化项目列表和选中值
+    # 1. 初始化选项列表
     if "opt_proj" not in st.session_state:
         st.session_state.opt_proj = get_dynamic_options(df, "客户/项目信息")
-    
-    # 定义下拉菜单
+
+    # 2. 【关键修复】处理“回填”逻辑
+    # 我们检查是否有刚刚点击“确定项目”存入的临时变量
+    if "tmp_new_p_val" in st.session_state:
+        target_val = st.session_state.tmp_new_p_val
+        # 找到这个新值在列表中的索引
+        try:
+            default_ix = st.session_state.opt_proj.index(target_val)
+        except ValueError:
+            default_ix = 0
+        # 用完就删掉临时变量，防止下次打开弹窗还选中它
+        del st.session_state.tmp_new_p_val
+    else:
+        default_ix = 0
+
+    # 3. 定义下拉主框，使用 index 来控制显示内容
     sel_proj = st.selectbox(
         proj_label, 
         options=st.session_state.opt_proj, 
-        key="sel_proj_active" # 这里的 Key 很重要，用于后续手动修改
+        index=default_ix,
+        key="sel_proj_active" 
     )
 
-    # 如果用户选择了“新增”，则展开输入框
+    # 4. 当选中“➕ 新增...”时
     if sel_proj == "➕ 新增...":
         with st.container(border=True):
-            new_p = st.text_input("✍️ 录入新项目", key="input_new_proj_val", placeholder="请输入新项目全称...")
-            pc1, pc2 = st.columns(2)
+            new_p = st.text_input("✍️ 录入新项目", key="input_new_proj_val")
             
-            if pc2.button("确定项目", key="btn_p_ok", type="primary", use_container_width=True):
+            btn_col1, btn_col2 = st.columns(2)
+            
+            if btn_col2.button("确定项目", key="btn_p_ok", type="primary", use_container_width=True):
                 if new_p and new_p.strip():
-                    # 1. 如果是新名字，存入列表（插入到第2位，避开“--请选择--”）
+                    # 将新项目插入列表
                     if new_p not in st.session_state.opt_proj:
                         st.session_state.opt_proj.insert(1, new_p)
                     
-                    # 2. 【关键】强制覆盖下拉菜单的选中值为刚才填的名字
-                    st.session_state.sel_proj_active = new_p
-                    
-                    # 3. 提示并局部刷新弹窗（不关闭弹窗）
-                    st.toast(f"✅ 已选中新项目: {new_p}")
-                    st.rerun() # 在 Dialog 内部 rerun 只会刷新弹窗内容，不会关闭它
+                    # 【核心修改】通过临时变量中转，避开直接修改组件 Key 的报错
+                    st.session_state.tmp_new_p_val = new_p
+                    st.rerun() 
                 else:
-                    st.error("内容不能为空")
+                    st.error("项目名不能为空")
                     
-            if pc1.button("取消", key="btn_p_no", use_container_width=True):
-                # 取消时，将下拉菜单重置回第一个选项（通常是 --请选择--）
-                st.session_state.sel_proj_active = st.session_state.opt_proj[0]
+            if btn_col1.button("取消", key="btn_p_no", use_container_width=True):
                 st.rerun()
         
-        # 此时 val_proj 取输入框的值
         val_proj = new_p
     else:
-        # 此时 val_proj 取下拉框选中的值
         val_proj = sel_proj
-
     val_note = st.text_area("备注")
     
     st.divider()
@@ -654,6 +662,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

@@ -1,7 +1,7 @@
 import streamlit as st
 
 def show_login_page():
-    # --- 1. 多语言字典 --- (完全保持原样)
+    # --- 1. 多语言字典 ---
     LANG_DICT = {
         "zh": {
             "title": "富邦日记账", "user_label": "账号", "user_placeholder": "请输入账号",
@@ -33,7 +33,7 @@ def show_login_page():
 
     L = LANG_DICT[st.session_state.lang]
 
-    # SVG 图标 (完全保持原样)
+    # SVG 图标
     user_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"
     lock_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"
 
@@ -43,25 +43,19 @@ def show_login_page():
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         .stApp {{ background-color: #f8fafc; }}
         
-        /* --- 修改部分：卡片圆角强制生效逻辑 --- */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 40px !important; /* 这里设为你想要的圆角大小 */
+            border-radius: 60px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
             padding: 2.2rem 2.2rem 3rem 2.2rem !important;
             height: auto !important;
-            overflow: hidden !important; /* 确保背景不溢出圆角 */
-        }}
-        /* 关键：让容器内部的第一层 div 也同步圆角，彻底解决没变化的问题 */
-        div[data-testid="stVerticalBlockBorderWrapper"] > div {{
-            border-radius: 40px !important;
         }}
 
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
-        /* 以下所有代码均未改动，保持你提供的原样 */
+        /* --- 1. 统一输入框高度与背景 --- */
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{
             background-color: #f1f5f9; 
             border-radius: 12px !important; 
@@ -69,6 +63,8 @@ def show_login_page():
             border: none !important;
         }}
 
+        /* --- 2. 关键修复：强制清除眼睛图标及其容器的所有背景色 --- */
+        /* 这里的选择器覆盖了图标左侧、右侧、以及按钮本身的背景 */
         div[data-testid="stTextInput"] [data-baseweb="input"] > div,
         div[data-testid="stTextInput"] [data-baseweb="input"] button,
         div[data-testid="stTextInput"] [data-baseweb="input"] span {{
@@ -78,11 +74,13 @@ def show_login_page():
             box-shadow: none !important;
         }}
 
+        /* 确保输入文字垂直居中且不被遮挡 */
         div[data-testid="stTextInput"] input {{
             background-color: transparent !important;
             height: 2.5rem !important;
         }}
 
+        /* --- 核心交互按钮样式 --- */
         div.stButton > button {{
             background-color: #1f7a3f !important;
             color: white !important;
@@ -93,22 +91,26 @@ def show_login_page():
             border: none !important;
             padding: 0 !important;
             margin-top: 5px !important;
+            /* 交互动画 */
             transition: all 0.3s ease !important;
             cursor: pointer !important;
             font-weight: 600 !important;
         }}
 
+        /* 悬停效果 */
         div.stButton > button:hover {{
             background-color: #2d9a50 !important;
             box-shadow: 0 4px 12px rgba(31, 122, 63, 0.2) !important;
             transform: translateY(-1px) !important;
         }}
 
+        /* 点击效果 */
         div.stButton > button:active {{
             background-color: #165c2f !important;
             transform: translateY(1px) !important;
         }}
 
+        /* 提示框样式 */
         .custom-error-box {{
             background-color: #fee2e2;
             color: #b91c1c;

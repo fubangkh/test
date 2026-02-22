@@ -52,21 +52,17 @@ def show_login_page():
                 -webkit-text-fill-color: #f8fafc !important; 
             }}
 
-            /* 输入框整体底色 */
+            /* 核心：统一输入框底色，并清除右侧蓝色块 */
             div[data-testid="stTextInput"] div[data-baseweb="input"] {{
                 background-color: #0f172a !important;
                 border: 1px solid #334155 !important;
             }}
 
-            /* 彻底消除眼睛图标后的灰色补丁：强制所有内部容器透明 */
-            div[data-testid="stTextInput"] div[data-baseweb="input"] > div {{
-                background-color: transparent !important;
-                border: none !important;
-            }}
-            
-            div[data-testid="stTextInput"] button,
-            div[data-testid="stTextInput"] [data-baseweb="icon"],
-            div[data-testid="stTextInput"] [role="button"] {{
+            /* 这一段是关键：强制清除眼睛图标左、右、及其父级容器的所有背景 */
+            div[data-testid="stTextInput"] [data-baseweb="input"] > div,
+            div[data-testid="stTextInput"] [data-baseweb="input"] button,
+            div[data-testid="stTextInput"] [data-baseweb="input"] span,
+            div[data-testid="stTextInput"] [data-baseweb="input"] svg {{
                 background-color: transparent !important;
                 background: transparent !important;
                 border: none !important;
@@ -76,7 +72,6 @@ def show_login_page():
             /* 复选框颜色 */
             .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
-
         /* --- 4. 按钮与 Logo 样式 --- */
         .header-box {{ 
             display: flex; 

@@ -218,51 +218,50 @@ def entry_dialog():
     # --- 5. 项目与备注 (防闪退 + 自动回填版) ---
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     
-    # 初始化选项和索引
+    # 1. 确保选项和索引初始化
     if "opt_proj" not in st.session_state:
         st.session_state.opt_proj = get_dynamic_options(df, "客户/项目信息")
-    if "proj_index_val" not in st.session_state:
-        st.session_state.proj_index_val = 0
+    if "proj_idx" not in st.session_state:
+        st.session_state.proj_idx = 0
 
-    # 使用 index 绑定 state，同时给 selectbox 一个固定的 Key
+    # 2. 下拉主框：删掉 key 赋值，改用 index 联动
+    # 注意：这里千万不要写 key="sel_proj_active"，否则后面还是不能改它
     sel_proj = st.selectbox(
         proj_label, 
         options=st.session_state.opt_proj, 
-        index=st.session_state.proj_index_val,
-        key="sel_proj_active"
+        index=st.session_state.proj_idx
     )
 
-    # 录入交互
+    # 3. 交互逻辑
     if sel_proj == "➕ 新增...":
         with st.container(border=True):
             new_p = st.text_input("✍️ 录入新项目名称", key="k_input_box")
-            
             c1, c2 = st.columns(2)
             
             # 【确定按钮】
             if c2.button("确定项目", key="btn_confirm_pj", type="primary", use_container_width=True):
                 if new_p and new_p.strip():
+                    # 插入新项到列表
                     if new_p not in st.session_state.opt_proj:
                         st.session_state.opt_proj.insert(1, new_p)
                     
-                    # 强制更新：直接修改 selectbox 的 key 值
-                    st.session_state.proj_index_val = st.session_state.opt_proj.index(new_p)
-                    st.session_state.sel_proj_active = new_p 
-                    st.toast(f"✅ 已选中: {new_p}")
-                    # 不写 rerun，按钮点击本身会驱动 UI 更新
+                    # 修改索引：让 selectbox 在下次重绘时自动指向新项
+                    st.session_state.proj_idx = st.session_state.opt_proj.index(new_p)
+                    st.toast(f"✅ 已准备好项目: {new_p}")
+                    # 不用 rerun，按钮点击本身会触发重绘，if 条件会因 index 改变而失效，从而自动收起
                 else:
                     st.error("项目名不能为空")
             
-            # 【取消按钮】核心修复点
+            # 【取消按钮】
             if c1.button("取消", key="btn_cancel_pj", use_container_width=True):
-                # 强制重置：将索引回拨到 0，并直接修改组件状态值
-                st.session_state.proj_index_val = 0
-                st.session_state.sel_proj_active = st.session_state.opt_proj[0]
-                # 这里不需要写 rerun，点击瞬间按钮会触发刷新，
-                # 由于 sel_proj_active 被改成了非“新增”项，容器会自动消失
+                # 归零索引
+                st.session_state.proj_idx = 0
+                # 同样不写 rerun，点击后 selectbox 会读到 index=0，自动跳回默认项，if 块消失
         
         val_proj = new_p 
     else:
+        # 如果当前选的不是新增，同步一下索引，确保状态一致
+        st.session_state.proj_idx = st.session_state.opt_proj.index(sel_proj)
         val_proj = sel_proj
 
     # --- 6. 备注 ---
@@ -659,6 +658,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

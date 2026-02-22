@@ -21,10 +21,10 @@ def show_login_page():
             padding: 2.5rem 2rem !important;
         }}
 
-        /* 统一标题字体大小：已改小一号 */
+        /* 统一标题字体大小 */
         .title-text {{ 
             color: #1f7a3f; 
-            font-size: 1.6rem !important; 
+            font-size: 1.7rem !important; 
             font-weight: 800; 
             margin: 0; 
             white-space: nowrap !important;

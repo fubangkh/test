@@ -566,7 +566,7 @@ if not df_display.empty:
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
             "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
             "实际币种": st.column_config.TextColumn("实际币种", width="small"),
-            "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
+            "收入": st.column_config.TextColumn("收入(USD)"),
             "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
             "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
@@ -575,6 +575,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

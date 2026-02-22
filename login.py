@@ -4,8 +4,8 @@ def show_login_page():
     # --- 1. 多语言字典 ---
     LANG_DICT = {
         "zh": {
-            "title": "富邦日记账", "user_label": "账号", "user_placeholder": "请输入账号",
-            "pwd_label": "密码", "pwd_placeholder": "请输入密码", "remember": "记住我",
+            "title": "富邦日记账", "user_label": "账号", "user_placeholder": "请输入账号，测试账号123",
+            "pwd_label": "密码", "pwd_placeholder": "请输入密码，测试密码123", "remember": "记住我",
             "login_btn": "立即登录", "err_empty": "⚠️ 请先输入账号和密码", "err_wrong": "⚠️ 账号或密码不正确"
         },
         "en": {

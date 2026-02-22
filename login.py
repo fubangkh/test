@@ -11,7 +11,7 @@ def show_login_page():
         header {{ visibility: hidden; }}
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         
-        /* --- 2. 浅色模式 (默认) --- */
+        /* --- 2. 界面样式 --- */
         .stApp {{ background-color: #f8fafc; }}
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: #ffffff;
@@ -20,7 +20,16 @@ def show_login_page():
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
             padding: 2.5rem 2rem !important;
         }}
-        .title-text {{ color: #1f7a3f; font-size: 1.6rem; font-weight: 800; margin: 0; white-space: nowrap !important;}}
+
+        /* 统一标题字体大小：已改小一号 */
+        .title-text {{ 
+            color: #1f7a3f; 
+            font-size: 1.4rem !important; 
+            font-weight: 800; 
+            margin: 0; 
+            white-space: nowrap !important;
+        }}
+
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #f1f5f9; border-radius: 12px !important; }}
         input {{ color: #1e293b; }}
@@ -39,38 +48,11 @@ def show_login_page():
                 background-color: #0f172a !important;
                 border: 1px solid #334155 !important;
             }}
-            input {{ 
-                color: #f8fafc !important; 
-                -webkit-text-fill-color: #f8fafc !important; 
-            }}
+            input {{ color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important; }}
             .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
 
-        /* --- 4. 按钮与公共组件 --- */
-        .header-box {{ display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 35px; flex-wrap: nowrap !important; in-width: min-content;}}
-        /* --- FB Logo 圆圈及字母大小调整 --- */
-        .logo-circle {{
-            background-color: #1f7a3f; 
-            color: white; 
-            /* 1. 稍微调大一点圆圈，从 46px 增加到 50px */
-            width: 50px !important; 
-            height: 50px !important; 
-            border-radius: 50% !important;
-            
-            /* 2. 居中对齐 */
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            
-            /* 3. 核心修改：调大字母字号 */
-            font-size: 28px !important; 
-            font-weight: 600 !important; /* 加粗到最高级 */
-            
-            /* 4. 防止变形 */
-            flex-shrink: 0 !important; 
-        }}
-
-        /* --- 配套调整标题，确保对齐 --- */
+        /* --- 4. 按钮与 Logo 样式 --- */
         .header-box {{ 
             display: flex; 
             align-items: center; 
@@ -80,18 +62,25 @@ def show_login_page():
             flex-wrap: nowrap !important;
         }}
 
-        .title-text {{ 
-            color: #1f7a3f; 
-            font-size: 1.7rem; 
-            font-weight: 800; 
-            margin: 0; 
-            white-space: nowrap !important;
+        .logo-circle {{
+            background-color: #1f7a3f; 
+            color: white; 
+            width: 50px !important; 
+            height: 50px !important; 
+            border-radius: 50% !important;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 26px !important; /* FB 字母大号 */
+            font-weight: 800 !important; 
+            flex-shrink: 0 !important; 
         }}
-        
+
         div.stButton > button {{
             background-color: #1f7a3f !important; color: white !important;
             border-radius: 12px !important; height: 3rem !important; width: 100% !important; border: none !important;
         }}
+        
         .custom-error-box {{
             background-color: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 10px;
         }}
@@ -105,10 +94,10 @@ def show_login_page():
         st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">富邦日记账</h1></div>', unsafe_allow_html=True)
 
         st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> 账号</div>', unsafe_allow_html=True)
-        u = st.text_input("账号", placeholder="请输入账号，测试账号123", key="user", label_visibility="collapsed")
+        u = st.text_input("账号", placeholder="请输入账号", key="user", label_visibility="collapsed")
         
-        st.markdown(f'<div class="label-with-icon"><img src="{lock_svg}"> 密码</div>', unsafe_allow_html=True)
-        p = st.text_input("密码", placeholder="请输入密码，测试密码123", type="password", key="pwd", label_visibility="collapsed")
+        st.markdown(f'<div class="label-with-icon" style="margin-top:10px;"><img src="{lock_svg}"> 密码</div>', unsafe_allow_html=True)
+        p = st.text_input("密码", placeholder="请输入密码", type="password", key="pwd", label_visibility="collapsed")
 
         st.checkbox("记住我", value=True)
 

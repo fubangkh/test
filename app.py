@@ -369,13 +369,6 @@ df_main = df_main.dropna(subset=['提交时间'])
 for col in ['收入', '支出', '余额', '实际金额']:
     if col in df_main.columns:
         df_main[col] = pd.to_numeric(df_main[col], errors='coerce').fillna(0)
-st.dataframe(
-    styled_df,
-    column_config={
-        "实际金额": st.column_config.NumberColumn("原币金额"), # 这里建立映射
-        "实际币种": st.column_config.TextColumn("原币种")
-    }
-)
 
 # 5. 生成筛选列表（此时 df_main 已经完全干净了）
 year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
@@ -629,4 +622,5 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 

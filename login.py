@@ -49,7 +49,7 @@ def show_login_page():
         /* --- 4. 按钮与公共组件 --- */
         .header-box {{ display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 35px; flex-wrap: nowrap !important; in-width: min-content;}}
         /* --- FB Logo 圆圈及字母大小调整 --- */
-        .logo-circle {
+        .logo-circle {{
             background-color: #1f7a3f; 
             color: white; 
             /* 1. 稍微调大一点圆圈，从 46px 增加到 50px */
@@ -68,25 +68,25 @@ def show_login_page():
             
             /* 4. 防止变形 */
             flex-shrink: 0 !important; 
-        }
+        }}
 
         /* --- 配套调整标题，确保对齐 --- */
-        .header-box { 
+        .header-box {{ 
             display: flex; 
             align-items: center; 
             justify-content: center; 
             gap: 12px; 
             margin-bottom: 35px; 
             flex-wrap: nowrap !important;
-        }
+        }}
 
-        .title-text { 
+        .title-text {{ 
             color: #1f7a3f; 
             font-size: 1.7rem; 
             font-weight: 800; 
             margin: 0; 
             white-space: nowrap !important;
-        }
+        }}
         
         div.stButton > button {{
             background-color: #1f7a3f !important; color: white !important;

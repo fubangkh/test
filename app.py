@@ -534,12 +534,7 @@ def financial_style(df):
     ).map(
         lambda x: 'color: #d32f2f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
         subset=['支出']
-    ).format({
-        '收入': '${:,.2f}',
-        '支出': '${:,.2f}',
-        '余额': '${:,.2f}',
-        '实际金额': '{:,.2f}'
-    })
+    )
 
 # 4. 渲染表格 (13列配置全保留)
 if not df_display.empty:
@@ -559,17 +554,18 @@ if not df_display.empty:
             "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
             "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-            "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
+            "实际金额": st.column_config.NumberColumn("流水原数", format="%,.2f", width="small"),
             "实际币种": st.column_config.TextColumn("实际币种", width="small"),
-            "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
-            "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
-            "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
+            "收入": st.column_config.NumberColumn("收入(USD)", format="$%,.2f"),
+            "支出": st.column_config.NumberColumn("支出(USD)", format="$%,.2f"),
+            "余额": st.column_config.NumberColumn("余额(USD)", format="$%,.2f"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
             "备注": st.column_config.TextColumn("备注", width="medium"),
         }
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

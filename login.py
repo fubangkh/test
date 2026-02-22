@@ -77,7 +77,7 @@ def show_login_page():
             padding: 10px 12px !important;
             border-radius: 12px;
             text-align: center;
-            margin-top: 4px !important; /* 改为正值，紧贴按钮下方但不重叠 */
+            margin-top: 2px !important; /* 改为正值，紧贴按钮下方但不重叠 */
             font-size: 0.85rem;
             width: 100%;
             box-sizing: border-box;

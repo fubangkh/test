@@ -479,13 +479,14 @@ with col_l:
         # 4. 渲染表格（加 scope + 右对齐 CSS）
         st.markdown("""
         <style>
-        /* 只作用在本段 acc-scope 里，避免误伤其他表格 */
-        .acc-scope div[data-testid="stDataFrame"] div[role="gridcell"][aria-colindex="3"]{
-            justify-content: flex-end !important;   /* grid 内部对齐 */
-            text-align: right !important;           /* 文本对齐 */
-            font-variant-numeric: tabular-nums;     /* 数字等宽更好看 */
+        /* 只作用在账户余额这个表 */
+        .acc-scope .stDataFrameGlideDataEditor .gdg-cell:nth-child(3){
+            justify-content: flex-end !important;
+            text-align: right !important;
+            font-variant-numeric: tabular-nums !important;
         }
-        .acc-scope div[data-testid="stDataFrame"] div[role="columnheader"][aria-colindex="3"]{
+        
+        .acc-scope .stDataFrameGlideDataEditor .gdg-header-cell:nth-child(3){
             justify-content: flex-end !important;
             text-align: right !important;
         }
@@ -637,6 +638,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

@@ -459,7 +459,7 @@ with col_l:
 
         # 核心改动：使用 .center() 函数给字符串强行加空格实现“伪居中”
         # 如果想要右对齐，就用 .rjust(10)
-        acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x).center(12))
+        acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x).rjust(12))
         
         display_acc = acc_stats[['结算账户', '原币种', 'RAW', 'USD']].copy()
 
@@ -481,8 +481,8 @@ with col_l:
                 "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
                 # 这里原币种是带空格的字符串，TextColumn 会把空格也渲染出来
                 "原币种": st.column_config.TextColumn("原币种", width="small"),
-                "RAW": st.column_config.NumberColumn("原币金额", width="medium"),
-                "USD": st.column_config.NumberColumn("折合美元 (USD)", width="medium")
+                "RAW": st.column_config.NumberColumn("原币金额", width="small"),
+                "USD": st.column_config.NumberColumn("折合美元 (USD)", width="small")
             }
         )
         
@@ -607,6 +607,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

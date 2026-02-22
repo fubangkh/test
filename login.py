@@ -63,8 +63,8 @@ def show_login_page():
             justify-content: center; 
             
             /* 3. 核心修改：调大字母字号 */
-            font-size: 22px !important; 
-            font-weight: 900 !important; /* 加粗到最高级 */
+            font-size: 25px !important; 
+            font-weight: 800 !important; /* 加粗到最高级 */
             
             /* 4. 防止变形 */
             flex-shrink: 0 !important; 

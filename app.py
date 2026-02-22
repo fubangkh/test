@@ -603,33 +603,10 @@ if not df_display.empty:
             "实际币种": st.column_config.TextColumn("原币种", width="small"),
             "收入": st.column_config.NumberColumn("收入(USD)", width="small"),
             "支出": st.column_config.NumberColumn("支出(USD)", width="small"),
-            "余额": st.column_config.NumberColumn("余额(USD)", width="medium"),
+            "余额": st.column_config.NumberColumn("余额(USD)", width="small"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
             "备注": st.column_config.TextColumn("备注", width="small"),
         }
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

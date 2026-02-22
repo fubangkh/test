@@ -218,58 +218,60 @@ def entry_dialog():
     # --- 5. 项目与备注 (闭环交互版) ---
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     
-    # 1. 初始化选项列表
+    # 初始化状态
     if "opt_proj" not in st.session_state:
         st.session_state.opt_proj = get_dynamic_options(df, "客户/项目信息")
+    if "show_add_proj" not in st.session_state:
+        st.session_state.show_add_proj = False
+    if "proj_index" not in st.session_state:
+        st.session_state.proj_index = 0
 
-    # 2. 【关键修复】处理“回填”逻辑
-    # 我们检查是否有刚刚点击“确定项目”存入的临时变量
-    if "tmp_new_p_val" in st.session_state:
-        target_val = st.session_state.tmp_new_p_val
-        # 找到这个新值在列表中的索引
-        try:
-            default_ix = st.session_state.opt_proj.index(target_val)
-        except ValueError:
-            default_ix = 0
-        # 用完就删掉临时变量，防止下次打开弹窗还选中它
-        del st.session_state.tmp_new_p_val
-    else:
-        default_ix = 0
+    # 监听下拉框选择
+    def on_proj_change():
+        if st.session_state.sel_proj_active == "➕ 新增...":
+            st.session_state.show_add_proj = True
+        else:
+            st.session_state.show_add_proj = False
 
-    # 3. 定义下拉主框，使用 index 来控制显示内容
+    # 下拉主框
     sel_proj = st.selectbox(
         proj_label, 
         options=st.session_state.opt_proj, 
-        index=default_ix,
-        key="sel_proj_active" 
+        index=st.session_state.proj_index,
+        key="sel_proj_active",
+        on_change=on_proj_change # 选中新增时自动打开输入框
     )
 
-    # 4. 当选中“➕ 新增...”时
-    if sel_proj == "➕ 新增...":
+    # 如果开关打开，显示输入小框
+    if st.session_state.show_add_proj:
         with st.container(border=True):
             new_p = st.text_input("✍️ 录入新项目", key="input_new_proj_val")
-            
             btn_col1, btn_col2 = st.columns(2)
             
             if btn_col2.button("确定项目", key="btn_p_ok", type="primary", use_container_width=True):
                 if new_p and new_p.strip():
-                    # 将新项目插入列表
+                    # 1. 更新列表
                     if new_p not in st.session_state.opt_proj:
                         st.session_state.opt_proj.insert(1, new_p)
                     
-                    # 【核心修改】通过临时变量中转，避开直接修改组件 Key 的报错
-                    st.session_state.tmp_new_p_val = new_p
-                    st.rerun() 
+                    # 2. 计算新索引并关闭开关
+                    st.session_state.proj_index = st.session_state.opt_proj.index(new_p)
+                    st.session_state.show_add_proj = False
+                    
+                    # 3. 使用 fragment 级别的局部刷新或直接提示用户
+                    st.toast(f"✅ 已选中: {new_p}")
+                    st.rerun() # 在 dialog 中有时会失效，如果失效请看下方提示
                 else:
                     st.error("项目名不能为空")
                     
             if btn_col1.button("取消", key="btn_p_no", use_container_width=True):
+                st.session_state.show_add_proj = False
+                st.session_state.proj_index = 0
                 st.rerun()
         
         val_proj = new_p
     else:
         val_proj = sel_proj
-    val_note = st.text_area("备注")
     
     st.divider()
 
@@ -662,6 +664,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

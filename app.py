@@ -448,42 +448,43 @@ with col_l:
         # 1. 计算逻辑（保持不变）
         acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
         
-        # 2. 映射币种符号
-        sym_map = {
-            "人民币": "¥", "RMB": "¥", "CNY": "¥", 
-            "港币": "HK$", "HKD": "HK$", 
-            "印尼盾": "Rp", "IDR": "Rp", 
-            "越南盾": "₫", "VND": "₫", 
-            "美元": "$", "USD": "$"
+        # 2. 映射 ISO 货币代码（直接映射为标准简写）
+        # 这样即使用户录入的是“人民币”或“CNY”，展示层都会统一为标准代码
+        iso_map = {
+            "人民币": "CNY", "RMB": "CNY", "CNY": "CNY", 
+            "港币": "HKD", "HKD": "HKD", 
+            "印尼盾": "IDR", "IDR": "IDR", 
+            "越南盾": "VND", "VND": "VND", 
+            "美元": "USD", "USD": "USD"
         }
-        acc_stats['币种符号'] = acc_stats['CUR'].map(lambda x: sym_map.get(x, '$'))
+        acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x))
         
-        # 3. 按照你指定的顺序选择列：结算账户, RAW(原币金额), 币种符号, USD(折合美元)
-        display_acc = acc_stats[['结算账户', 'RAW', '币种符号', 'USD']].copy()
+        # 3. 按照最新顺序：结算账户, 原币种, RAW(原币金额), USD(折合美元)
+        display_acc = acc_stats[['结算账户', '原币种', 'RAW', 'USD']].copy()
 
-        # 4. Styler 全权负责格式与变色
+        # 4. Styler 全权负责：格式、变色
         styled_acc = display_acc.style.format({
-            'RAW': '{:,.2f}',     # 原币金额：千分位
-            'USD': '${:,.2f}'     # 折合美元：$符号 + 千分位
+            'RAW': '{:,.2f}',     # 原币金额：纯数字千分位
+            'USD': '${:,.2f}'     # 折合美元：保留$符号以便区分本位币
         }).map(
-            # 原币金额变色
+            # 原币金额变色判断
             lambda x: 'color: #d32f2f;' if x < -0.01 else 'color: #31333F;',
             subset=['RAW']
         ).map(
-            # 折合美元变色
+            # 折合美元变色判断
             lambda x: 'color: #d32f2f;' if x < -0.01 else 'color: #31333F;',
             subset=['USD']
         )
         
-        # 5. 渲染：金额列全部使用 NumberColumn 强制右对齐
+        # 5. 渲染：RAW 和 USD 均设为 NumberColumn 以强制右对齐
         st.dataframe(
             styled_acc,
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
+                "结算账户": st.column_config.TextColumn("结算账户", width="small"),
+                "原币种": st.column_config.TextColumn("原币种", width="small"),
                 "RAW": st.column_config.NumberColumn("原币金额", width="medium"),
-                "币种符号": st.column_config.TextColumn("币种", width="small"),
                 "USD": st.column_config.NumberColumn("折合美元 (USD)", width="medium")
             }
         )
@@ -609,6 +610,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

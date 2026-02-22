@@ -1,10 +1,41 @@
 import streamlit as st
 
 def show_login_page():
-    # 1. SVG 图标
+    # --- 1. 多语言字典 (仅提取文字，不改逻辑) ---
+    LANG_DICT = {
+        "zh": {
+            "title": "富邦日记账",
+            "user_label": "账号",
+            "user_placeholder": "请输入账号，测试账号123",
+            "pwd_label": "密码",
+            "pwd_placeholder": "请输入密码，测试密码123",
+            "remember": "记住我",
+            "login_btn": "立即登录",
+            "error": "⚠️ 账号或密码不正确"
+        },
+        "en": {
+            "title": "FB Journal",
+            "user_label": "Account",
+            "user_placeholder": "Enter account, test: 123",
+            "pwd_label": "Password",
+            "pwd_placeholder": "Enter password, test: 123",
+            "remember": "Remember me",
+            "login_btn": "Sign In",
+            "error": "⚠️ Invalid account or password"
+        }
+    }
+
+    # 自动初始化语言
+    if 'lang' not in st.session_state:
+        st.session_state.lang = "zh"
+    
+    L = LANG_DICT[st.session_state.lang]
+
+    # 1. SVG 图标 (完全保留)
     user_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"
     lock_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"
 
+    # --- 2. 样式表 (1:1 复制你提供的最终版) ---
     st.markdown(f"""
         <style>
         /* --- 1. 基础布局 --- */
@@ -33,32 +64,24 @@ def show_login_page():
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #f1f5f9; border-radius: 12px !important; }}
         input {{ color: #1e293b; }}
 
-        /* --- 3. 深色模式适配 --- */
+        /* --- 3. 深色模式适配 (包含关键眼睛补丁) --- */
         @media (prefers-color-scheme: dark) {{
             .stApp {{ background-color: #0f172a !important; }}
-            
-            /* 登录卡片背景 */
             div[data-testid="stVerticalBlockBorderWrapper"] {{
                 background-color: #1e293b !important;
                 border: 1px solid #334155 !important;
                 box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
             }}
-
-            /* 文字颜色 */
             .title-text {{ color: #4ade80 !important; }}
             .label-with-icon {{ color: #94a3b8 !important; }}
             input {{ 
                 color: #f8fafc !important; 
                 -webkit-text-fill-color: #f8fafc !important; 
             }}
-
-            /* 核心：统一输入框底色，并清除右侧蓝色块 */
             div[data-testid="stTextInput"] div[data-baseweb="input"] {{
                 background-color: #0f172a !important;
                 border: 1px solid #334155 !important;
             }}
-
-            /* 这一段是关键：强制清除眼睛图标左、右、及其父级容器的所有背景 */
             div[data-testid="stTextInput"] [data-baseweb="input"] > div,
             div[data-testid="stTextInput"] [data-baseweb="input"] button,
             div[data-testid="stTextInput"] [data-baseweb="input"] span,
@@ -68,8 +91,6 @@ def show_login_page():
                 border: none !important;
                 box-shadow: none !important;
             }}
-
-            /* 复选框颜色 */
             .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
         
@@ -92,7 +113,7 @@ def show_login_page():
             display: flex; 
             align-items: center; 
             justify-content: center; 
-            font-size: 28px !important; /* FB 字母大号 */
+            font-size: 28px !important; 
             font-weight: 600 !important; 
             flex-shrink: 0 !important; 
         }}
@@ -104,19 +125,16 @@ def show_login_page():
             height: 3rem !important; 
             width: 100% !important; 
             border: none !important;
-            /* 关键点：增加平滑过渡效果 */
             transition: all 0.3s ease !important;
             cursor: pointer !important;
         }}
 
-        /* 悬停效果：鼠标放上去变色并轻微浮动 */
         div.stButton > button:hover {{
             background-color: #2d9a50 !important; 
             box-shadow: 0 4px 12px rgba(31, 122, 63, 0.2) !important;
             transform: translateY(-1px) !important;
         }}
 
-        /* 点击效果：按下去的感觉 */
         div.stButton > button:active {{
             background-color: #165c2f !important;
             transform: translateY(1px) !important;
@@ -131,20 +149,29 @@ def show_login_page():
         </style>
     """, unsafe_allow_html=True)
 
+    # --- 3. 语言切换器 (新增：放在容器上方) ---
+    col1, col2 = st.columns([4, 1])
+    with col2:
+        # 这个选择框会自动根据系统或手动选择切换语言
+        lang_mode = st.selectbox("🌐", ["中文", "EN"], index=0 if st.session_state.lang == "zh" else 1, label_visibility="collapsed")
+        st.session_state.lang = "zh" if lang_mode == "中文" else "en"
+
     with st.container(border=True):
-        st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">富邦日记账</h1></div>', unsafe_allow_html=True)
+        # 这里的文字全部替换成了变量 L[...]
+        st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">{L["title"]}</h1></div>', unsafe_allow_html=True)
 
-        st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> 账号</div>', unsafe_allow_html=True)
-        u = st.text_input("账号", placeholder="请输入账号，测试账号123", key="user", label_visibility="collapsed")
+        st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> {L["user_label"]}</div>', unsafe_allow_html=True)
+        u = st.text_input(L["user_label"], placeholder=L["user_placeholder"], key="user", label_visibility="collapsed")
         
-        st.markdown(f'<div class="label-with-icon" style="margin-top:10px;"><img src="{lock_svg}"> 密码</div>', unsafe_allow_html=True)
-        p = st.text_input("密码", placeholder="请输入密码，测试密码123", type="password", key="pwd", label_visibility="collapsed")
+        st.markdown(f'<div class="label-with-icon" style="margin-top:10px;"><img src="{lock_svg}"> {L["pwd_label"]}</div>', unsafe_allow_html=True)
+        p = st.text_input(L["pwd_label"], placeholder=L["pwd_placeholder"], type="password", key="pwd", label_visibility="collapsed")
 
-        st.checkbox("记住我", value=True)
+        st.checkbox(L["remember"], value=True)
 
-        if st.button("立即登录", use_container_width=True):
+        if st.button(L["login_btn"], use_container_width=True):
             if u == "123" and p == "123":
                 st.session_state.logged_in = True
                 st.rerun()
             else:
-                st.markdown('<div class="custom-error-box">⚠️ 账号或密码不正确</div>', unsafe_allow_html=True)
+                # 错误提示也多语言化了
+                st.markdown(f'<div class="custom-error-box">{L["error"]}</div>', unsafe_allow_html=True)

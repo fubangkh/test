@@ -521,30 +521,27 @@ if search_query:
     )
     df_display = df_display[mask]
 
-# 3. 核心优化：在样式层强制处理颜色、千分位、对齐
+# 3. 核心优化：定义财务样式 (仅变色，不加粗，保留千分位)
 def financial_style(df):
-    df = df.copy()
-    # 确保数值列是 Float
+    # 确保数值列类型正确
     cols_to_fix = ['收入', '支出', '余额', '实际金额']
     for col in cols_to_fix:
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
     
-    # 【关键】在 Styler 里直接定义千分位格式
-    return df.style.format({
-        '收入': '${:,.2f}',
-        '支出': '${:,.2f}',
-        '余额': '${:,.2f}',
-        '实际金额': '{:,.2f}'
-    }).map(
-        # 这里只管颜色
+    return df.style.map(
         lambda x: 'color: #1f7a3f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
         subset=['收入']
     ).map(
         lambda x: 'color: #d32f2f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
         subset=['支出']
-    )
+    ).format({
+        '收入': '${:,.2f}',
+        '支出': '${:,.2f}',
+        '余额': '${:,.2f}',
+        '实际金额': '{:,.2f}'
+    })
 
-# 4. 渲染表格
+# 4. 渲染表格 (13列配置全保留)
 if not df_display.empty:
     styled_df = financial_style(df_display)
     
@@ -554,7 +551,6 @@ if not df_display.empty:
         hide_index=True,
         height=500,
         column_config={
-            # 修正时间列：使用 YYYY 确保 2027 年不会混淆
             "提交时间": st.column_config.DatetimeColumn("提交时间", format="YYYY-MM-DD HH:mm", width="medium"),
             "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="medium"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small"),
@@ -574,6 +570,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

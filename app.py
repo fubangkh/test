@@ -538,7 +538,7 @@ def financial_style(df):
         '余额': '${:,.2f}',
         '实际金额': '{:,.2f}'
     }).map(
-        lambda x: 'color: #1f7a3f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
+        lambda x: 'color: #1f7a3f; text-align: right;' if x > 0 else 'color: #94a3b8; opacity: 0.5; text-align: right;',
         subset=['收入']
     ).map(
         lambda x: 'color: #d32f2f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
@@ -575,6 +575,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

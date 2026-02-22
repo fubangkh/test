@@ -551,39 +551,39 @@ if search_query:
     df_display = df_display[mask]
 
 # --- 第三步：核心优化： Styler 全权接管展示层 ---
+# --- 第一步：预处理数据（统一币种名称） ---
+df_display['实际币种'] = df_display['实际币种'].replace('RMB', 'CNY')
+
+# --- 第二步：核心优化：Styler 全权接管展示层 ---
 def get_styled_df(df):
-    # 1. 深度克隆，确保不污染原始数据（原始 df 仍为 float 用于后续计算）
     display_df = df.copy()
     
-    # 2. 预处理：确保金额列为数值型（防止 format 报错）
-    money_cols = ['实际金额', '收入', '支出', '余额']
+    # 1. 物理对齐：给“实际币种”列应用居中/右对齐补位
+    # 这里建议使用 .center(12) 看起来更平衡
+    display_df['实际币种'] = display_df['实际币种'].apply(lambda x: str(x).center(12))
+
+    # 2. 转换数值（确保 format 不报错）
+    money_cols = ['收入', '支出', '余额', '实际金额']
     for col in money_cols:
         display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
 
-    # 3. Styler 闭环控制：格式、颜色、对齐
+    # 3. Styler 样式控制
     return display_df.style.format({
         '收入': '${:,.2f}',
         '支出': '${:,.2f}',
         '余额': '${:,.2f}',
-        '实际金额': '{:,.2f}',
-        '提交时间': lambda x: x.strftime('%Y-%m-%d %H:%M') # 物理解决2027年问题
+        '实际金额': '{:,.2f}', # 原币金额纯数字展示
+        '提交时间': lambda x: x.strftime('%Y-%m-%d %H:%M')
     }).map(
-        # 收入变色 + 右对齐
-        lambda x: 'color: #1f7a3f; text-align: right;', 
-        subset=['收入']
+        lambda x: 'color: #1f7a3f; text-align: right;', subset=['收入']
     ).map(
-        # 支出变色 + 右对齐
-        lambda x: 'color: #d32f2f; text-align: right;', 
-        subset=['支出']
+        lambda x: 'color: #d32f2f; text-align: right;', subset=['支出']
     ).map(
-        # 其余金额仅右对齐
-        lambda x: 'text-align: right;', 
-        subset=['余额', '实际金额']
+        lambda x: 'text-align: right;', subset=['余额', '实际金额']
     )
 
-# --- 第四步：渲染层 ---
+# --- 第三步：渲染层（修改列名呼应） ---
 if not df_display.empty:
-    # 获取完全由 Styler 格式化好的对象
     styled_df = get_styled_df(df_display)
     
     st.dataframe(
@@ -599,14 +599,18 @@ if not df_display.empty:
             "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
             "结算账户": st.column_config.TextColumn("结算账户", width="small"),
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-            "实际币种": st.column_config.TextColumn("实际币种", width="small"),
+            "实际金额": st.column_config.NumberColumn("原币金额", width="small"),
+            "实际币种": st.column_config.TextColumn("原币种", width="small"),
+            "收入": st.column_config.NumberColumn("收入(USD)", width="small"),
             "支出": st.column_config.NumberColumn("支出(USD)", width="small"),
+            "余额": st.column_config.NumberColumn("余额(USD)", width="medium"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
             "备注": st.column_config.TextColumn("备注", width="small"),
         }
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

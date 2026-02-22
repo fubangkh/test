@@ -33,7 +33,7 @@ def show_login_page():
 
     # 回调函数：选完立即重绘
     def on_lang_change():
-        st.session_state.lang = "zh" if st.session_state.lang_sel == "中文" else "en"
+        st.session_state.lang = "zh" if st.session_state.lang_sel == "CN" else "en"
 
     L = LANG_DICT[st.session_state.lang]
 
@@ -55,20 +55,12 @@ def show_login_page():
             padding: 2.5rem 2rem !important;
         }}
 
-        /* 强制语言选择器容器微调 */
-        .lang-wrapper {{
-            display: flex;
-            justify-content: flex-end;
-            margin-bottom: -30px;
-            position: relative;
-            z-index: 100;
-        }}
-
         .title-text {{ color: #1f7a3f; font-size: 2.0rem !important; font-weight: 800; margin: 0; white-space: nowrap !important; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #f1f5f9; border-radius: 12px !important; }}
         input {{ color: #1e293b; }}
 
+        /* 深色模式适配 + 眼睛补丁 */
         @media (prefers-color-scheme: dark) {{
             .stApp {{ background-color: #0f172a !important; }}
             div[data-testid="stVerticalBlockBorderWrapper"] {{ background-color: #1e293b !important; border: 1px solid #334155 !important; }}
@@ -77,38 +69,49 @@ def show_login_page():
             input {{ color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important; }}
             div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #0f172a !important; border: 1px solid #334155 !important; }}
             div[data-testid="stTextInput"] [data-baseweb="input"] > div,
-            div[data-testid="stTextInput"] [data-baseweb="input"] button {{ background-color: transparent !important; background: transparent !important; border: none !important; }}
+            div[data-testid="stTextInput"] [data-baseweb="input"] button,
+            div[data-testid="stTextInput"] [data-baseweb="input"] svg {{ background-color: transparent !important; background: transparent !important; border: none !important; }}
             .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
 
         .header-box {{ display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 35px; }}
         .logo-circle {{ background-color: #1f7a3f; color: white; width: 45px !important; height: 45px !important; border-radius: 50% !important; display: flex; align-items: center; justify-content: center; font-size: 28px !important; font-weight: 600 !important; flex-shrink: 0 !important; }}
+        
         div.stButton > button {{ background-color: #1f7a3f !important; color: white !important; border-radius: 12px !important; height: 3rem !important; width: 100% !important; border: none !important; transition: all 0.3s ease !important; }}
+        
         .custom-error-box {{ background-color: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 10px; }}
         @media (prefers-color-scheme: dark) {{ .custom-error-box {{ background-color: #450a0a; color: #fca5a5; }} }}
+        
+        /* 隐藏下拉框的边框，使其更像一个纯图标按钮 */
+        div[data-testid="stSelectbox"] > div {{ border: none !important; background: transparent !important; }}
         </style>
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
-        # --- 新的语言切换放置点：卡片内部右上角 ---
-        cols = st.columns([5, 2])
+        # --- 语言切换器：CN / EN ---
+        cols = st.columns([5.5, 1.5]) # 调整比例给 CN/EN 留出合适空间
         with cols[1]:
-            st.selectbox("🌐", ["中文", "English"], 
+            st.selectbox("🌐", ["CN", "EN"], 
                          index=0 if st.session_state.lang == "zh" else 1, 
                          key="lang_sel", 
                          on_change=on_lang_change, 
                          label_visibility="collapsed")
 
+        # 标志与标题
         st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">{L["title"]}</h1></div>', unsafe_allow_html=True)
 
+        # 账号区域
         st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> {L["user_label"]}</div>', unsafe_allow_html=True)
         u = st.text_input(L["user_label"], placeholder=L["user_placeholder"], key="user", label_visibility="collapsed")
         
+        # 密码区域
         st.markdown(f'<div class="label-with-icon" style="margin-top:10px;"><img src="{lock_svg}"> {L["pwd_label"]}</div>', unsafe_allow_html=True)
         p = st.text_input(L["pwd_label"], placeholder=L["pwd_placeholder"], type="password", key="pwd", label_visibility="collapsed")
 
+        # 记住我
         st.checkbox(L["remember"], value=True)
 
+        # 登录逻辑
         if st.button(L["login_btn"], use_container_width=True):
             if not u or not p:
                 st.markdown(f'<div class="custom-error-box">{L["err_empty"]}</div>', unsafe_allow_html=True)

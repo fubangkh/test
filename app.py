@@ -462,18 +462,26 @@ with col_l:
         # 3. 按照最新顺序：结算账户, 原币种, RAW(原币金额), USD(折合美元)
         display_acc = acc_stats[['结算账户', '原币种', 'RAW', 'USD']].copy()
 
-        # 4. Styler 全权负责：格式、变色
+        # 4. Styler 全权负责：格式、变色、对齐
         styled_acc = display_acc.style.format({
             'RAW': '{:,.2f}',     # 原币金额：纯数字千分位
-            'USD': '${:,.2f}'     # 折合美元：保留$符号以便区分本位币
+            'USD': '${:,.2f}'     # 折合美元：$符号 + 千分位
         }).map(
             # 原币金额变色判断
-            lambda x: 'color: #d32f2f;' if x < -0.01 else 'color: #31333F;',
+            lambda x: 'color: #d32f2f; text-align: right;', 
             subset=['RAW']
         ).map(
             # 折合美元变色判断
-            lambda x: 'color: #d32f2f;' if x < -0.01 else 'color: #31333F;',
+            lambda x: 'color: #d32f2f; text-align: right;' if x < -0.01 else 'color: #31333F; text-align: right;',
             subset=['USD']
+        ).set_properties(
+            # 【新增：原币种居中对齐】
+            subset=['原币种'], 
+            **{'text-align': 'center'} 
+        ).set_properties(
+            # 【新增：金额列强制右对齐补丁】
+            subset=['RAW', 'USD'],
+            **{'text-align': 'right'}
         )
         
         # 5. 渲染：RAW 和 USD 均设为 NumberColumn 以强制右对齐
@@ -610,6 +618,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

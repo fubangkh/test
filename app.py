@@ -521,31 +521,23 @@ if search_query:
     )
     df_display = df_display[mask]
 
-# 3. 核心优化：定义财务样式 (使用 map 代替 applymap，并强化格式化)
+# 3. 核心优化：定义财务样式 (仅处理颜色)
 def financial_style(df):
-    # 先克隆一份，避免影响原始 df_display
     df = df.copy()
-    
-    # 强制物理转换：确保这几列在传入 Styler 之前就是数值
-    cols_to_format = ['收入', '支出', '余额', '实际金额']
-    for col in cols_to_format:
+    # 确保数值列是 Float 类型，这是 NumberColumn 能识别千分位的前提
+    cols_to_fix = ['收入', '支出', '余额', '实际金额']
+    for col in cols_to_fix:
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
     
-    # 使用 .style.format 并在里面直接定义千分位
-    return df.style.format({
-        '收入': '${:,.2f}',
-        '支出': '${:,.2f}',
-        '余额': '${:,.2f}',
-        '实际金额': '{:,.2f}'
-    }).map(
-        lambda x: 'color: #1f7a3f; text-align: right;' if x > 0 else 'color: #94a3b8; opacity: 0.5; text-align: right;',
+    return df.style.map(
+        lambda x: 'color: #1f7a3f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
         subset=['收入']
     ).map(
         lambda x: 'color: #d32f2f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
         subset=['支出']
     )
 
-# 4. 渲染表格 (保持你完整的 13 列配置)
+# 4. 渲染表格 (回归 NumberColumn)
 if not df_display.empty:
     styled_df = financial_style(df_display)
     
@@ -566,7 +558,7 @@ if not df_display.empty:
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
             "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
             "实际币种": st.column_config.TextColumn("实际币种", width="small"),
-            "收入": st.column_config.TextColumn("收入(USD)"),
+            "收入": st.column_config.NumberColumn("收入(USD), format="$%.2f"),
             "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
             "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
@@ -575,6 +567,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

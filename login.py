@@ -1,51 +1,35 @@
 import streamlit as st
 
 def show_login_page():
-    # --- 1. 四语翻译字典 ---
+    # --- 1. 多语言字典 ---
     LANG_DICT = {
         "zh": {
             "title": "富邦日记账",
-            "user_label": "账号",
-            "user_placeholder": "请输入账号",
-            "pwd_label": "密码",
-            "pwd_placeholder": "请输入密码",
-            "remember": "记住我",
-            "login_btn": "立即登录",
-            "err_empty": "⚠️ 请先输入账号和密码",
-            "err_wrong": "⚠️ 账号或密码不正确"
+            "user_label": "账号", "user_placeholder": "请输入账号",
+            "pwd_label": "密码", "pwd_placeholder": "请输入密码",
+            "remember": "记住我", "login_btn": "立即登录",
+            "err_empty": "⚠️ 请先输入账号和密码", "err_wrong": "⚠️ 账号或密码不正确"
         },
         "en": {
             "title": "Fubon Journal",
-            "user_label": "Account",
-            "user_placeholder": "Enter account",
-            "pwd_label": "Password",
-            "pwd_placeholder": "Enter password",
-            "remember": "Remember Me",
-            "login_btn": "Sign In",
-            "err_empty": "⚠️ Please enter account and password",
-            "err_wrong": "⚠️ Invalid account or password"
+            "user_label": "Account", "user_placeholder": "Enter account",
+            "pwd_label": "Password", "pwd_placeholder": "Enter password",
+            "remember": "Remember Me", "login_btn": "Sign In",
+            "err_empty": "⚠️ Please enter account and password", "err_wrong": "⚠️ Invalid account or password"
         },
         "km": {
             "title": "ហ្វូបង់ សៀវភៅគណនេយ្យ",
-            "user_label": "គណនី",
-            "user_placeholder": "សូមបញ្ចូលគណនី",
-            "pwd_label": "លេខសម្ងាត់",
-            "pwd_placeholder": "សូមបញ្ចូលលេខសម្ងាត់",
-            "remember": "ចងចាំខ្ញុំ",
-            "login_btn": "ចូលប្រើ",
-            "err_empty": "⚠️ សូមបញ្ចូលគណនី និងលេខសម្ងាត់",
-            "err_wrong": "⚠️ គណនី ឬលេខសម្ងាត់មិនត្រឹមត្រូវ"
+            "user_label": "គណនី", "user_placeholder": "សូមបញ្ចូលគណនី",
+            "pwd_label": "លេខសម្ងាត់", "pwd_placeholder": "សូមបញ្ចូលលេខសម្ងាត់",
+            "remember": "ចងចាំខ្ញុំ", "login_btn": "ចូលប្រើ",
+            "err_empty": "⚠️ សូមបញ្ចូលគណនី និងលេខសម្ងាត់", "err_wrong": "⚠️ គណនី ឬលេខសម្ងាត់មិនត្រឹមត្រូវ"
         },
         "vi": {
             "title": "Sổ Kế Toán Fubang",
-            "user_label": "Tài khoản",
-            "user_placeholder": "Nhập tài khoản",
-            "pwd_label": "Mật khẩu",
-            "pwd_placeholder": "Nhập mật khẩu",
-            "remember": "Ghi nhớ",
-            "login_btn": "Đăng nhập",
-            "err_empty": "⚠️ Vui lòng nhập tài khoản và mật khẩu",
-            "err_wrong": "⚠️ Tài khoản hoặc mật khẩu không đúng"
+            "user_label": "Tài khoản", "user_placeholder": "Nhập tài khoản",
+            "pwd_label": "Mật khẩu", "pwd_placeholder": "Nhập mật khẩu",
+            "remember": "Ghi nhớ", "login_btn": "Đăng nhập",
+            "err_empty": "⚠️ Vui lòng nhập tài khoản và mật khẩu", "err_wrong": "⚠️ Tài khoản hoặc mật khẩu không đúng"
         }
     }
 
@@ -57,7 +41,7 @@ def show_login_page():
 
     L = LANG_DICT[st.session_state.lang]
 
-    # 图标保留
+    # 图标
     user_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"
     lock_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"
 
@@ -72,37 +56,46 @@ def show_login_page():
             border: 1px solid #e2e8f0;
             border-radius: 28px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
-            padding: 2.5rem 2rem !important;
+            padding: 2.5rem 2.2rem !important;
         }}
 
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
+        /* 1. 强制所有组件（输入框、按钮、提示框）宽度一致 */
+        div[data-testid="stTextInput"], div.stButton, .custom-error {{
+            max-width: 100% !important;
+            width: 100% !important;
+        }}
+
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{ 
             background-color: #f1f5f9; 
             border-radius: 12px !important; 
         }}
 
-        /* 按钮对齐 */
+        /* 登录按钮样式及宽度 */
         div.stButton > button {{
             background-color: #1f7a3f !important;
             color: white !important;
             border-radius: 12px !important;
             height: 3.2rem !important;
             border: none !important;
+            width: 100% !important;
             margin-top: 5px !important;
         }}
 
-        /* 提示框修复：上移并防止溢出 */
+        /* 2. 提示框修复：上移并完美对齐宽度 */
         .custom-error {{
             background-color: #fee2e2;
             color: #b91c1c;
-            padding: 10px;
-            border-radius: 10px;
+            padding: 12px;
+            border-radius: 12px;
             text-align: center;
-            margin: -5px 0 0 0 !important; /* 位置上移，紧贴按钮 */
+            /* 进一步增加负边距，使其紧贴按钮 */
+            margin: -8px 0 0 0 !important; 
             font-size: 0.85rem;
-            border: 1px solid #fca5a5;
+            box-sizing: border-box; /* 确保 padding 不撑大宽度 */
+            display: block;
         }}
 
         @media (prefers-color-scheme: dark) {{
@@ -110,14 +103,12 @@ def show_login_page():
             div[data-testid="stVerticalBlockBorderWrapper"] {{ background-color: #1e293b !important; border: 1px solid #334155 !important; }}
             .title-text {{ color: #4ade80 !important; }}
             div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #0f172a !important; border: 1px solid #334155 !important; }}
-            div[data-testid="stTextInput"] [data-baseweb="input"] > div,
-            div[data-testid="stTextInput"] [data-baseweb="input"] button {{ background-color: transparent !important; }}
-            .custom-error {{ background-color: #450a0a; color: #fca5a5; border-color: #7f1d1d; }}
+            .custom-error {{ background-color: #450a0a; color: #fca5a5; }}
             .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
 
         .header-box {{ display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 30px; }}
-        .logo-circle {{ background-color: #1f7a3f; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 600; flex-shrink: 0; }}
+        .logo-circle {{ background-color: #1f7a3f; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 600; }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -139,8 +130,9 @@ def show_login_page():
 
         st.checkbox(L["remember"], value=True)
 
-        # 核心逻辑：登录按钮点击后立即在下方显示提示框
+        # 核心逻辑
         if st.button(L["login_btn"], use_container_width=True):
+            # 这里点击登录后，下面的提示框会渲染
             if not u or not p:
                 st.markdown(f'<div class="custom-error">{L["err_empty"]}</div>', unsafe_allow_html=True)
             elif u == "123" and p == "123":

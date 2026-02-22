@@ -46,7 +46,7 @@ def show_login_page():
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
-            border-radius: 40px !important;
+            border-radius: 60px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
             padding: 2.2rem 2.2rem 3rem 2.2rem !important;
             height: auto !important;

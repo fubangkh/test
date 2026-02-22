@@ -51,7 +51,7 @@ def show_login_page():
             border-radius: 28px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
             padding: 2.2rem 2.2rem 3.5rem 2.2rem !important; /* 增加底部 padding 到 3.5rem */
-            min-height: 520px; /* 强制设置一个最小高度确保不重叠 */
+            min-height: 550px; /* 强制设置一个最小高度确保不重叠 */
         }}
 
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}

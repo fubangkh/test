@@ -65,8 +65,8 @@ def show_login_page():
         .logo-circle {{
             background-color: #1f7a3f; 
             color: white; 
-            width: 50px !important; 
-            height: 50px !important; 
+            width: 45px !important; 
+            height: 45px !important; 
             border-radius: 50% !important;
             display: flex; 
             align-items: center; 

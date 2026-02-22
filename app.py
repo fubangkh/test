@@ -216,56 +216,47 @@ def entry_dialog():
             val_hand = sel_hand
 
     # --- 5. 项目与备注 (防闪退 + 自动回填版) ---
+    # --- 5. 项目信息 (Popover 方案：彻底杜绝闪退与失效) ---
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     
-    # 1. 确保选项和索引初始化
-    if "opt_proj" not in st.session_state:
-        st.session_state.opt_proj = get_dynamic_options(df, "客户/项目信息")
-    if "proj_idx" not in st.session_state:
-        st.session_state.proj_idx = 0
+    # 获取基础选项列表
+    proj_options = get_dynamic_options(df, "客户/项目信息")
+    
+    # 布局：左边是下拉框，右边是新增按钮
+    p_col1, p_col2 = st.columns([4, 1])
+    
+    with p_col1:
+        # 主下拉框：不再包含“新增”选项，只负责展示已有项目
+        sel_proj = st.selectbox(proj_label, options=proj_options, key="main_proj_box")
 
-    # 2. 下拉主框：删掉 key 赋值，改用 index 联动
-    # 注意：这里千万不要写 key="sel_proj_active"，否则后面还是不能改它
-    sel_proj = st.selectbox(
-        proj_label, 
-        options=st.session_state.opt_proj, 
-        index=st.session_state.proj_idx
-    )
-
-    # 3. 交互逻辑
-    if sel_proj == "➕ 新增...":
-        with st.container(border=True):
-            new_p = st.text_input("✍️ 录入新项目名称", key="k_input_box")
-            c1, c2 = st.columns(2)
-            
-            # 【确定按钮】
-            if c2.button("确定项目", key="btn_confirm_pj", type="primary", use_container_width=True):
+    with p_col2:
+        st.write("") # 调整对齐间距
+        st.write("") 
+        with st.popover("➕", help="录入新项目"):
+            st.markdown("### ✍️ 录入新项目")
+            new_p = st.text_input("项目全称", key="pop_new_p_input")
+            if st.button("确定并回填", key="btn_pop_confirm", type="primary", use_container_width=True):
                 if new_p and new_p.strip():
-                    # 插入新项到列表
-                    if new_p not in st.session_state.opt_proj:
-                        st.session_state.opt_proj.insert(1, new_p)
-                    
-                    # 修改索引：让 selectbox 在下次重绘时自动指向新项
-                    st.session_state.proj_idx = st.session_state.opt_proj.index(new_p)
-                    st.toast(f"✅ 已准备好项目: {new_p}")
-                    # 不用 rerun，按钮点击本身会触发重绘，if 条件会因 index 改变而失效，从而自动收起
+                    # 仅在内存中暂存这个新值，不触发页面刷新
+                    st.session_state.tmp_added_proj = new_p.strip()
+                    st.success(f"已就绪: {new_p}")
+                    st.info("请直接在下方填写备注并提交即可")
                 else:
-                    st.error("项目名不能为空")
-            
-            # 【取消按钮】
-            if c1.button("取消", key="btn_cancel_pj", use_container_width=True):
-                # 归零索引
-                st.session_state.proj_idx = 0
-                # 同样不写 rerun，点击后 selectbox 会读到 index=0，自动跳回默认项，if 块消失
-        
-        val_proj = new_p 
-    else:
-        # 如果当前选的不是新增，同步一下索引，确保状态一致
-        st.session_state.proj_idx = st.session_state.opt_proj.index(sel_proj)
-        val_proj = sel_proj
+                    st.error("请输入名称")
 
-    # --- 6. 备注 ---
-    val_note = st.text_area("备注")
+    # 逻辑判断：最终提交给数据库的值
+    # 如果用户在 Popover 里填了新名字，则优先用新名字，否则用下拉框选的名字
+    final_val_proj = st.session_state.get("tmp_added_proj", sel_proj)
+    
+    # 实时回显（给用户反馈，防止用户疑惑）
+    if "tmp_added_proj" in st.session_state:
+        st.caption(f"✨ 当前已锁定新项目: **{st.session_state.tmp_added_proj}**")
+        if st.button("❌ 撤销新增", key="btn_clear_tmp"):
+            del st.session_state.tmp_added_proj
+            st.rerun()
+
+    val_proj = final_val_proj
+    val_note = st.text_area("备注详情")
       
     st.divider()
 
@@ -658,6 +649,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

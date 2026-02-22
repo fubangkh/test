@@ -73,8 +73,8 @@ def show_login_page():
             background-color: #1f7a3f !important;
             color: white !important;
             border-radius: 12px !important;
-            height: 2.5rem !important;
-            line-height: 2.5rem !important;
+            height: 2.2rem !important;
+            line-height: 2.2rem !important;
             width: 100% !important;
             border: none !important;
             margin-top: 5px !important;
@@ -87,7 +87,7 @@ def show_login_page():
             /* padding: 10px 12px !important;  <- 固定高度时建议去掉这一行，靠 Flex 居中 */
             border-radius: 12px;
             text-align: center;
-            height: 2.5rem !important; 
+            height: 2.2rem !important; 
             margin-top: -4px !important; 
             font-size: 0.85rem;
             width: 100%;

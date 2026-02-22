@@ -547,6 +547,7 @@ if not df_display.empty:
         column_config={
             # 修正时间列：使用 YYYY 确保 2027 年不会混淆
             "提交时间": st.column_config.DatetimeColumn("提交时间", format="YYYY-MM-DD HH:mm", width="medium"),
+            "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="medium"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small"),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
             "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
@@ -564,3 +565,4 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+

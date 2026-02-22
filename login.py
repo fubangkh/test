@@ -9,8 +9,8 @@ def show_login_page():
             "login_btn": "立即登录", "err_empty": "⚠️ 请先输入账号和密码", "err_wrong": "⚠️ 账号或密码不正确"
         },
         "en": {
-            "title": "Fubon Journal", "user_label": "Account", "user_placeholder": "Enter account",
-            "pwd_label": "Password", "pwd_placeholder": "Enter password", "remember": "Remember Me",
+            "title": "Fubon Journal", "user_label": "Account", "user_placeholder": "Enter account,testing use:123",
+            "pwd_label": "Password", "pwd_placeholder": "Enter password,testing use:123", "remember": "Remember Me",
             "login_btn": "Sign In", "err_empty": "⚠️ Please enter account and password", "err_wrong": "⚠️ Invalid account or password"
         },
         "km": {

@@ -143,9 +143,17 @@ def show_login_page():
     with st.container(border=True):
         c1, c2 = st.columns([2.8, 1.2])
         with c2:
-            st.selectbox("Lang", list(LANG_MAP.keys()), 
-                         index=list(LANG_MAP.values()).index(st.session_state.lang),
-                         key="lang_sel", on_change=on_lang_change, label_visibility="collapsed")
+            # 1. 先把显示名称（Key）转成列表
+            lang_options = list(LANG_MAP.keys())
+            # 2. 找到当前语言代码（Value）对应的显示名称（Key）
+            current_lang_name = [k for k, v in LANG_MAP.items() if v == st.session_state.lang][0]
+            
+            st.selectbox("Lang", 
+                         options=lang_options, 
+                         index=lang_options.index(current_lang_name), # 确保 index 是在 options 列表里查找
+                         key="lang_sel", 
+                         on_change=on_lang_change, 
+                         label_visibility="collapsed")
 
         st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">{L["title"]}</h1></div>', unsafe_allow_html=True)
 

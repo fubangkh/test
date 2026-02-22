@@ -1,7 +1,7 @@
 import streamlit as st
 
 def show_login_page():
-    # --- 1. 多语言字典 ---
+    # --- 1. 四语翻译字典 ---
     LANG_DICT = {
         "zh": {
             "title": "富邦日记账",
@@ -41,10 +41,6 @@ def show_login_page():
 
     L = LANG_DICT[st.session_state.lang]
 
-    # 图标
-    user_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"
-    lock_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"
-
     st.markdown(f"""
         <style>
         header {{ visibility: hidden; }}
@@ -62,40 +58,40 @@ def show_login_page():
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
-        /* 1. 强制所有组件（输入框、按钮、提示框）宽度一致 */
-        div[data-testid="stTextInput"], div.stButton, .custom-error {{
-            max-width: 100% !important;
-            width: 100% !important;
-        }}
-
+        /* 输入框背景 */
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{ 
             background-color: #f1f5f9; 
             border-radius: 12px !important; 
         }}
 
-        /* 登录按钮样式及宽度 */
+        /* 修复1：登录按钮高度压缩，与输入框保持一致 */
         div.stButton > button {{
             background-color: #1f7a3f !important;
             color: white !important;
             border-radius: 12px !important;
-            height: 3.2rem !important;
+            height: 2.8rem !important; /* 减小高度 */
+            min-height: 2.8rem !important;
+            line-height: 1 !important;
+            padding: 0 !important;
             border: none !important;
             width: 100% !important;
-            margin-top: 5px !important;
+            margin-top: 0px !important;
         }}
 
-        /* 2. 提示框修复：上移并完美对齐宽度 */
+        /* 修复2：提示框高度压缩 + 位置大幅上移 */
         .custom-error {{
             background-color: #fee2e2;
             color: #b91c1c;
-            padding: 12px;
+            padding: 8px 12px; /* 减小内边距，压缩高度 */
             border-radius: 12px;
             text-align: center;
-            /* 进一步增加负边距，使其紧贴按钮 */
-            margin: -8px 0 0 0 !important; 
+            margin: -12px 0 0 0 !important; /* 大幅负边距，消除空隙 */
             font-size: 0.85rem;
-            box-sizing: border-box; /* 确保 padding 不撑大宽度 */
-            display: block;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 2.8rem; /* 强制高度与按钮一致 */
         }}
 
         @media (prefers-color-scheme: dark) {{
@@ -113,7 +109,6 @@ def show_login_page():
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
-        # 语言选择
         c1, c2 = st.columns([2.5, 1.5])
         with c2:
             st.selectbox("Lang", list(LANG_MAP.keys()), 
@@ -122,17 +117,16 @@ def show_login_page():
 
         st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">{L["title"]}</h1></div>', unsafe_allow_html=True)
 
-        st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> {L["user_label"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="label-with-icon"> {L["user_label"]}</div>', unsafe_allow_html=True)
         u = st.text_input(L["user_label"], placeholder=L["user_placeholder"], key="user", label_visibility="collapsed")
         
-        st.markdown(f'<div class="label-with-icon" style="margin-top:15px;"><img src="{lock_svg}"> {L["pwd_label"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="label-with-icon" style="margin-top:15px;"> {L["pwd_label"]}</div>', unsafe_allow_html=True)
         p = st.text_input(L["pwd_label"], placeholder=L["pwd_placeholder"], type="password", key="pwd", label_visibility="collapsed")
 
         st.checkbox(L["remember"], value=True)
 
-        # 核心逻辑
+        # 登录按钮
         if st.button(L["login_btn"], use_container_width=True):
-            # 这里点击登录后，下面的提示框会渲染
             if not u or not p:
                 st.markdown(f'<div class="custom-error">{L["err_empty"]}</div>', unsafe_allow_html=True)
             elif u == "123" and p == "123":

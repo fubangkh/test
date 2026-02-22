@@ -475,14 +475,37 @@ with col_l:
                 "white-space": "nowrap"
             })
         )
+
+        # 4. 渲染表格（加 scope + 右对齐 CSS）
         st.markdown("""
         <style>
-        div[data-testid="stDataFrame"] table tbody tr td:nth-child(3) {
+        /* 只作用在本段 acc-scope 里，避免误伤其他表格 */
+        .acc-scope div[data-testid="stDataFrame"] div[role="gridcell"][aria-colindex="3"]{
+            justify-content: flex-end !important;   /* grid 内部对齐 */
+            text-align: right !important;           /* 文本对齐 */
+            font-variant-numeric: tabular-nums;     /* 数字等宽更好看 */
+        }
+        .acc-scope div[data-testid="stDataFrame"] div[role="columnheader"][aria-colindex="3"]{
+            justify-content: flex-end !important;
             text-align: right !important;
-            font-variant-numeric: tabular-nums !important;
         }
         </style>
         """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="acc-scope">', unsafe_allow_html=True)
+        
+        st.dataframe(
+            styled_acc,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "结算账户": st.column_config.TextColumn("结算账户", width="large"),
+                "USD": st.column_config.NumberColumn("折合美元", width="medium"),
+                "银行卡实际金额": st.column_config.TextColumn("银行对账单余额", width="medium"),
+            }
+        )
+        
+        st.markdown('</div>', unsafe_allow_html=True)
         
         # ✅ 不再用 column_config 控制对齐（避免覆盖 Styler）
         st.dataframe(
@@ -614,6 +637,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

@@ -490,11 +490,34 @@ with col_l:
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "结算账户": st.column_config.TextColumn("结算账户", width="small"),
+                "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
                 "原币种": st.column_config.TextColumn("原币种", width="small"),
                 "RAW": st.column_config.NumberColumn("原币金额", width="medium"),
                 "USD": st.column_config.NumberColumn("折合美元 (USD)", width="medium")
             }
+        )
+
+        # --- 强制对齐 CSS 补丁 ---
+        st.markdown(
+            """
+            <style>
+                /* 1. 强制第 2 列（原币种）居中 */
+                [data-testid="stDataFrame"] td:nth-child(2) {
+                    text-align: center !important;
+                }
+                /* 2. 强制第 3, 4 列（金额）右对齐 */
+                [data-testid="stDataFrame"] td:nth-child(3),
+                [data-testid="stDataFrame"] td:nth-child(4) {
+                    text-align: right !important;
+                    font-family: 'Courier New', monospace; /* 可选：等宽字体让数字对齐更专业 */
+                }
+                /* 3. 第一列保持左对齐 */
+                [data-testid="stDataFrame"] td:nth-child(1) {
+                    text-align: left !important;
+                }
+            </style>
+            """, 
+            unsafe_allow_html=True
         )
         
     except Exception as e:
@@ -618,6 +641,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

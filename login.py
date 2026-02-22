@@ -24,7 +24,7 @@ def show_login_page():
         /* 统一标题字体大小 */
         .title-text {{ 
             color: #1f7a3f; 
-            font-size: 1.7rem !important; 
+            font-size: 2.0rem !important; 
             font-weight: 800; 
             margin: 0; 
             white-space: nowrap !important;

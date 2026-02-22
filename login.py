@@ -9,7 +9,7 @@ def show_login_page():
         <style>
         /* --- 1. 基础布局 --- */
         header {{ visibility: hidden; }}
-        .block-container {{ max-width: 480px !important; padding-top: 5rem !important; }}
+        .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         
         /* --- 2. 浅色模式 (默认) --- */
         .stApp {{ background-color: #f8fafc; }}

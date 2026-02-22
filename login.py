@@ -48,6 +48,14 @@ def show_login_page():
                 border: 1px solid #334155 !important;
             }}
             input {{ color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important; }}
+            
+            div[data-testid="stTextInput"] [data-baseweb="icon"] {{
+                background-color: transparent !important;
+            }}
+            div[data-testid="stTextInput"] button {{
+                background-color: transparent !important;
+                border: none !important;
+            }}
             .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
 

@@ -43,7 +43,6 @@ def show_login_page():
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         .stApp {{ background-color: #f8fafc; }}
         
-        /* 1. 卡片容器：不限高度，靠内容自然撑开，增加底部内边距防止重叠 */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
@@ -56,14 +55,13 @@ def show_login_page():
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
-        /* 输入框统一 2.5rem */
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{ 
             background-color: #f1f5f9; 
             border-radius: 12px !important; 
             height: 2.5rem !important;
         }}
 
-        /* 2. 登录按钮：高度 2.5rem */
+        /* --- 核心交互按钮样式 --- */
         div.stButton > button {{
             background-color: #1f7a3f !important;
             color: white !important;
@@ -74,9 +72,26 @@ def show_login_page():
             border: none !important;
             padding: 0 !important;
             margin-top: 5px !important;
+            /* 交互动画 */
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+            font-weight: 600 !important;
         }}
 
-        /* 3. 提示框：高度 2.5rem，位置上移 4px */
+        /* 悬停效果 */
+        div.stButton > button:hover {{
+            background-color: #2d9a50 !important;
+            box-shadow: 0 4px 12px rgba(31, 122, 63, 0.2) !important;
+            transform: translateY(-1px) !important;
+        }}
+
+        /* 点击效果 */
+        div.stButton > button:active {{
+            background-color: #165c2f !important;
+            transform: translateY(1px) !important;
+        }}
+
+        /* 提示框样式 */
         .custom-error-box {{
             background-color: #fee2e2;
             color: #b91c1c;
@@ -86,13 +101,10 @@ def show_login_page():
             width: 100%;
             box-sizing: border-box;
             border: 1px solid #fca5a5;
-            /* 居中文字 */
             display: flex; align-items: center; justify-content: center;
-            
-            /* 你的核心要求 */
             height: 2.5rem !important; 
             margin-top: -4px !important;  
-            margin-bottom: 20px !important; /* 增加这个，强制把底边推开，防止重叠 */
+            margin-bottom: 20px !important; 
         }}
 
         @media (prefers-color-scheme: dark) {{
@@ -110,7 +122,6 @@ def show_login_page():
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
-        # 语言切换模块
         c1, c2 = st.columns([2.8, 1.2])
         with c2:
             st.selectbox("Lang", list(LANG_MAP.keys()), 

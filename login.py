@@ -1,32 +1,32 @@
 import streamlit as st
 
 def show_login_page():
-    # --- 1. 四语翻译字典 ---
+    # --- 1. 四语翻译字典 (采用您提供的精准翻译) ---
     LANG_DICT = {
         "zh": {
             "title": "富邦日记账",
             "user_label": "账号",
-            "user_placeholder": "请输入账号",
+            "user_placeholder": "请输入账号，测试账号123",
             "pwd_label": "密码",
-            "pwd_placeholder": "请输入密码",
+            "pwd_placeholder": "请输入密码，测试密码123",
             "remember": "记住我",
             "login_btn": "立即登录",
             "err_empty": "⚠️ 请先输入账号和密码",
             "err_wrong": "⚠️ 账号或密码不正确"
         },
         "en": {
-            "title": "Fubon Journal",
+            "title": "Fubang Ledger",
             "user_label": "Account",
-            "user_placeholder": "Enter account",
+            "user_placeholder": "Enter account, test: 123",
             "pwd_label": "Password",
-            "pwd_placeholder": "Enter password",
+            "pwd_placeholder": "Enter password, test: 123",
             "remember": "Remember Me",
             "login_btn": "Sign In",
             "err_empty": "⚠️ Please enter account and password",
             "err_wrong": "⚠️ Invalid account or password"
         },
         "km": {
-            "title": "សៀវភៅកំណត់ហេតុហ្វូប៊ុន",
+            "title": "ហ្វូបង់ សៀវភៅគណនេយ្យ",
             "user_label": "គណនី",
             "user_placeholder": "សូមបញ្ចូលគណនី",
             "pwd_label": "លេខសម្ងាត់",
@@ -37,7 +37,7 @@ def show_login_page():
             "err_wrong": "⚠️ គណនី ឬលេខសម្ងាត់មិនត្រឹមត្រូវ"
         },
         "vi": {
-            "title": "Sổ Nhật Ký Fubon",
+            "title": "Sổ Kế Toán Fubang",
             "user_label": "Tài khoản",
             "user_placeholder": "Nhập tài khoản",
             "pwd_label": "Mật khẩu",
@@ -49,26 +49,23 @@ def show_login_page():
         }
     }
 
-    # 语言映射逻辑
+    # 语言映射
     LANG_MAP = {
         "中文": "zh",
         "English": "en",
         "ភាសាខ្មែរ": "km",
         "Tiếng Việt": "vi"
     }
-    INV_LANG_MAP = {v: k for k, v in LANG_MAP.items()}
 
-    # 初始化语言
     if 'lang' not in st.session_state:
         st.session_state.lang = "zh"
 
-    # 切换回调
     def on_lang_change():
         st.session_state.lang = LANG_MAP[st.session_state.lang_sel]
 
     L = LANG_DICT[st.session_state.lang]
 
-    # 图标定义 (保留原版)
+    # 图标保留
     user_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"
     lock_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"
 
@@ -77,7 +74,6 @@ def show_login_page():
         header {{ visibility: hidden; }}
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         .stApp {{ background-color: #f8fafc; }}
-        
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
@@ -85,48 +81,42 @@ def show_login_page():
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
             padding: 2rem 2rem !important;
         }}
-
-        .title-text {{ color: #1f7a3f; font-size: 1.8rem !important; font-weight: 800; margin: 0; }}
+        .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
-        /* 深色模式补丁保持一致 */
         @media (prefers-color-scheme: dark) {{
             .stApp {{ background-color: #0f172a !important; }}
             div[data-testid="stVerticalBlockBorderWrapper"] {{ background-color: #1e293b !important; border: 1px solid #334155 !important; }}
             .title-text {{ color: #4ade80 !important; }}
-            input {{ color: #f8fafc !important; }}
+            input {{ color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important; }}
             div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #0f172a !important; border: 1px solid #334155 !important; }}
             div[data-testid="stTextInput"] [data-baseweb="input"] > div,
-            div[data-testid="stTextInput"] [data-baseweb="input"] button {{ background-color: transparent !important; }}
+            div[data-testid="stTextInput"] [data-baseweb="input"] button,
+            div[data-testid="stTextInput"] [data-baseweb="input"] svg {{ background-color: transparent !important; border: none !important; }}
+            .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
-
         .header-box {{ display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 30px; }}
         .logo-circle {{ background-color: #1f7a3f; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 600; flex-shrink: 0; }}
-        
-        div.stButton > button {{ background-color: #1f7a3f !important; color: white !important; border-radius: 12px !important; height: 3.2rem !important; border: none !important; }}
-        
-        .custom-error {{ background-color: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 10px; font-size: 0.9rem; }}
+        div.stButton > button {{ background-color: #1f7a3f !important; color: white !important; border-radius: 12px !important; height: 3.2rem !important; transition: all 0.3s ease; }}
+        div.stButton > button:hover {{ background-color: #2d9a50 !important; transform: translateY(-1px); }}
+        .custom-error {{ background-color: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 10px; }}
         @media (prefers-color-scheme: dark) {{ .custom-error {{ background-color: #450a0a; color: #fca5a5; }} }}
         </style>
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
-        # 语言选择下拉菜单 (放在卡片顶部右侧)
-        cols = st.columns([2.5, 1.5])
-        with cols[1]:
+        # 语言下拉框
+        c1, c2 = st.columns([2.5, 1.5])
+        with c2:
             st.selectbox("Lang", list(LANG_MAP.keys()), 
                          index=list(LANG_MAP.values()).index(st.session_state.lang),
-                         key="lang_sel", 
-                         on_change=on_lang_change, 
-                         label_visibility="collapsed")
+                         key="lang_sel", on_change=on_lang_change, label_visibility="collapsed")
 
         st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">{L["title"]}</h1></div>', unsafe_allow_html=True)
 
-        # 账号
         st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> {L["user_label"]}</div>', unsafe_allow_html=True)
         u = st.text_input(L["user_label"], placeholder=L["user_placeholder"], key="user", label_visibility="collapsed")
         
-        # 密码
         st.markdown(f'<div class="label-with-icon" style="margin-top:15px;"><img src="{lock_svg}"> {L["pwd_label"]}</div>', unsafe_allow_html=True)
         p = st.text_input(L["pwd_label"], placeholder=L["pwd_placeholder"], type="password", key="pwd", label_visibility="collapsed")
 

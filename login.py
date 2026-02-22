@@ -20,7 +20,7 @@ def show_login_page():
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
             padding: 2.5rem 2rem !important;
         }}
-        .title-text {{ color: #1f7a3f; font-size: 1.8rem; font-weight: 800; margin: 0; }}
+        .title-text {{ color: #1f7a3f; font-size: 1.8rem; font-weight: 800; margin: 0; white-space: nowrap !important;}}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #f1f5f9; border-radius: 12px !important; }}
         input {{ color: #1e293b; }}
@@ -47,7 +47,7 @@ def show_login_page():
         }}
 
         /* --- 4. 按钮与公共组件 --- */
-        .header-box {{ display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 35px; }}
+        .header-box {{ display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 35px; flex-wrap: nowrap !important; width: 100%;}}
         .logo-circle {{
             background-color: #1f7a3f; color: white; width: 46px; height: 46px; border-radius: 50% !important;
             display: flex; align-items: center; justify-content: center; font-weight: 800;

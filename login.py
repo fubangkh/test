@@ -26,8 +26,7 @@ def show_login_page():
     }
 
     LANG_MAP = {"中文": "zh", "English": "en", "ភាសាខ្មែរ": "km", "Tiếng Việt": "vi"}
-    if 'lang' not in st.session_state:
-        st.session_state.lang = "zh"
+    if 'lang' not in st.session_state: st.session_state.lang = "zh"
     
     def on_lang_change():
         st.session_state.lang = LANG_MAP[st.session_state.lang_sel]
@@ -44,76 +43,56 @@ def show_login_page():
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         .stApp {{ background-color: #f8fafc; }}
         
-        /* --- 修正：调大卡片总高度，增加底部内边距 --- */
+        /* 1. 卡片容器：不限高度，靠内容自然撑开，增加底部内边距防止重叠 */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 28px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
-            
-            /* 1. 外部留白 */
-            padding: 2.2rem 2.2rem 4rem 2.2rem !important;
-            min-height: auto; /* 原数值550px，确保不重叠 */
-            display: flex;
-            flex-direction: column;
+            padding: 2.2rem 2.2rem 3rem 2.2rem !important;
+            height: auto !important;
         }}
-        
-            /* 2. 关键：强制容器内最后一个组件（提示框）下方留出空间，防止贴底 */
-        div[data-testid="stVerticalBlock"] > div:last-child {{
-            margin-bottom: 50px !important;
-        }}
-        
-            /* 3. 如果还是重叠，针对内部真正的垂直块进行调整 */
-        div[data-testid="stVerticalBlock"] {{
-            gap: 0rem !important; /* 减小组件间的默认大间隙 */
-       }} 
-        
+
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
-        /* 1. 统一输入框高度 */
+        /* 输入框统一 2.5rem */
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{ 
             background-color: #f1f5f9; 
-            border-radius: 12px !important;
-            height: 2.5rem !important;  /* 统一高度 */
-        }}
-
-        div[data-testid="stTextInput"] input {{
+            border-radius: 12px !important; 
             height: 2.5rem !important;
         }}
 
-        /* 2.统一登录按钮高度 */
+        /* 2. 登录按钮：高度 2.5rem */
         div.stButton > button {{
             background-color: #1f7a3f !important;
             color: white !important;
             border-radius: 12px !important;
-            height: 2.2rem !important;
-            line-height: 2.2rem !important;
+            height: 2.5rem !important;
+            line-height: 2.5rem !important;
             width: 100% !important;
             border: none !important;
+            padding: 0 !important;
             margin-top: 5px !important;
         }}
 
-        /* 3. 统一提示框高度并设置上移 */
+        /* 3. 提示框：高度 2.5rem，位置上移 4px */
         .custom-error-box {{
             background-color: #fee2e2;
             color: #b91c1c;
-            /* padding: 10px 12px !important;  <- 固定高度时建议去掉这一行，靠 Flex 居中 */
             border-radius: 12px;
             text-align: center;
-            height: 2.2rem !important; 
-            margin-top: -4px !important; 
             font-size: 0.85rem;
             width: 100%;
             box-sizing: border-box;
             border: 1px solid #fca5a5;
-            position: relative;
-            z-index: 100;
-
-            /* --- 新增这两行，确保文字在 2.5rem 高度里绝对垂直居中 --- */
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            /* 居中文字 */
+            display: flex; align-items: center; justify-content: center;
+            
+            /* 你的核心要求 */
+            height: 2.5rem !important; 
+            margin-top: -4px !important;  
+            margin-bottom: 20px !important; /* 增加这个，强制把底边推开，防止重叠 */
         }}
 
         @media (prefers-color-scheme: dark) {{
@@ -122,6 +101,7 @@ def show_login_page():
             .title-text {{ color: #4ade80 !important; }}
             div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #0f172a !important; border: 1px solid #334155 !important; }}
             .custom-error-box {{ background-color: #450a0a; color: #fca5a5; }}
+            .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
 
         .header-box {{ display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 25px; }}
@@ -130,7 +110,7 @@ def show_login_page():
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
-        # 语言切换
+        # 语言切换模块
         c1, c2 = st.columns([2.8, 1.2])
         with c2:
             st.selectbox("Lang", list(LANG_MAP.keys()), 

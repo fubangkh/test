@@ -218,24 +218,24 @@ def entry_dialog():
     # --- 5. 项目与备注 (防闪退 + 自动回填版) ---
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
     
-    # 1. 确保状态变量初始化
+    # 初始化选项和索引
     if "opt_proj" not in st.session_state:
         st.session_state.opt_proj = get_dynamic_options(df, "客户/项目信息")
     if "proj_index_val" not in st.session_state:
         st.session_state.proj_index_val = 0
 
-    # 2. 下拉主框 (不使用 key，通过 index 手动控制)
+    # 使用 index 绑定 state，同时给 selectbox 一个固定的 Key
     sel_proj = st.selectbox(
         proj_label, 
         options=st.session_state.opt_proj, 
-        index=st.session_state.proj_index_val
+        index=st.session_state.proj_index_val,
+        key="sel_proj_active"
     )
 
-    # 3. 核心交互逻辑
+    # 录入交互
     if sel_proj == "➕ 新增...":
         with st.container(border=True):
-            # 使用 key 保证输入值在点击确定前被保存
-            new_p = st.text_input("✍️ 录入新项目", key="k_input_box", placeholder="请输入...")
+            new_p = st.text_input("✍️ 录入新项目名称", key="k_input_box")
             
             c1, c2 = st.columns(2)
             
@@ -245,27 +245,27 @@ def entry_dialog():
                     if new_p not in st.session_state.opt_proj:
                         st.session_state.opt_proj.insert(1, new_p)
                     
-                    # 关键：计算索引并修改 state，不写 rerun
-                    # 点击按钮本身会触发一次局部执行，selectbox 会读取新的 index
+                    # 强制更新：直接修改 selectbox 的 key 值
                     st.session_state.proj_index_val = st.session_state.opt_proj.index(new_p)
+                    st.session_state.sel_proj_active = new_p 
                     st.toast(f"✅ 已选中: {new_p}")
-                    # 这里绝不写 st.rerun()，让按钮自身的点击事件带起重绘
+                    # 不写 rerun，按钮点击本身会驱动 UI 更新
                 else:
                     st.error("项目名不能为空")
             
-            # 【取消按钮】
+            # 【取消按钮】核心修复点
             if c1.button("取消", key="btn_cancel_pj", use_container_width=True):
+                # 强制重置：将索引回拨到 0，并直接修改组件状态值
                 st.session_state.proj_index_val = 0
-                # 同理，不写 rerun，点完后 selectbox 会自动回到默认项，录入框消失
+                st.session_state.sel_proj_active = st.session_state.opt_proj[0]
+                # 这里不需要写 rerun，点击瞬间按钮会触发刷新，
+                # 由于 sel_proj_active 被改成了非“新增”项，容器会自动消失
         
         val_proj = new_p 
     else:
         val_proj = sel_proj
-        # 如果不是新增模式，重置索引状态，防止下次打开又是新增
-        if sel_proj in st.session_state.opt_proj:
-            st.session_state.proj_index_val = st.session_state.opt_proj.index(sel_proj)
 
-    # --- 6. 备注与提交 ---
+    # --- 6. 备注 ---
     val_note = st.text_area("备注")
       
     st.divider()
@@ -659,6 +659,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

@@ -15,7 +15,7 @@ def show_login_page():
             "err_wrong": "⚠️ 账号或密码不正确"
         },
         "en": {
-            "title": "FB Journal",
+            "title": "Fubang Ledger",
             "user_label": "Account",
             "user_placeholder": "Enter account, test: 123",
             "pwd_label": "Password",
@@ -89,7 +89,7 @@ def show_login_page():
 
     with st.container(border=True):
         # --- 语言切换器：CN / EN ---
-        cols = st.columns([5.5, 1.5]) # 调整比例给 CN/EN 留出合适空间
+        cols = st.columns([5.8, 1.2]) # 调整比例给 CN/EN 留出合适空间
         with cols[1]:
             st.selectbox("🌐", ["CN", "EN"], 
                          index=0 if st.session_state.lang == "zh" else 1, 

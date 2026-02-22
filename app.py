@@ -215,55 +215,57 @@ def entry_dialog():
         else:
             val_hand = sel_hand
 
-    # --- 5. 项目与备注 (闭环交互版) ---
-    proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
+    # --- 5. 项目与备注 (局部刷新修复版) ---
     
-    # 1. 初始化所有需要的状态机变量
+    # 确保 session_state 初始化
     if "opt_proj" not in st.session_state:
         st.session_state.opt_proj = get_dynamic_options(df, "客户/项目信息")
     if "proj_index" not in st.session_state:
         st.session_state.proj_index = 0
 
-    # 2. 下拉主框 (去掉 on_change，直接通过逻辑判断显示)
-    sel_proj = st.selectbox(
-        proj_label, 
-        options=st.session_state.opt_proj, 
-        index=st.session_state.proj_index,
-        key="sel_proj_active"
-    )
+    # 定义一个局部刷新的片段
+    @st.fragment
+    def project_selector_fragment():
+        proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
+        
+        # 下拉主框
+        sel_proj = st.selectbox(
+            proj_label, 
+            options=st.session_state.opt_proj, 
+            index=st.session_state.proj_index,
+            key="sel_proj_active"
+        )
 
-    # 3. 核心交互逻辑：只有当选中的确实是“新增”时，才展示输入框
-    if sel_proj == "➕ 新增...":
-        with st.container(border=True):
-            new_p = st.text_input("✍️ 录入新项目", key="input_new_proj_val", placeholder="输入名称后点确定...")
-            
-            btn_col1, btn_col2 = st.columns(2)
-            
-            # 按钮：确定
-            if btn_col2.button("确定项目", key="btn_p_ok", type="primary", use_container_width=True):
-                if new_p and new_p.strip():
-                    # A. 插入内存列表
-                    if new_p not in st.session_state.opt_proj:
-                        st.session_state.opt_proj.insert(1, new_p)
-                    
-                    # B. 【关键】计算索引。下次代码运行到 st.selectbox 时，index 就会指向这个新项
-                    st.session_state.proj_index = st.session_state.opt_proj.index(new_p)
-                    
-                    # C. 提示用户（Toast 不会触发刷新，但在按钮点击后会随之显示）
-                    st.success(f"已选中：{new_p}，请在下方继续填写")
-                    
-                    # D. 强制通过交互产生刷新（不写 rerun，Streamlit 也会重绘此 Dialog）
-                else:
-                    st.error("项目名不能为空")
-            
-            # 按钮：取消
-            if btn_col1.button("取消", key="btn_p_no", use_container_width=True):
-                st.session_state.proj_index = 0 # 重置回第一个选项
-                # 点击此按钮本身就会触发刷新，输入框由于 index 变了会自动消失
+        # 录入新项目逻辑
+        if sel_proj == "➕ 新增...":
+            with st.container(border=True):
+                new_p = st.text_input("✍️ 录入新项目", key="input_new_proj_val")
+                btn_col1, btn_col2 = st.columns(2)
+                
+                # 确定按钮
+                if btn_col2.button("确定项目", key="btn_p_ok", type="primary", use_container_width=True):
+                    if new_p and new_p.strip():
+                        # 更新列表并定位索引
+                        if new_p not in st.session_state.opt_proj:
+                            st.session_state.opt_proj.insert(1, new_p)
+                        st.session_state.proj_index = st.session_state.opt_proj.index(new_p)
+                        st.toast(f"✅ 已选中新项目: {new_p}")
+                        st.rerun() # 这里的 rerun 只会刷新这个 fragment
+                    else:
+                        st.error("项目名不能为空")
+                
+                # 取消按钮
+                if btn_col1.button("取消", key="btn_p_no", use_container_width=True):
+                    st.session_state.proj_index = 0
+                    st.rerun() # 重置回第一个选项
+            return new_p
+        return sel_proj
 
-        val_proj = new_p # 提交时取输入框的值
-    else:
-        val_proj = sel_proj # 提交时取下拉框选中的值
+    # 执行局部刷新组件并获取最终值
+    val_proj = project_selector_fragment()
+
+    # --- 备注与其他 ---
+    val_note = st.text_area("备注")
     
     st.divider()
 
@@ -656,6 +658,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

@@ -445,11 +445,10 @@ with col_l:
         return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
 
     try:
-        # 1. 计算逻辑（保持不变）
         acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
         
-        # 2. 映射 ISO 货币代码（直接映射为标准简写）
-        # 这样即使用户录入的是“人民币”或“CNY”，展示层都会统一为标准代码
+        # 1. 物理对齐映射：在代码前后手动加空格
+        # 这里用 center(10) 表示占据 10 个字符宽度并居中
         iso_map = {
             "人民币": "CNY", "RMB": "CNY", "CNY": "CNY", 
             "港币": "HKD", "HKD": "HKD", 
@@ -457,67 +456,34 @@ with col_l:
             "越南盾": "VND", "VND": "VND", 
             "美元": "USD", "USD": "USD"
         }
-        acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x))
+
+        # 核心改动：使用 .center() 函数给字符串强行加空格实现“伪居中”
+        # 如果想要右对齐，就用 .rjust(10)
+        acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x).center(12))
         
-        # 3. 按照最新顺序：结算账户, 原币种, RAW(原币金额), USD(折合美元)
         display_acc = acc_stats[['结算账户', '原币种', 'RAW', 'USD']].copy()
 
-        # 4. Styler 全权负责：格式、变色、对齐
+        # 2. Styler 逻辑（保持不变）
         styled_acc = display_acc.style.format({
-            'RAW': '{:,.2f}',     # 原币金额：纯数字千分位
-            'USD': '${:,.2f}'     # 折合美元：$符号 + 千分位
+            'RAW': '{:,.2f}',
+            'USD': '${:,.2f}'
         }).map(
-            # 原币金额变色判断
-            lambda x: 'color: #d32f2f; text-align: right;', 
-            subset=['RAW']
-        ).map(
-            # 折合美元变色判断
-            lambda x: 'color: #d32f2f; text-align: right;' if x < -0.01 else 'color: #31333F; text-align: right;',
-            subset=['USD']
-        ).set_properties(
-            # 【新增：原币种居中对齐】
-            subset=['原币种'], 
-            **{'text-align': 'center'} 
-        ).set_properties(
-            # 【新增：金额列强制右对齐补丁】
-            subset=['RAW', 'USD'],
-            **{'text-align': 'right'}
+            lambda x: 'color: #d32f2f;' if x < -0.01 else 'color: #31333F;',
+            subset=['RAW', 'USD']
         )
         
-        # 5. 渲染：RAW 和 USD 均设为 NumberColumn 以强制右对齐
+        # 3. 渲染
         st.dataframe(
             styled_acc,
             use_container_width=True, 
             hide_index=True,
             column_config={
                 "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
+                # 这里原币种是带空格的字符串，TextColumn 会把空格也渲染出来
                 "原币种": st.column_config.TextColumn("原币种", width="small"),
                 "RAW": st.column_config.NumberColumn("原币金额", width="medium"),
                 "USD": st.column_config.NumberColumn("折合美元 (USD)", width="medium")
             }
-        )
-
-        # --- 强制对齐 CSS 补丁 ---
-        st.markdown(
-            """
-            <style>
-                /* 1. 强制第 2 列（原币种）居中 */
-                [data-testid="stDataFrame"] td:nth-child(2) {
-                    text-align: center !important;
-                }
-                /* 2. 强制第 3, 4 列（金额）右对齐 */
-                [data-testid="stDataFrame"] td:nth-child(3),
-                [data-testid="stDataFrame"] td:nth-child(4) {
-                    text-align: right !important;
-                    font-family: 'Courier New', monospace; /* 可选：等宽字体让数字对齐更专业 */
-                }
-                /* 3. 第一列保持左对齐 */
-                [data-testid="stDataFrame"] td:nth-child(1) {
-                    text-align: left !important;
-                }
-            </style>
-            """, 
-            unsafe_allow_html=True
         )
         
     except Exception as e:
@@ -641,6 +607,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

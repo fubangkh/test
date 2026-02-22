@@ -36,26 +36,44 @@ def show_login_page():
         /* --- 3. 深色模式适配 --- */
         @media (prefers-color-scheme: dark) {{
             .stApp {{ background-color: #0f172a !important; }}
+            
+            /* 登录卡片背景 */
             div[data-testid="stVerticalBlockBorderWrapper"] {{
                 background-color: #1e293b !important;
                 border: 1px solid #334155 !important;
                 box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3) !important;
             }}
+
+            /* 文字颜色 */
             .title-text {{ color: #4ade80 !important; }}
             .label-with-icon {{ color: #94a3b8 !important; }}
+            input {{ 
+                color: #f8fafc !important; 
+                -webkit-text-fill-color: #f8fafc !important; 
+            }}
+
+            /* 输入框整体底色 */
             div[data-testid="stTextInput"] div[data-baseweb="input"] {{
                 background-color: #0f172a !important;
                 border: 1px solid #334155 !important;
             }}
-            input {{ color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important; }}
-            
-            div[data-testid="stTextInput"] [data-baseweb="icon"] {{
-                background-color: transparent !important;
-            }}
-            div[data-testid="stTextInput"] button {{
+
+            /* 彻底消除眼睛图标后的灰色补丁：强制所有内部容器透明 */
+            div[data-testid="stTextInput"] div[data-baseweb="input"] > div {{
                 background-color: transparent !important;
                 border: none !important;
             }}
+            
+            div[data-testid="stTextInput"] button,
+            div[data-testid="stTextInput"] [data-baseweb="icon"],
+            div[data-testid="stTextInput"] [role="button"] {{
+                background-color: transparent !important;
+                background: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+            }}
+
+            /* 复选框颜色 */
             .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
 

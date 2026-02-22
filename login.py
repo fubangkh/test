@@ -72,7 +72,7 @@ def show_login_page():
             align-items: center; 
             justify-content: center; 
             font-size: 26px !important; /* FB 字母大号 */
-            font-weight: 800 !important; 
+            font-weight: 600 !important; 
             flex-shrink: 0 !important; 
         }}
 

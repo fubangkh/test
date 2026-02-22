@@ -57,33 +57,49 @@ def show_login_page():
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
-        div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #f1f5f9; border-radius: 12px !important; }}
+        /* 1. 统一输入框高度 */
+        div[data-testid="stTextInput"] div[data-baseweb="input"] {{ 
+            background-color: #f1f5f9; 
+            border-radius: 12px !important;
+            height: 2.5rem !important;  /* 统一高度 */
+        }}
 
-        /* 登录按钮高度 */
+        div[data-testid="stTextInput"] input {{
+            height: 2.5rem !important;
+        }}
+
+        /* 2.统一登录按钮高度 */
         div.stButton > button {{
             background-color: #1f7a3f !important;
             color: white !important;
             border-radius: 12px !important;
             height: 2.5rem !important;
+            line-height: 2.5rem !important;
             width: 100% !important;
             border: none !important;
             margin-top: 5px !important;
         }}
 
-        /* --- 修正：解决重叠，调整 margin-top --- */
+        /* 3. 统一提示框高度并设置上移 */
         .custom-error-box {{
             background-color: #fee2e2;
             color: #b91c1c;
-            padding: 10px 12px !important;
+            /* padding: 10px 12px !important;  <- 固定高度时建议去掉这一行，靠 Flex 居中 */
             border-radius: 12px;
             text-align: center;
-            margin-top: -4px !important; /* 改为正值，紧贴按钮下方但不重叠 */
+            height: 2.5rem !important; 
+            margin-top: -4px !important; 
             font-size: 0.85rem;
             width: 100%;
             box-sizing: border-box;
             border: 1px solid #fca5a5;
-            position: relative; /* 确保层级正常 */
+            position: relative;
             z-index: 100;
+
+            /* --- 新增这两行，确保文字在 2.5rem 高度里绝对垂直居中 --- */
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }}
 
         @media (prefers-color-scheme: dark) {{

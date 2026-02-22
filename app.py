@@ -70,12 +70,12 @@ st.markdown("""
 # --- 2. 核心功能：实时汇率 ---
 @st.cache_data(ttl=3600)
 def get_live_rates():
-    default_rates = {"USD": 1.0, "RMB": 6.91, "VND": 26000.0, "HKD": 7.82, "IDR": 16848.0}
+    default_rates = {"USD": 1.0, "CNY": 6.91, "VND": 26000.0, "HKD": 7.82, "IDR": 16848.0}
     try:
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
             rates = response.json().get("rates", {})
-            return {"USD": 1.0, "RMB": rates.get("CNY", 6.91), "VND": rates.get("VND", 26000), "HKD": rates.get("HKD", 7.82), "IDR": rates.get("IDR", 16848.0)}
+            return {"USD": 1.0, "CNY": rates.get("CNY", 6.91), "VND": rates.get("VND", 26000), "HKD": rates.get("HKD", 7.82), "IDR": rates.get("IDR", 16848.0)}
     except: pass
     return default_rates
 
@@ -356,9 +356,28 @@ if df_main.empty:
     st.stop()
 
 # --- 第一步：数据预处理 ---
+# 1. 币种归一化（这是最优先的，确保后续所有逻辑看到的都是统一币种）
+df_main['实际币种'] = df_main['实际币种'].replace(['RMB', '人民币'], 'CNY')
+
+# 2. 时间格式转换
 df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
+
+# 3. 剔除无效时间行
 df_main = df_main.dropna(subset=['提交时间'])
 
+# 4. 数值预清洗（建议加上，确保计算不崩溃）
+for col in ['收入', '支出', '余额', '实际金额']:
+    if col in df_main.columns:
+        df_main[col] = pd.to_numeric(df_main[col], errors='coerce').fillna(0)
+st.dataframe(
+    styled_df,
+    column_config={
+        "实际金额": st.column_config.NumberColumn("原币金额"), # 这里建立映射
+        "实际币种": st.column_config.TextColumn("原币种")
+    }
+)
+
+# 5. 生成筛选列表（此时 df_main 已经完全干净了）
 year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
 month_list = list(range(1, 13))
 
@@ -450,7 +469,7 @@ with col_l:
         # 1. 物理对齐映射：在代码前后手动加空格
         # 这里用 center(10) 表示占据 10 个字符宽度并居中
         iso_map = {
-            "人民币": "CNY", "RMB": "CNY", "CNY": "CNY", 
+            "人民币": "CNY", "CNY": "CNY", 
             "港币": "HKD", "HKD": "HKD", 
             "印尼盾": "IDR", "IDR": "IDR", 
             "越南盾": "VND", "VND": "VND", 
@@ -610,3 +629,4 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+

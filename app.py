@@ -507,13 +507,6 @@ with col_l:
         )
         
         st.markdown('</div>', unsafe_allow_html=True)
-        
-        # ✅ 不再用 column_config 控制对齐（避免覆盖 Styler）
-        st.dataframe(
-            styled_acc,
-            use_container_width=True,
-            hide_index=True
-        )
 
     except Exception as e:
         st.error(f"余额计算异常: {e}")
@@ -638,6 +631,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import time
 import pytz
 import requests
 from datetime import datetime
@@ -521,23 +520,41 @@ if search_query:
     )
     df_display = df_display[mask]
 
-# 3. 【核心优化】定义色彩逻辑：只负责变色，不负责改名
-def apply_color_style(df):
-    # 强制转换数值类型确保变色逻辑生效
-    df['收入'] = pd.to_numeric(df['收入'], errors='coerce').fillna(0)
-    df['支出'] = pd.to_numeric(df['支出'], errors='coerce').fillna(0)
+# --- 第三步：核心优化： Styler 全权接管展示层 ---
+def get_styled_df(df):
+    # 1. 深度克隆，确保不污染原始数据（原始 df 仍为 float 用于后续计算）
+    display_df = df.copy()
     
-    return df.style.applymap(
-        lambda x: 'color: #1f7a3f;' if x > 0 else 'color: #94a3b8;', 
+    # 2. 预处理：确保金额列为数值型（防止 format 报错）
+    money_cols = ['实际金额', '收入', '支出', '余额']
+    for col in money_cols:
+        display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+
+    # 3. Styler 闭环控制：格式、颜色、对齐
+    return display_df.style.format({
+        '收入': '${:,.2f}',
+        '支出': '${:,.2f}',
+        '余额': '${:,.2f}',
+        '实际金额': '{:,.2f}',
+        '提交时间': lambda x: x.strftime('%Y-%m-%d %H:%M') # 物理解决2027年问题
+    }).map(
+        # 收入变色 + 右对齐
+        lambda x: 'color: #1f7a3f; text-align: right;', 
         subset=['收入']
-    ).applymap(
-        lambda x: 'color: #d32f2f;' if x > 0 else 'color: #94a3b8;', 
+    ).map(
+        # 支出变色 + 右对齐
+        lambda x: 'color: #d32f2f; text-align: right;', 
         subset=['支出']
+    ).map(
+        # 其余金额仅右对齐
+        lambda x: 'text-align: right;', 
+        subset=['余额', '实际金额']
     )
 
-# 4. 渲染表格：传入 styled_df，并保留你完整的 13 列配置
+# --- 第四步：渲染层 ---
 if not df_display.empty:
-    styled_df = apply_color_style(df_display)
+    # 获取完全由 Styler 格式化好的对象
+    styled_df = get_styled_df(df_display)
     
     st.dataframe(
         styled_df,
@@ -545,24 +562,25 @@ if not df_display.empty:
         hide_index=True,
         height=500,
         column_config={
-            "提交时间": st.column_config.DatetimeColumn("提交时间", format="YYYY-MM-DD HH:mm", width="medium"),
-            "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="medium"),
+            "提交时间": st.column_config.DatetimeColumn("提交时间", width="medium"),
+            "修改时间": st.column_config.DatetimeColumn("修改时间", width="medium"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small"),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
             "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
             "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
             "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-            "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
+            "实际金额": st.column_config.NumberColumn("流水原数", width="small"),
             "实际币种": st.column_config.TextColumn("实际币种", width="small"),
-            "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
-            "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
-            "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
+            "收入": st.column_config.NumberColumn("收入(USD)", width="small"),
+            "支出": st.column_config.NumberColumn("支出(USD)", width="small"),
+            "余额": st.column_config.NumberColumn("余额(USD)", width="medium"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
             "备注": st.column_config.TextColumn("备注", width="medium"),
         }
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 

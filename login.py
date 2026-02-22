@@ -55,9 +55,28 @@ def show_login_page():
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
-        div[data-testid="stTextInput"] div[data-baseweb="input"] {{ 
+        /* --- 1. 统一输入框高度与背景 --- */
+        div[data-testid="stTextInput"] div[data-baseweb="input"] {{
             background-color: #f1f5f9; 
             border-radius: 12px !important; 
+            height: 2.5rem !important;
+            border: none !important;
+        }}
+
+        /* --- 2. 关键修复：强制清除眼睛图标及其容器的所有背景色 --- */
+        /* 这里的选择器覆盖了图标左侧、右侧、以及按钮本身的背景 */
+        div[data-testid="stTextInput"] [data-baseweb="input"] > div,
+        div[data-testid="stTextInput"] [data-baseweb="input"] button,
+        div[data-testid="stTextInput"] [data-baseweb="input"] span {{
+            background-color: transparent !important;
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }}
+
+        /* 确保输入文字垂直居中且不被遮挡 */
+        div[data-testid="stTextInput"] input {{
+            background-color: transparent !important;
             height: 2.5rem !important;
         }}
 

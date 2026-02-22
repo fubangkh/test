@@ -493,16 +493,29 @@ with col_l:
 
 with col_r:
     st.write(f"🏷️ **{sel_month}月支出排行**")
-    # 筛选本月支出数据并按性质分组
+    # 1. 筛选本月支出数据并按性质分组
     exp_stats = df_this_month[df_this_month['支出'] > 0].groupby('资金性质')['支出'].sum().sort_values(ascending=False).reset_index()
+    
     if not exp_stats.empty:
+        # 2. 应用 Styler：控制千分位 + 颜色（支出通常统一为红色或默认黑色）+ 右对齐
+        styled_exp = exp_stats.style.format({
+            "支出": "${:,.2f}"
+        }).map(
+            # 统一支出颜色为红色，并注入右对齐 CSS
+            lambda x: 'color: #d32f2f; text-align: right;', 
+            subset=['支出']
+        )
+        
+        # 3. 渲染表格
         st.dataframe(
-            exp_stats.style.format({"支出": "${:,.2f}"}).map(
-                lambda x: 'text-align: right;', subset=['支出']
-            ), 
-            column_config={"支出": st.column_config.TextColumn("支出", width="medium")},
+            styled_exp, 
             use_container_width=True, 
-            hide_index=True
+            hide_index=True,
+            column_config={
+                "资金性质": st.column_config.TextColumn("资金性质", width="medium"),
+                # 使用 NumberColumn 借用其右对齐外壳，且不设 format
+                "支出": st.column_config.NumberColumn("支出金额", width="medium")
+            }
         )
     else:
         st.caption("该月暂无支出记录")
@@ -600,6 +613,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

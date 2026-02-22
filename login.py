@@ -48,10 +48,46 @@ def show_login_page():
 
         /* --- 4. 按钮与公共组件 --- */
         .header-box {{ display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 35px; flex-wrap: nowrap !important; in-width: min-content;}}
-        .logo-circle {{
-            background-color: #1f7a3f; color: white; width: 46px; height: 46px; border-radius: 50% !important;
-            display: flex; align-items: center; justify-content: center; font-weight: 800; flex-shrink: 0 !important;
-        }}
+        /* --- FB Logo 圆圈及字母大小调整 --- */
+        .logo-circle {
+            background-color: #1f7a3f; 
+            color: white; 
+            /* 1. 稍微调大一点圆圈，从 46px 增加到 50px */
+            width: 50px !important; 
+            height: 50px !important; 
+            border-radius: 50% !important;
+            
+            /* 2. 居中对齐 */
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            
+            /* 3. 核心修改：调大字母字号 */
+            font-size: 22px !important; 
+            font-weight: 900 !important; /* 加粗到最高级 */
+            
+            /* 4. 防止变形 */
+            flex-shrink: 0 !important; 
+        }
+
+        /* --- 配套调整标题，确保对齐 --- */
+        .header-box { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 12px; 
+            margin-bottom: 35px; 
+            flex-wrap: nowrap !important;
+        }
+
+        .title-text { 
+            color: #1f7a3f; 
+            font-size: 1.7rem; 
+            font-weight: 800; 
+            margin: 0; 
+            white-space: nowrap !important;
+        }
+        
         div.stButton > button {{
             background-color: #1f7a3f !important; color: white !important;
             border-radius: 12px !important; height: 3rem !important; width: 100% !important; border: none !important;

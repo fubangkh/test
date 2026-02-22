@@ -1,7 +1,7 @@
 import streamlit as st
 
 def show_login_page():
-    # --- 1. 四语翻译字典 ---
+    # --- 1. 多语言字典 ---
     LANG_DICT = {
         "zh": {
             "title": "富邦日记账", "user_label": "账号", "user_placeholder": "请输入账号",
@@ -38,51 +38,52 @@ def show_login_page():
     user_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"
     lock_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"
 
-    # --- 样式定义 ---
     st.markdown(f"""
         <style>
         header {{ visibility: hidden; }}
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         .stApp {{ background-color: #f8fafc; }}
         
+        /* --- 修正：调大卡片总高度，增加底部内边距 --- */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 28px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
-            padding: 2.5rem 2.2rem !important;
+            padding: 2.2rem 2.2rem 3.5rem 2.2rem !important; /* 增加底部 padding 到 3.5rem */
+            min-height: 520px; /* 强制设置一个最小高度确保不重叠 */
         }}
 
-        .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; white-space: nowrap !important; }}
+        .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
         div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #f1f5f9; border-radius: 12px !important; }}
 
-        /* 登录按钮高度压缩 */
+        /* 登录按钮高度 */
         div.stButton > button {{
             background-color: #1f7a3f !important;
             color: white !important;
             border-radius: 12px !important;
             height: 2.8rem !important;
-            min-height: 2.8rem !important;
             width: 100% !important;
             border: none !important;
-            padding: 0 !important;
-            line-height: 2.8rem !important;
+            margin-top: 5px !important;
         }}
 
-        /* 提示框高度压缩 + 极度靠上 */
+        /* --- 修正：解决重叠，调整 margin-top --- */
         .custom-error-box {{
             background-color: #fee2e2;
             color: #b91c1c;
-            padding: 8px 12px !important;
+            padding: 10px 12px !important;
             border-radius: 12px;
             text-align: center;
-            margin-top: -25px !important; /* 增加负边距直到满意 */
+            margin-top: 8px !important; /* 改为正值，紧贴按钮下方但不重叠 */
             font-size: 0.85rem;
             width: 100%;
             box-sizing: border-box;
             border: 1px solid #fca5a5;
+            position: relative; /* 确保层级正常 */
+            z-index: 100;
         }}
 
         @media (prefers-color-scheme: dark) {{
@@ -90,18 +91,16 @@ def show_login_page():
             div[data-testid="stVerticalBlockBorderWrapper"] {{ background-color: #1e293b !important; border: 1px solid #334155 !important; }}
             .title-text {{ color: #4ade80 !important; }}
             div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #0f172a !important; border: 1px solid #334155 !important; }}
-            div[data-testid="stTextInput"] [data-baseweb="input"] > div,
-            div[data-testid="stTextInput"] [data-baseweb="input"] button {{ background-color: transparent !important; }}
             .custom-error-box {{ background-color: #450a0a; color: #fca5a5; }}
-            .stCheckbox label p {{ color: #94a3b8 !important; }}
         }}
 
-        .header-box {{ display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 30px; }}
+        .header-box {{ display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 25px; }}
         .logo-circle {{ background-color: #1f7a3f; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 600; flex-shrink: 0; }}
         </style>
     """, unsafe_allow_html=True)
 
     with st.container(border=True):
+        # 语言切换
         c1, c2 = st.columns([2.8, 1.2])
         with c2:
             st.selectbox("Lang", list(LANG_MAP.keys()), 

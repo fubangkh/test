@@ -499,7 +499,7 @@ with b_add:
 with b_edit:
     if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): edit_dialog(df_main)
 
-# 数据准备
+# 筛选数据
 df_display = df_main.copy()
 df_display = df_display[
 (df_display['提交时间'].dt.year == sel_year) & 
@@ -513,20 +513,40 @@ if search_query:
     q = search_query.lower()
     mask = (
         df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
-        df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)
+        df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)|
+        df_display['结算账户'].astype(str).str.lower().str.contains(q, na=False)|
+        df_display['审批/发票单号'].astype(str).str.lower().str.contains(q, na=False)|
+        df_display['经手人'].astype(str).str.lower().str.contains(q, na=False)|
+        df_display['资金性质'].astype(str).str.lower().str.contains(q, na=False)
     )
     df_display = df_display[mask]
 
-# 金额格式化 (注意：这里格式化后数据变字符串，仅用于显示)
-# 提示：实际显示时我们用 column_config 格式化更好，这里保持原始数值
+# 3. 【核心优化】定义色彩逻辑：只负责变色，不负责改名
+def apply_color_style(df):
+    # 强制转换数值类型确保变色逻辑生效
+    df['收入'] = pd.to_numeric(df['收入'], errors='coerce').fillna(0)
+    df['支出'] = pd.to_numeric(df['支出'], errors='coerce').fillna(0)
+    
+    return df.style.applymap(
+        lambda x: 'color: #1f7a3f; font-weight: bold;' if x > 0 else 'color: #94a3b8;', 
+        subset=['收入']
+    ).applymap(
+        lambda x: 'color: #d32f2f; font-weight: bold;' if x > 0 else 'color: #94a3b8;', 
+        subset=['支出']
+    )
 
+# 4. 渲染表格：传入 styled_df，并保留你完整的 13 列配置
 if not df_display.empty:
+    styled_df = apply_color_style(df_display)
+    
     st.dataframe(
-        df_display,
+        styled_df,
         use_container_width=True,
         hide_index=True,
         height=500,
         column_config={
+            # 修正时间列：使用 YYYY 确保 2027 年不会混淆
+            "提交时间": st.column_config.DatetimeColumn("提交时间", format="YYYY-MM-DD HH:mm", width="medium"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small"),
             "摘要": st.column_config.TextColumn("摘要", width="large"),
             "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
@@ -544,10 +564,3 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
-
-
-
-
-
-
-

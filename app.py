@@ -521,39 +521,26 @@ if search_query:
     )
     df_display = df_display[mask]
 
-# 3. 核心优化：定义财务样式 (仅变色，不加粗，保留千分位)
-def financial_style(df):
-    # 确保数值列类型正确
-    cols_to_fix = ['收入', '支出', '余额', '实际金额']
-    for col in cols_to_fix:
-        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+# 3. 【核心优化】定义色彩逻辑：只负责变色，不负责改名
+def apply_color_style(df):
+    # 强制转换数值类型确保变色逻辑生效
+    df['收入'] = pd.to_numeric(df['收入'], errors='coerce').fillna(0)
+    df['支出'] = pd.to_numeric(df['支出'], errors='coerce').fillna(0)
     
-    return df.style.map(
-        lambda x: 'color: #1f7a3f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
+    return df.style.applymap(
+        lambda x: 'color: #1f7a3f;' if x > 0 else 'color: #94a3b8;', 
         subset=['收入']
-    ).map(
-        lambda x: 'color: #d32f2f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
+    ).applymap(
+        lambda x: 'color: #d32f2f;' if x > 0 else 'color: #94a3b8;', 
         subset=['支出']
     )
 
-# 4. 渲染表格 (13列配置全保留)
+# 4. 渲染表格：传入 styled_df，并保留你完整的 13 列配置
 if not df_display.empty:
-    # 1) 保留你的函数：继续做数值列清洗（逻辑不变）
-    _ = financial_style(df_display)  # 只用它的类型修正副作用（你函数里有 to_numeric）
-
-    # 2) 保险再清一次：防 CSV 里带逗号导致变字符串（不改变业务逻辑，只保证显示格式可用）
-    for col in ["实际金额", "收入", "支出", "余额"]:
-        if col in df_display.columns:
-            df_display[col] = (
-                df_display[col].astype(str)
-                .str.replace(",", "", regex=False)
-                .str.strip()
-            )
-            df_display[col] = pd.to_numeric(df_display[col], errors="coerce").fillna(0.0)
-
-    # 3) 关键：这里传 df_display（DataFrame），不要传 styled_df（Styler）
+    styled_df = apply_color_style(df_display)
+    
     st.dataframe(
-        df_display,
+        styled_df,
         use_container_width=True,
         hide_index=True,
         height=500,
@@ -566,29 +553,16 @@ if not df_display.empty:
             "结算账户": st.column_config.TextColumn("结算账户", width="medium"),
             "审批/发票单号": st.column_config.TextColumn("审批/发票单号", width="medium"),
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-
-            # 千分符就在这里（你写法正确，前提是“数据真的是数值”）
-            "实际金额": st.column_config.NumberColumn("流水原数", format="%,.2f", width="small"),
-            "收入": st.column_config.NumberColumn("收入(USD)", format="$%,.2f"),
-            "支出": st.column_config.NumberColumn("支出(USD)", format="$%,.2f"),
-            "余额": st.column_config.NumberColumn("余额(USD)", format="$%,.2f"),
-
+            "实际金额": st.column_config.NumberColumn("流水原数", format="%.2f", width="small"),
             "实际币种": st.column_config.TextColumn("实际币种", width="small"),
+            "收入": st.column_config.NumberColumn("收入(USD)", format="$%.2f"),
+            "支出": st.column_config.NumberColumn("支出(USD)", format="$%.2f"),
+            "余额": st.column_config.NumberColumn("余额(USD)", format="$%.2f"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
             "备注": st.column_config.TextColumn("备注", width="medium"),
         }
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
-
-
-
-
-
-
-
-
-
-
 
 

@@ -445,10 +445,10 @@ with col_l:
         return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
 
     try:
-        # 分组计算每个账户的统计量
+        # 1. 计算逻辑（保持不变）
         acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
         
-        # 定义符号映射表
+        # 2. 预处理原币字符串
         sym_map = {
             "人民币": "¥", "RMB": "¥", "CNY": "¥", 
             "港币": "HK$", "HKD": "HK$", 
@@ -456,37 +456,36 @@ with col_l:
             "越南盾": "₫", "VND": "₫", 
             "美元": "$", "USD": "$"
         }
-        
-        # 1. 预处理显示列：银行卡实际金额（原币）
         acc_stats['银行卡实际金额'] = acc_stats.apply(
             lambda r: f"{'-' if r['RAW'] < -0.01 else ''}{sym_map.get(r['CUR'], '$')}{abs(r['RAW']):,.2f}", 
             axis=1
         )
 
-        # 2. 【核心修改】应用 Styler 控制：折合美元千分位 + 负数红字 + 右对齐
-        # 此时 USD 列还是 float 类型，方便 Styler 判断颜色
-        styled_acc = acc_stats[['结算账户', 'USD', '银行卡实际金额']].style.map(
-            # 折合美元列：负数红色，全部右对齐
+        # 3. 应用 Styler（复刻流水表的“格式+颜色+右对齐”模式）
+        styled_acc = acc_stats[['结算账户', 'USD', '银行卡实际金额']].style.format({
+            'USD': '${:,.2f}'  # 强制千分位和美元符号
+        }).map(
+            # 对 USD 列：颜色判断 + 强制右对齐 CSS
             lambda x: 'color: #d32f2f; text-align: right;' if x < -0.01 else 'color: #31333F; text-align: right;',
             subset=['USD']
         ).map(
-            # 原币余额列（字符串）：包含负号则红色，全部右对齐
+            # 对原币列：字符串负号判断 + 强制右对齐 CSS
             lambda x: 'color: #d32f2f; text-align: right;' if '-' in str(x) else 'color: #31333F; text-align: right;',
             subset=['银行卡实际金额']
-        ).format({
-            'USD': '${:,.2f}' # 物理锁定折合美元的千分位和符号
-        })
+        )
         
-        # 3. 渲染表格
+        # 4. 渲染表格（关键：USD 使用 NumberColumn 借用其右对齐外壳）
         st.dataframe(
-            styled_acc,  # 使用 styled 对象
-            column_config={
-                # 注意：这里不再写 format="$%.2f"，由 Styler 负责
-                "USD": st.column_config.TextColumn("折合美元", width="medium"),
-                "银行卡实际金额": st.column_config.TextColumn("银行对账单余额", width="medium")
-            },
+            styled_acc,
             use_container_width=True, 
-            hide_index=True
+            hide_index=True,
+            column_config={
+                "结算账户": st.column_config.TextColumn("结算账户", width="large"),
+                # 这里必须是 NumberColumn，它能保证右对齐，且不会吞掉 Styler 的千分位符号
+                "USD": st.column_config.NumberColumn("折合美元", width="medium"), 
+                # 原币余额因为带非美元符号，用 TextColumn。如果它还不居右，Styler 里的 text-align 也会起辅助作用
+                "银行卡实际金额": st.column_config.TextColumn("银行对账单余额", width="medium") 
+            }
         )
         
     except Exception as e:
@@ -601,6 +600,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

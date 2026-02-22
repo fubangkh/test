@@ -523,26 +523,25 @@ if search_query:
 
 # 3. 核心优化：定义财务样式 (增加千分位格式化)
 def financial_style(df):
-    # 强制确保相关列为数值，方便样式判断
-    cols_to_format = ['收入', '支出', '余额', '实际金额']
-    for col in cols_to_format:
+    # 确保数值列类型正确
+    cols_to_fix = ['收入', '支出', '余额', '实际金额']
+    for col in cols_to_fix:
         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
     
-    return df.style.applymap(
-        lambda x: 'color: #1f7a3f; font-weight: 700;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
+    return df.style.map(
+        lambda x: 'color: #1f7a3f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
         subset=['收入']
-    ).applymap(
-        lambda x: 'color: #d32f2f; font-weight: 700;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
+    ).map(
+        lambda x: 'color: #d32f2f;' if x > 0 else 'color: #94a3b8; opacity: 0.5;', 
         subset=['支出']
     ).format({
-        # 在这里强制加上千分位逗号
         '收入': '${:,.2f}',
         '支出': '${:,.2f}',
         '余额': '${:,.2f}',
         '实际金额': '{:,.2f}'
     })
 
-# 4. 渲染表格
+# 4. 渲染表格 (13列配置全保留)
 if not df_display.empty:
     styled_df = financial_style(df_display)
     
@@ -572,5 +571,6 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 

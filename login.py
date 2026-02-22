@@ -43,8 +43,7 @@ def show_login_page():
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         .stApp {{ background-color: #f8fafc; }}
         
-        div[data-testid="stVerticalBlockBorderWrapper"]
-        div[data-testid="stVerticalBlockBorderWrapper"] > div{{
+        div[data-testid="stVerticalBlockBorderWrapper"]{{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 100px !important;
@@ -53,6 +52,14 @@ def show_login_page():
             height: auto !important;
         }}
 
+
+        /* 核心修复：强制作用于其下所有层级的容器，包括 fieldset 和嵌套 div */
+        div[data-testid="stVerticalBlockBorderWrapper"] > div,
+        div[data-testid="stVerticalBlockBorderWrapper"] fieldset {{
+            border-radius: 40px !important;
+            border: none !important; /* 消除可能存在的内部重叠边框 */
+        }}
+        
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         

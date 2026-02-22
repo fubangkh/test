@@ -7,10 +7,9 @@ def show_login_page():
     st.session_state.setdefault("lang", "zh")
     st.session_state.setdefault("logged_in", False)
     st.session_state.setdefault("login_attempted", False)
-    st.session_state.setdefault("forgot_open", False)
 
-    # ====== 文案字典（中英） ======
-    TXT = {
+    # ====== 文案（中英） ======
+    T = {
         "zh": {
             "app_title": "富邦日记账",
             "subtitle": "管理员授权登录",
@@ -51,7 +50,7 @@ def show_login_page():
     user_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"
     lock_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"
 
-    # ====== CSS：回到你“原始打通套娃”做法，并加强眼睛区透明 ======
+    # ====== CSS（只影响登录页） ======
     st.markdown(
         """
         <style>
@@ -83,7 +82,6 @@ def show_login_page():
             margin: 0 auto !important;
         }
 
-        /* 卡片 */
         div[data-testid="stVerticalBlockBorderWrapper"]{
             background: var(--card) !important;
             border: 1px solid var(--card-border) !important;
@@ -92,12 +90,6 @@ def show_login_page():
             padding: 2.0rem 1.6rem !important;
         }
 
-        /* 语言下拉更像顶部工具条 */
-        .lang-row [data-baseweb="select"] > div{
-            border-radius: 12px !important;
-        }
-
-        /* 标题区 */
         .header-box{
             display:flex;
             align-items:center;
@@ -135,7 +127,6 @@ def show_login_page():
             margin: 6px 0 18px 0;
         }
 
-        /* label */
         .label-with-icon{
             color: var(--muted);
             display:flex;
@@ -146,7 +137,7 @@ def show_login_page():
         }
         .label-with-icon img{ width:18px; height:18px; display:inline-block; }
 
-        /* 输入框：打通套娃 + focus-within（你原来的核心） */
+        /* ===== 你原来的“打通套娃”核心（保留 + 加强） ===== */
         div[data-testid="stTextInput"] div[data-baseweb="input"] > div{
             background: var(--input-bg) !important;
             border: 1px solid var(--input-border) !important;
@@ -162,8 +153,6 @@ def show_login_page():
             border-color: rgba(31,122,63,0.55) !important;
             box-shadow: 0 0 0 4px var(--focus-ring) !important;
         }
-
-        /* 套娃清理：所有内层背景全透明（加强版） */
         div[data-testid="stTextInput"] [data-baseweb="input"] > div > div,
         div[data-testid="stTextInput"] [data-baseweb="input"] span,
         div[data-testid="stTextInput"] [data-baseweb="input"] button,
@@ -173,7 +162,6 @@ def show_login_page():
             border: none !important;
             box-shadow: none !important;
         }
-
         div[data-baseweb="input"] input{
             background: transparent !important;
             color: var(--text) !important;
@@ -182,15 +170,14 @@ def show_login_page():
             padding: 0 52px 0 14px !important;
             font-size: 15px !important;
         }
-
         div[data-testid="stTextInput"] label{ display:none !important; }
 
-        /* hint（只保留这一条，不再重复出红色同文案） */
+        /* 更轻的提示（不抢眼） */
         .hint{
             margin-top: 10px;
-            color: #b45309;
-            background: rgba(245,158,11,0.12);
-            border: 1px solid rgba(245,158,11,0.22);
+            color: #9a5b13;
+            background: rgba(245,158,11,0.10);
+            border: 1px solid rgba(245,158,11,0.18);
             border-radius: 12px;
             padding: 10px 12px;
             font-weight: 800;
@@ -221,7 +208,7 @@ def show_login_page():
             transform: translateY(1px) !important;
         }
 
-        /* 错误提示：只用于“账号密码错误” */
+        /* 只用于账号密码错误 */
         .custom-error-box{
             background:#fee2e2;
             color:#b91c1c;
@@ -231,18 +218,17 @@ def show_login_page():
             font-weight: 900;
         }
 
-        /* 忘记密码：按钮伪链接样式（右对齐） */
-        .forgot-link button{
-            background: transparent !important;
-            border: none !important;
-            padding: 6px 8px !important;
-            border-radius: 10px !important;
-            color: var(--muted) !important;
-            font-weight: 900 !important;
-            box-shadow: none !important;
+        /* “忘记密码？”做成真正链接样式 */
+        .forgot-link{
+            text-align:right;
+            color: var(--muted);
+            font-weight: 800;
+            cursor: pointer;
+            user-select:none;
+            padding-top: 6px;
         }
-        .forgot-link button:hover{
-            background: rgba(100,116,139,0.12) !important;
+        .forgot-link:hover{
+            text-decoration: underline;
         }
 
         /* 移动端 */
@@ -289,91 +275,105 @@ def show_login_page():
         unsafe_allow_html=True,
     )
 
-    # ====== 语言切换（放最上面，且加 class） ======
-    st.markdown('<div class="lang-row">', unsafe_allow_html=True)
+    # ====== 语言切换 ======
     lang = st.selectbox(
-        TXT["lang_label"],
-        options=[("zh", TXT["lang_zh"]), ("en", TXT["lang_en"])],
+        T["lang_label"],
+        options=[("zh", T["lang_zh"]), ("en", T["lang_en"])],
         format_func=lambda x: x[1],
         index=0 if st.session_state.lang == "zh" else 1,
         key="lang_select",
         label_visibility="collapsed",
     )
-    st.markdown("</div>", unsafe_allow_html=True)
     if lang[0] != st.session_state.lang:
         st.session_state.lang = lang[0]
         st.rerun()
 
     with st.container(border=True):
         st.markdown(
-            f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">{TXT["app_title"]}</h1></div>'
-            f'<div class="subtitle">{TXT["subtitle"]}</div>',
+            f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">{T["app_title"]}</h1></div>'
+            f'<div class="subtitle">{T["subtitle"]}</div>',
             unsafe_allow_html=True,
         )
 
-        st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> {TXT["account"]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> {T["account"]}</div>', unsafe_allow_html=True)
         u = st.text_input(
-            TXT["account"],
+            T["account"],
             placeholder="123" if st.session_state.lang == "en" else "请输入账号，测试账号123",
             key="user",
             label_visibility="collapsed",
         )
 
         st.markdown(
-            f'<div class="label-with-icon" style="margin-top:12px;"><img src="{lock_svg}"> {TXT["password"]}</div>',
+            f'<div class="label-with-icon" style="margin-top:12px;"><img src="{lock_svg}"> {T["password"]}</div>',
             unsafe_allow_html=True,
         )
         p = st.text_input(
-            TXT["password"],
+            T["password"],
             placeholder="123" if st.session_state.lang == "en" else "请输入密码，测试密码123",
             type="password",
             key="pwd",
             label_visibility="collapsed",
         )
 
-        # ✅ 只保留一种提示：hint（避免重复两条“请输入账号密码”）
+        # 只保留这一条提示（不会重复出现两个）
         show_live_hint = st.session_state.login_attempted or (u != "" or p != "")
-        live_hint = ""
         if show_live_hint:
             if not u and not p:
-                live_hint = TXT["empty_both"]
+                st.markdown(f'<div class="hint">{T["empty_both"]}</div>', unsafe_allow_html=True)
             elif not u:
-                live_hint = TXT["empty_user"]
+                st.markdown(f'<div class="hint">{T["empty_user"]}</div>', unsafe_allow_html=True)
             elif not p:
-                live_hint = TXT["empty_pwd"]
-        if live_hint:
-            st.markdown(f'<div class="hint">{live_hint}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="hint">{T["empty_pwd"]}</div>', unsafe_allow_html=True)
 
-        # ✅ 同一行：记住我 + 忘记密码（右对齐）
+        # 同一行：记住我 + 忘记密码（右侧“链接”）
         c1, c2 = st.columns([1, 1])
         with c1:
-            st.checkbox(TXT["remember"], value=True)
+            st.checkbox(T["remember"], value=True)
+
         with c2:
-            st.markdown('<div class="forgot-link" style="display:flex;justify-content:flex-end;">', unsafe_allow_html=True)
-            if st.button(TXT["forgot"], key="forgot_pwd_btn"):
-                st.session_state.forgot_open = True
-            st.markdown("</div>", unsafe_allow_html=True)
+            # 用一个“隐形按钮”捕获点击，但视觉上是链接
+            if st.button(T["forgot"], key="forgot_link_btn", use_container_width=True):
+                st.toast(T["forgot_tip"], icon="🔑")
+            # 把这个按钮强制变成链接样式 + 右对齐（不再是大绿按钮）
+            st.markdown(
+                """
+                <style>
+                button[kind="secondary"][data-testid="baseButton-secondary"][aria-label="忘记密码？"],
+                button[kind="secondary"][data-testid="baseButton-secondary"][aria-label="Forgot password?"]{
+                    background: transparent !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                    color: var(--muted) !important;
+                    font-weight: 800 !important;
+                    float: right !important;
+                }
+                button[kind="secondary"][data-testid="baseButton-secondary"][aria-label="忘记密码？"]:hover,
+                button[kind="secondary"][data-testid="baseButton-secondary"][aria-label="Forgot password?"]:hover{
+                    text-decoration: underline !important;
+                }
+                </style>
+                """,
+                unsafe_allow_html=True,
+            )
 
-        if st.session_state.forgot_open:
-            st.info(TXT["forgot_tip"])
-
-        # ✅ 固定消息槽：只显示“账号密码错误”这种真正错误
+        # 固定消息槽：只用于“账号密码错误”
         msg_area = st.empty()
-        msg_area.markdown("<div style='min-height:56px'></div>", unsafe_allow_html=True)
+        msg_area.markdown("<div style='min-height:52px'></div>", unsafe_allow_html=True)
 
-        clicked = st.button(TXT["login"], use_container_width=True)
+        clicked = st.button(T["login"], use_container_width=True)
 
         if clicked:
             st.session_state.login_attempted = True
 
-            # 缺项不再出第二条红色文案（避免重复）
+            # 缺项：只显示 hint，不再额外显示红框
             if not u or not p:
                 st.rerun()
 
-            # 这里放真实登录逻辑
+            # 登录校验（示例）
             time.sleep(0.2)
             if u == "123" and p == "123":
                 st.session_state.logged_in = True
                 st.rerun()
             else:
-                msg_area.markdown(f'<div class="custom-error-box">{TXT["wrong"]}</div>', unsafe_allow_html=True)
+                msg_area.markdown(f'<div class="custom-error-box">{T["wrong"]}</div>', unsafe_allow_html=True)

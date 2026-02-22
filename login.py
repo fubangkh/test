@@ -1,14 +1,14 @@
 import streamlit as st
 
 def show_login_page():
-    # --- 1. 四语翻译字典 (采用您提供的精准翻译) ---
+    # --- 1. 四语翻译字典 (精准翻译版) ---
     LANG_DICT = {
         "zh": {
             "title": "富邦日记账",
             "user_label": "账号",
-            "user_placeholder": "请输入账号，测试账号123",
+            "user_placeholder": "请输入账号",
             "pwd_label": "密码",
-            "pwd_placeholder": "请输入密码，测试密码123",
+            "pwd_placeholder": "请输入密码",
             "remember": "记住我",
             "login_btn": "立即登录",
             "err_empty": "⚠️ 请先输入账号和密码",
@@ -17,9 +17,9 @@ def show_login_page():
         "en": {
             "title": "Fubang Ledger",
             "user_label": "Account",
-            "user_placeholder": "Enter account, test: 123",
+            "user_placeholder": "Enter account",
             "pwd_label": "Password",
-            "pwd_placeholder": "Enter password, test: 123",
+            "pwd_placeholder": "Enter password",
             "remember": "Remember Me",
             "login_btn": "Sign In",
             "err_empty": "⚠️ Please enter account and password",
@@ -49,23 +49,14 @@ def show_login_page():
         }
     }
 
-    # 语言映射
-    LANG_MAP = {
-        "中文": "zh",
-        "English": "en",
-        "ភាសាខ្មែរ": "km",
-        "Tiếng Việt": "vi"
-    }
-
-    if 'lang' not in st.session_state:
-        st.session_state.lang = "zh"
+    LANG_MAP = {"中文": "zh", "English": "en", "ភាសាខ្មែរ": "km", "Tiếng Việt": "vi"}
+    if 'lang' not in st.session_state: st.session_state.lang = "zh"
 
     def on_lang_change():
         st.session_state.lang = LANG_MAP[st.session_state.lang_sel]
 
     L = LANG_DICT[st.session_state.lang]
 
-    # 图标保留
     user_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'/%3E%3Ccircle cx='12' cy='7' r='4'/%3E%3C/svg%3E"
     lock_svg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='11' width='18' height='11' rx='2' ry='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E"
 
@@ -74,33 +65,63 @@ def show_login_page():
         header {{ visibility: hidden; }}
         .block-container {{ max-width: 480px !important; padding-top: 5rem !important; margin: 0 auto !important; }}
         .stApp {{ background-color: #f8fafc; }}
+        
+        /* 核心卡片容器 */
         div[data-testid="stVerticalBlockBorderWrapper"] {{
             background-color: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 28px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
-            padding: 2rem 2rem !important;
+            /* 调整 Padding 确保内部所有组件对齐 */
+            padding: 2.5rem 2rem !important;
         }}
-        .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
+
+        .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; white-space: nowrap; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         
+        /* 输入框样式 */
+        div[data-testid="stTextInput"] div[data-baseweb="input"] {{ 
+            background-color: #f1f5f9; 
+            border-radius: 12px !important; 
+        }}
+
+        /* 强制按钮宽度与输入框一致 */
+        div.stButton > button {{
+            background-color: #1f7a3f !important;
+            color: white !important;
+            border-radius: 12px !important;
+            height: 3.2rem !important;
+            border: none !important;
+            width: 100% !important;
+            margin: 0 auto !important;
+            display: block !important;
+        }}
+
+        /* 提示框样式：移除内边距差异 */
+        .custom-error {{
+            background-color: #fee2e2;
+            color: #b91c1c;
+            padding: 12px;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            width: 100%;
+            box-sizing: border-box; /* 关键：确保 padding 不增加总宽度 */
+        }}
+
         @media (prefers-color-scheme: dark) {{
             .stApp {{ background-color: #0f172a !important; }}
             div[data-testid="stVerticalBlockBorderWrapper"] {{ background-color: #1e293b !important; border: 1px solid #334155 !important; }}
             .title-text {{ color: #4ade80 !important; }}
-            input {{ color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important; }}
             div[data-testid="stTextInput"] div[data-baseweb="input"] {{ background-color: #0f172a !important; border: 1px solid #334155 !important; }}
             div[data-testid="stTextInput"] [data-baseweb="input"] > div,
-            div[data-testid="stTextInput"] [data-baseweb="input"] button,
-            div[data-testid="stTextInput"] [data-baseweb="input"] svg {{ background-color: transparent !important; border: none !important; }}
-            .stCheckbox label p {{ color: #94a3b8 !important; }}
+            div[data-testid="stTextInput"] [data-baseweb="input"] button {{ background-color: transparent !important; }}
+            .custom-error {{ background-color: #450a0a; color: #fca5a5; }}
         }}
+
         .header-box {{ display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 30px; }}
         .logo-circle {{ background-color: #1f7a3f; color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 600; flex-shrink: 0; }}
-        div.stButton > button {{ background-color: #1f7a3f !important; color: white !important; border-radius: 12px !important; height: 3.2rem !important; transition: all 0.3s ease; }}
-        div.stButton > button:hover {{ background-color: #2d9a50 !important; transform: translateY(-1px); }}
-        .custom-error {{ background-color: #fee2e2; color: #b91c1c; padding: 10px; border-radius: 10px; text-align: center; margin-bottom: 10px; }}
-        @media (prefers-color-scheme: dark) {{ .custom-error {{ background-color: #450a0a; color: #fca5a5; }} }}
         </style>
     """, unsafe_allow_html=True)
 
@@ -114,15 +135,21 @@ def show_login_page():
 
         st.markdown(f'<div class="header-box"><div class="logo-circle">FB</div><h1 class="title-text">{L["title"]}</h1></div>', unsafe_allow_html=True)
 
+        # 账号
         st.markdown(f'<div class="label-with-icon"><img src="{user_svg}"> {L["user_label"]}</div>', unsafe_allow_html=True)
         u = st.text_input(L["user_label"], placeholder=L["user_placeholder"], key="user", label_visibility="collapsed")
         
+        # 密码
         st.markdown(f'<div class="label-with-icon" style="margin-top:15px;"><img src="{lock_svg}"> {L["pwd_label"]}</div>', unsafe_allow_html=True)
         p = st.text_input(L["pwd_label"], placeholder=L["pwd_placeholder"], type="password", key="pwd", label_visibility="collapsed")
 
         st.checkbox(L["remember"], value=True)
 
-        if st.button(L["login_btn"], use_container_width=True):
+        # 登录按钮
+        btn_clicked = st.button(L["login_btn"], use_container_width=True)
+
+        # 逻辑判断
+        if btn_clicked:
             if not u or not p:
                 st.markdown(f'<div class="custom-error">{L["err_empty"]}</div>', unsafe_allow_html=True)
             elif u == "123" and p == "123":

@@ -21,7 +21,6 @@ def show_login_page():
             padding: 2.5rem 2rem !important;
         }}
 
-        /* 统一标题字体大小 */
         .title-text {{ 
             color: #1f7a3f; 
             font-size: 2.0rem !important; 
@@ -77,8 +76,28 @@ def show_login_page():
         }}
 
         div.stButton > button {{
-            background-color: #1f7a3f !important; color: white !important;
-            border-radius: 12px !important; height: 3rem !important; width: 100% !important; border: none !important;
+            background-color: #1f7a3f !important; 
+            color: white !important;
+            border-radius: 12px !important; 
+            height: 3rem !important; 
+            width: 100% !important; 
+            border: none !important;
+            /* 关键点：增加平滑过渡效果 */
+            transition: all 0.3s ease !important;
+            cursor: pointer !important;
+        }}
+
+        /* 悬停效果：鼠标放上去变色并轻微浮动 */
+        div.stButton > button:hover {{
+            background-color: #2d9a50 !important; 
+            box-shadow: 0 4px 12px rgba(31, 122, 63, 0.2) !important;
+            transform: translateY(-1px) !important;
+        }}
+
+        /* 点击效果：按下去的感觉 */
+        div.stButton > button:active {{
+            background-color: #165c2f !important;
+            transform: translateY(1px) !important;
         }}
         
         .custom-error-box {{

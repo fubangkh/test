@@ -50,10 +50,24 @@ def show_login_page():
             border: 1px solid #e2e8f0;
             border-radius: 28px !important;
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.03);
-            padding: 2.2rem 2.2rem 3.5rem 2.2rem !important; /* 增加底部 padding 到 3.5rem */
-            min-height: 580px; /* 强制设置一个最小高度确保不重叠 */
+            
+            /* 1. 外部留白 */
+            padding: 2.2rem 2.2rem 4rem 2.2rem !important;
+            min-height: auto; /* 原数值550px，确保不重叠 */
+            display: flex;
+            flex-direction: column;
         }}
-
+        
+            /* 2. 关键：强制容器内最后一个组件（提示框）下方留出空间，防止贴底 */
+        div[data-testid="stVerticalBlock"] > div:last-child {{
+            margin-bottom: 50px !important;
+        }}
+        
+            /* 3. 如果还是重叠，针对内部真正的垂直块进行调整 */
+        div[data-testid="stVerticalBlock"] {{
+            gap: 0rem !important; /* 减小组件间的默认大间隙 */
+       }} 
+        
         .title-text {{ color: #1f7a3f; font-size: 1.6rem !important; font-weight: 800; margin: 0; }}
         .label-with-icon {{ color: #475569; display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 8px; }}
         

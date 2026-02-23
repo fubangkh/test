@@ -8,7 +8,9 @@ from streamlit_gsheets import GSheetsConnection
 
 # --- 1. 全局配置 (必须放在最前面) ---
 st.set_page_config(page_title="富邦日记账", layout="wide")
-
+if "table_version" not in st.session_state:
+    st.session_state.table_version = 0
+    
 # --- 2. 核心定义 (时区定义，全局可用) ---
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
@@ -456,15 +458,9 @@ def row_action_dialog(row_data, full_df, conn):
                     st.error(f"失败: {e}")
         with cc2:
             if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
-                # 1. 关闭弹窗开关
                 st.session_state.show_action_menu = False
-                
-                # 2. 清除监听器的记忆
                 st.session_state.last_processed_id = None
-                st.session_state.action_target_id = None
-                
-                # 💡 3. 重要：给 dataframe 一个新的 key（如果没起效，看下方的补充说明）
-                # 这一步是为了强制让表格在刷新后清空所有勾选
+                st.session_state.table_version += 1
                 
                 st.rerun()
 
@@ -654,10 +650,10 @@ with col_r:
             styled_exp, 
             use_container_width=True, 
             hide_index=True,
-            column_config={
-                "资金性质": st.column_config.TextColumn("资金性质", width="medium"),
+            ={
+                "资金性质": st..TextColumn("资金性质", width="medium"),
                 # 使用 NumberColumn 借用其右对齐外壳，且不设 format
-                "支出": st.column_config.NumberColumn("支出金额", width="medium")
+                "支出": st..NumberColumn("支出金额", width="medium")
             }
         )
     else:
@@ -747,6 +743,7 @@ if not df_display.empty:
         height=500,
         on_select="rerun",
         selection_mode="single-row",
+        key=f"data_table_{st.session_state.table_version}",
         column_config={
             "提交时间": st.column_config.DatetimeColumn("提交时间", width="small"),
             "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="small"),
@@ -783,19 +780,3 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -490,6 +490,7 @@ def row_action_dialog(row_data, full_df, conn):
 
 # --- 6. 主页面 ---
 st.header("📊 汇总统计")
+st.write(f"调试信息 - 当前总行数: {len(df_main)} | 版本号: {st.session_state.table_version}")
 df_main = load_data(version=st.session_state.table_version)
 
 # 💡 插入下面这段：弹窗中转调度器
@@ -830,6 +831,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

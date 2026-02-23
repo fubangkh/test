@@ -698,18 +698,15 @@ if not df_display.empty:
         }
     )
 
-    # 捕获点击
+    # 捕获点击 (修正后的逻辑)
     if event and event.selection and event.selection.rows:
         row_idx = event.selection.rows[0]
+        # 💡 1. 拿到编号
         sel_id = df_display.iloc[row_idx]["录入编号"]
-        hit = df_main[df_main["录入编号"] == sel_id]
-        if not hit.empty:
-            row_action_dialog(hit.iloc[0], df_main, conn)
+        # 💡 2. 存入 SessionState，不要在这里直接调函数
+        st.session_state.action_target_id = sel_id
+        st.session_state.show_action_menu = True
+        # 💡 3. 强制刷新，让程序回到 400 行的“调度器”去弹窗
+        st.rerun()
 else:
     st.info("💡 暂无数据。")
-
-
-
-
-
-

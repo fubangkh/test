@@ -494,12 +494,12 @@ def row_action_dialog(row_data, full_df, conn):
 df_main = load_data(version=st.session_state.table_version)
 st.header("📊 汇总统计")
 
-# 💡 插入下面这段：弹窗中转调度器
+# 💡 调试信息：录入后如果没变化，看这里总行数加了没
+st.caption(f"🚀 系统就绪 | 数据库总行数: {len(df_main)} | 缓存版本: {st.session_state.table_version}")
+
+# 💡 弹窗中转调度器
 if st.session_state.get("show_action_menu", False):
     target_id = st.session_state.get("action_target_id")
-    # 立即关掉开关，防止死循环
-    #st.session_state.show_action_menu = False 
-    
     if target_id:
         hit = df_main[df_main["录入编号"] == target_id]
         if not hit.empty:
@@ -510,23 +510,30 @@ if df_main.empty:
     if st.button("➕ 立即录入", key="empty_add"):
         entry_dialog()
 
-# --- 第一步：数据预处理 ---
-# 1. 币种归一化（这是最优先的，确保后续所有逻辑看到的都是统一币种）
-df_main['实际币种'] = df_main['实际币种'].replace(['RMB', '人民币'], 'CNY')
+# --- 第一步：数据预处理 (确保新录入数据不失踪) ---
+if not df_main.empty:
+    # 1. 币种归一化
+    df_main['实际币种'] = df_main['实际币种'].replace(['RMB', '人民币'], 'CNY')
 
-# 2. 时间格式转换
-df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
+    # 2. 时间格式转换（核心：errors='coerce' 将失败项转为 NaT）
+    df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
 
-# 3. 剔除无效时间行
-df_main = df_main.dropna(subset=['提交时间'])
+    # 3. ✨ 关键改进：不要 dropna！将解析失败的时间填充为当前时间，防止新数据被误删
+    df_main['提交时间'] = df_main['提交时间'].fillna(datetime.now(LOCAL_TZ))
 
-# 4. 数值预清洗（建议加上，确保计算不崩溃）
-for col in ['收入', '支出', '余额', '实际金额']:
-    if col in df_main.columns:
-        df_main[col] = pd.to_numeric(df_main[col], errors='coerce').fillna(0)
+    # 4. 数值预清洗：去掉金额里的逗号和空格
+    for col in ['收入', '支出', '余额', '实际金额']:
+        if col in df_main.columns:
+            if df_main[col].dtype == 'object':
+                df_main[col] = df_main[col].str.replace(r'[$,\s]', '', regex=True)
+            df_main[col] = pd.to_numeric(df_main[col], errors='coerce').fillna(0.0)
 
-# 5. 生成筛选列表（此时 df_main 已经完全干净了）
-year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
+# 5. 生成筛选列表
+current_now = datetime.now(LOCAL_TZ)
+if not df_main.empty:
+    year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
+else:
+    year_list = [current_now.year]
 month_list = list(range(1, 13))
 
 # --- 第二步：时间维度看板 ---
@@ -537,14 +544,23 @@ with st.container(border=True):
     with c1:
         sel_year = st.selectbox("年份", year_list, index=0, label_visibility="collapsed")
     with c2:
-        sel_month = st.selectbox("月份", month_list, index=datetime.now().month - 1, label_visibility="collapsed")
+        # 默认选中当前月份
+        sel_month = st.selectbox("月份", month_list, index=current_now.month - 1, label_visibility="collapsed")
     
-    # 计算月份数值
-    df_this_month = df_main[(df_main['提交时间'].dt.month == sel_month) & (df_main['提交时间'].dt.year == sel_year)]
+    # --- 🔍 核心修正：强制类型对齐筛选 ---
+    # 使用 .astype(int) 确保对比时不会因为 float 或 string 导致匹配失败
+    df_this_month = df_main[
+        (df_main['提交时间'].dt.month.astype(int) == int(sel_month)) & 
+        (df_main['提交时间'].dt.year.astype(int) == int(sel_year))
+    ]
     
+    # 计算上月逻辑
     lm = 12 if sel_month == 1 else sel_month - 1
     ly = sel_year - 1 if sel_month == 1 else sel_year
-    df_last_month = df_main[(df_main['提交时间'].dt.month == lm) & (df_main['提交时间'].dt.year == ly)]
+    df_last_month = df_main[
+        (df_main['提交时间'].dt.month.astype(int) == int(lm)) & 
+        (df_main['提交时间'].dt.year.astype(int) == int(ly))
+    ]
     
     # 使用 pd.to_numeric 确保这一列全是数字，无法转换的（如空字符串）会变成 NaN
     # 然后用 .sum() 求和，NaN 会被自动忽略
@@ -832,6 +848,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

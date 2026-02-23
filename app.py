@@ -269,88 +269,129 @@ def entry_dialog():
 # --- 5. 数据修正模块 (升级版：直接根据点击的 ID 填表) ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(target_id, full_df, conn):
-    # 直接根据传进来的 ID 锁定原始数据
+    # 1. 准备常量与原始数据 (同步录入模块逻辑)
+    CORE_BIZ = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本", "产品销售支出"]
+    INC_OTHER = ["期初调整","网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
+    EXP_OTHER = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
+    ALL_PROPS = CORE_BIZ[:5] + INC_OTHER + CORE_BIZ[5:] + EXP_OTHER + ["资金结转"]
+    
+    # 锁定当前行
     old = full_df[full_df["录入编号"] == target_id].iloc[0]
+    live_rates = get_live_rates()
     
     st.info(f"正在修正记录：`{target_id}`")
     
-    # --- 第一行：日期（锁定不可改）与 摘要 ---
+    # --- 第一部分：基础信息 ---
     c1, c2 = st.columns(2)
     with c1:
+        # 修正：确保 value 传值正确，显示置灰日期
         st.text_input("业务日期 (系统锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
-    # --- 第二行：核心金额区（恢复原币种修改） ---
-    st.markdown("---")
-    st.subheader("💰 金额修正")
-    cc1, cc2, cc3 = st.columns([2, 1, 2])
+    # --- 第二部分：金额与币种 (同步录入换算逻辑) ---
+    r2_c1, r2_c2, r2_c3 = st.columns(3)
+    u_ori_amt = r2_c1.number_input("原币金额", value=float(old.get("实际金额", 0.0)), step=100.0)
     
-    # 恢复原币金额和币种
-    u_ori_amt = cc1.number_input("原币金额", value=float(old.get("实际金额", 0)), step=0.01)
-    u_curr = cc2.selectbox("原币种", ["USD", "RMB", "CCB", "ABA"], 
-                           index=["USD", "RMB", "CCB", "ABA"].index(old.get("实际币种", "USD")) if old.get("实际币种") in ["USD", "RMB", "CCB", "ABA"] else 0)
+    curr_list = list(live_rates.keys())
+    u_curr = r2_c2.selectbox("原币币种", curr_list, index=curr_list.index(old.get("实际币种", "USD")) if old.get("实际币种") in curr_list else 0)
     
-    # 获取汇率（如果是 RMB 则显示汇率输入，否则默认 1.0）
-    if u_curr == "RMB":
-        u_rate = cc3.number_input("实时汇率 (RMB -> USD)", value=7.15, format="%.4f")
-        u_usd_val = round(u_ori_amt / u_rate, 2)
+    # 汇率逻辑：优先显示实时，但允许用户手动改
+    default_rate = float(live_rates.get(u_curr, 1.0))
+    u_rate = r2_c3.number_input("汇率", value=default_rate, format="%.4f")
+    
+    u_usd_val = round(u_ori_amt / u_rate, 2) if u_rate != 0 else 0
+    st.info(f"💰 折算后金额：$ {u_usd_val:,.2f} USD")
+
+    st.divider()
+
+    # --- 第三部分：性质与发票 ---
+    r4_c1, r4_c2 = st.columns(2)
+    u_inv = r4_c1.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
+    
+    # 资金性质自动定位
+    p_idx = ALL_PROPS.index(old.get("资金性质")) if old.get("资金性质") in ALL_PROPS else 0
+    u_prop = r4_c2.selectbox("资金性质", ALL_PROPS, index=p_idx)
+
+    # --- 第四部分：账户与经手人 (带下拉+新增模式) ---
+    r3_c1, r3_c2 = st.columns(2)
+    
+    # 账户选择
+    acc_options = get_dynamic_options(full_df, "结算账户")
+    curr_acc = old.get("结算账户", "")
+    sel_acc = r3_c1.selectbox("结算账户", options=acc_options, 
+                             index=acc_options.index(curr_acc) if curr_acc in acc_options else 0)
+    u_acc = r3_c1.text_input("✍️ 录入新账户", placeholder="新账户名称") if sel_acc == "➕ 新增..." else sel_acc
+
+    # 经手人选择
+    hand_options = get_dynamic_options(full_df, "经手人")
+    curr_hand = old.get("经手人", "")
+    sel_hand = r3_c2.selectbox("经手人", options=hand_options, 
+                              index=hand_options.index(curr_hand) if curr_hand in hand_options else 0)
+    u_hand = r3_c2.text_input("✍️ 录入新姓名", placeholder="经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
+
+    # --- 第五部分：项目信息 (带下拉+新增模式) ---
+    proj_options = get_dynamic_options(full_df, "客户/项目信息")
+    curr_proj = old.get("客户/项目信息", "")
+    sel_proj = st.selectbox("客户/项目信息", options=proj_options, 
+                           index=proj_options.index(curr_proj) if curr_proj in proj_options else 0)
+    
+    if sel_proj == "➕ 新增..." or sel_proj == "-- 请选择 --":
+        u_proj = st.text_input("✍️ 录入新客户/项目", placeholder="项目名称...")
     else:
-        u_rate = 1.0
-        u_usd_val = u_ori_amt
-    
-    st.caption(f"💡 自动折算结果：**{u_usd_val} USD** (将更新至流水)")
+        u_proj = sel_proj
 
-    # --- 第三行：其他信息 ---
-    st.markdown("---")
-    c3, c4 = st.columns(2)
-    u_proj = c3.text_input("客户/项目信息", value=str(old.get("客户/项目信息", "")))
-    u_hand = c4.text_input("经手人", value=str(old.get("经手人", "")))
-    
-    u_note = st.text_area("备注详情", value=str(old.get("备注", "")))
+    u_note = st.text_area("备注", value=str(old.get("备注", "")))
 
+    # --- 提交保存逻辑 ---
     st.divider()
     sv, ex = st.columns(2)
     
-    if sv.button("💾 确认保存并重算余额", type="primary", use_container_width=True):
+    if sv.button("💾 确认保存修正", type="primary", use_container_width=True):
+        if not u_sum.strip():
+            st.error("摘要不能为空")
+            return
+            
         try:
+            # 数据切片更新
             new_df = full_df.copy()
             idx = new_df[new_df["录入编号"] == target_id].index[0]
             
-            # 写入更新后的原币信息
-            new_df.at[idx, "实际金额"] = u_ori_amt
-            new_df.at[idx, "实际币种"] = u_curr
+            # 更新字段
+            new_df.at[idx, "修改时间"] = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
             new_df.at[idx, "摘要"] = u_sum
             new_df.at[idx, "客户/项目信息"] = u_proj
+            new_df.at[idx, "结算账户"] = u_acc
+            new_df.at[idx, "审批/发票单号"] = u_inv
+            new_df.at[idx, "资金性质"] = u_prop
+            new_df.at[idx, "实际金额"] = u_ori_amt
+            new_df.at[idx, "实际币种"] = u_curr
             new_df.at[idx, "经手人"] = u_hand
             new_df.at[idx, "备注"] = u_note
-            new_df.at[idx, "修改时间"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-            # 根据原记录的资金流向（收入或支出）分配折算后的 USD 金额
-            if float(old.get("收入", 0)) > 0:
-                new_df.at[idx, "收入"] = u_usd_val
-                new_df.at[idx, "支出"] = 0
-            else:
-                new_df.at[idx, "收入"] = 0
-                new_df.at[idx, "支出"] = u_usd_val
             
-            # --- 核心：重新计算所有历史余额 ---
-            new_df["收入"] = pd.to_numeric(new_df["收入"], errors="coerce").fillna(0)
-            new_df["支出"] = pd.to_numeric(new_df["支出"], errors="coerce").fillna(0)
+            # 自动重新归类收入/支出 (根据资金性质判断)
+            is_income = (u_prop in CORE_BIZ[:5] or u_prop in INC_OTHER)
+            new_df.at[idx, "收入"] = u_usd_val if is_income else 0
+            new_df.at[idx, "支出"] = u_usd_val if not is_income else 0
+            
+            # 重新计算整表流水余额
+            new_df["收入"] = pd.to_numeric(new_df["收入"].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+            new_df["支出"] = pd.to_numeric(new_df["支出"].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
             new_df["余额"] = new_df["收入"].cumsum() - new_df["支出"].cumsum()
             
-            for col in ["收入", "支出", "余额"]:
+            # 格式化
+            for col in ['收入', '支出', '余额']:
                 new_df[col] = new_df[col].apply(lambda x: "{:.2f}".format(float(x)))
 
-            # 同步云端
+            # 写入
             conn.update(worksheet="Summary", data=new_df)
-            st.success("✅ 修改成功！原币与折算金额已同步。")
+            st.success("✅ 修正并重算成功！")
             st.cache_data.clear()
             time.sleep(1)
             st.rerun()
         except Exception as e:
-            st.error(f"保存失败: {e}")
-            
-    if ex.button("放弃", use_container_width=True): 
+            st.error(f"保存错误: {e}")
+
+    if ex.button("放弃", use_container_width=True):
         st.rerun()
 
 # =========================================================
@@ -727,6 +768,7 @@ if not df_display.empty:
         st.session_state.last_processed_id = None
 else:
     st.info("💡 暂无数据。")
+
 
 
 

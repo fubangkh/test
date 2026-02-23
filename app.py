@@ -421,6 +421,8 @@ def row_action_dialog(row_data, full_df, conn):
         with c2:
             if st.button("🗑️ 删除", type="primary", use_container_width=True, key=f"pre_del_{rec_id}"):
                 st.session_state[f"del_confirm_{rec_id}"] = True
+                st.session_state.is_deleting = True 
+                st.rerun()
 
     # --- 逻辑 B：弹窗内的删除确认界面 (解决 Nested Dialog 报错) ---
     else:
@@ -762,10 +764,12 @@ if not df_display.empty:
             st.session_state.last_processed_id = sel_id
             st.rerun() 
     else:
-        # 弹窗关闭或取消选中时，重置防抖信号
         st.session_state.last_processed_id = None
+        # 💡 当取消选中或没选中时，确保删除标志位复位
+        st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

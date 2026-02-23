@@ -555,23 +555,27 @@ with st.container(border=True):
     with c1:
         sel_year = st.selectbox("年份", year_list, index=0, label_visibility="collapsed")
     with c2:
-        # 默认选中当前月份
-        sel_month = st.selectbox("月份", month_list, index=current_now.month - 1, label_visibility="collapsed")
+        sel_month = st.selectbox("月份", month_list, index=datetime.now(LOCAL_TZ).month - 1, label_visibility="collapsed")
     
-    # --- 🔍 核心修正：强制类型对齐筛选 ---
-    # 使用 .astype(int) 确保对比时不会因为 float 或 string 导致匹配失败
-    df_this_month = df_main[
-        (df_main['提交时间'].dt.month.astype(int) == int(sel_month)) & 
-        (df_main['提交时间'].dt.year.astype(int) == int(sel_year))
-    ]
+    # 🔥 关键修正：在筛选前，最后一次强行转换！
+    # 如果转换失败（NaT），数据会被丢弃，但不会导致程序崩溃报错
+    temp_datetime = pd.to_datetime(df_main['提交时间'], errors='coerce')
     
-    # 计算上月逻辑
+    # 使用临时变量进行筛选，避免 .dt 报错
+    mask_this_month = (
+        (temp_datetime.dt.year == int(sel_year)) & 
+        (temp_datetime.dt.month == int(sel_month))
+    )
+    df_this_month = df_main[mask_this_month].copy()
+    
+    # 同理计算上月
     lm = 12 if sel_month == 1 else sel_month - 1
     ly = sel_year - 1 if sel_month == 1 else sel_year
-    df_last_month = df_main[
-        (df_main['提交时间'].dt.month.astype(int) == int(lm)) & 
-        (df_main['提交时间'].dt.year.astype(int) == int(ly))
-    ]
+    mask_last_month = (
+        (temp_datetime.dt.year == int(ly)) & 
+        (temp_datetime.dt.month == int(lm))
+    )
+    df_last_month = df_main[mask_last_month].copy()
     
     # 使用 pd.to_numeric 确保这一列全是数字，无法转换的（如空字符串）会变成 NaN
     # 然后用 .sum() 求和，NaN 会被自动忽略
@@ -859,6 +863,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

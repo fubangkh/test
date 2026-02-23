@@ -510,30 +510,41 @@ if df_main.empty:
     if st.button("➕ 立即录入", key="empty_add"):
         entry_dialog()
 
-# --- 第一步：数据预处理 (确保新录入数据不失踪) ---
+# --- 第一步：数据预处理 (增强兼容版) ---
 if not df_main.empty:
     # 1. 币种归一化
     df_main['实际币种'] = df_main['实际币种'].replace(['RMB', '人民币'], 'CNY')
 
-    # 2. 时间格式转换（核心：errors='coerce' 将失败项转为 NaT）
+    # 2. 核心修复：强制转换时间格式
+    # 如果有无法解析的，强制变为空值(NaT)，然后填充为当前时间
     df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
+    
+    # 💡 关键一行：如果整列转换后还是 object，强行转换类型
+    if not pd.api.types.is_datetime64_any_dtype(df_main['提交时间']):
+        df_main['提交时间'] = pd.to_datetime(df_main['提交时间'])
 
-    # 3. ✨ 关键改进：不要 dropna！将解析失败的时间填充为当前时间，防止新数据被误删
+    # 3. 填充缺失时间，防止 .dt 报错
     df_main['提交时间'] = df_main['提交时间'].fillna(datetime.now(LOCAL_TZ))
 
-    # 4. 数值预清洗：去掉金额里的逗号和空格
+    # 4. 数值预清洗
     for col in ['收入', '支出', '余额', '实际金额']:
         if col in df_main.columns:
             if df_main[col].dtype == 'object':
-                df_main[col] = df_main[col].str.replace(r'[$,\s]', '', regex=True)
+                df_main[col] = df_main[col].astype(str).str.replace(r'[$,\s]', '', regex=True)
             df_main[col] = pd.to_numeric(df_main[col], errors='coerce').fillna(0.0)
 
-# 5. 生成筛选列表
+# --- 生成筛选列表 (增加安全检查) ---
 current_now = datetime.now(LOCAL_TZ)
-if not df_main.empty:
-    year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
-else:
+try:
+    if not df_main.empty:
+        # 使用 .dt 前确保列是真的日期类型
+        year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
+    else:
+        year_list = [current_now.year]
+except Exception as e:
+    # 如果万一还是报错，保底方案：只显示今年
     year_list = [current_now.year]
+    
 month_list = list(range(1, 13))
 
 # --- 第二步：时间维度看板 ---
@@ -848,6 +859,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

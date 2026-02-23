@@ -699,36 +699,12 @@ if search_query:
     df_display = df_display[mask]
 
 # --- 第三步：核心优化： Styler 全权接管展示层 ---
-# --- 第一步：预处理数据（统一币种名称） ---
-df_['实际币种'] = df_['实际币种'].replace('RMB', 'CNY')
+# --- 数据预清洗：统一币种并强制数值化 ---
+df_display['实际币种'] = df_display['实际币种'].replace(['RMB', '人民币'], 'CNY')
 
-# --- 第二步：核心优化：Styler 全权接管展示层 ---
-def get_styled_df(df):
-    _df = df.copy()
-    
-    # 1. 物理对齐：给“实际币种”列应用居中/右对齐补位
-    # 这里建议使用 .center(12) 看起来更平衡
-    _df['实际币种'] = _df['实际币种'].apply(lambda x: str(x).center(12))
-
-    # 2. 转换数值（确保 format 不报错）
-    money_cols = ['收入', '支出', '余额', '实际金额']
-    for col in money_cols:
-        _df[col] = pd.to_numeric(_df[col], errors='coerce').fillna(0)
-
-    # 3. Styler 样式控制
-    return _df.style.format({
-        '收入': '${:,.2f}',
-        '支出': '${:,.2f}',
-        '余额': '${:,.2f}',
-        '实际金额': '{:,.2f}', # 原币金额纯数字展示
-        '提交时间': lambda x: x.strftime('%Y-%m-%d %H:%M')
-    }).map(
-        lambda x: 'color: #1f7a3f; text-align: right;', subset=['收入']
-    ).map(
-        lambda x: 'color: #d32f2f; text-align: right;', subset=['支出']
-    ).map(
-        lambda x: 'text-align: right;', subset=['余额', '实际金额']
-    )
+# 必须先转为数字，Styler 的千分位指令 {:,.2f} 才能生效
+for col in ['收入', '支出', '余额', '实际金额']:
+    df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
 
 # =========================================================
 # 2. 监听器：放置在主程序中 (解决修改无反应)
@@ -745,15 +721,16 @@ if st.session_state.get("show_edit_modal", False):
 # =========================================================
 
 if not df_display.empty:
-    st.write("当前流水表的列名有：", df_display.columns.tolist()) # 👈 加上这一行
+    # 💡 核心：由 Pandas Styler 生成千分位、美元符号和两位小数
     styled_display = df_display.style.format({
-    "收入": "${:,.2f}",
-    "支出": "${:,.2f}",
-    "余额": "${:,.2f}"
-})
+        "收入": "${:,.2f}",
+        "支出": "${:,.2f}",
+        "余额": "${:,.2f}",
+        "实际金额": "{:,.2f}"  # 原币金额只加千分位，不加美元符
+    })
+
     event = st.dataframe(
-        #df_display,
-        styled_display,
+        styled_display,  # 👈 关键：这里必须是 styled_display
         use_container_width=True,
         hide_index=True,
         height=500,
@@ -796,6 +773,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

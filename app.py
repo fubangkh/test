@@ -511,8 +511,6 @@ h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
 h_col.subheader("📑 流水明细表")
 with b_add:
     if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): entry_dialog()
-with b_edit:
-    if st.button("🛠️ 修正", type="primary", use_container_width=True, key="main_edit"): edit_dialog(df_main)
 
 # 筛选数据
 df_display = df_main.copy()
@@ -588,12 +586,12 @@ def row_action_dialog(row_data, full_df, conn):
     if not st.session_state[f"del_confirm_{rec_id}"]:
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("🛠️ 修改记录", use_container_width=True, key=f"edit_{rec_id}"):
+            if st.button("🛠️ 修改", use_container_width=True, key=f"edit_{rec_id}"):
                 st.session_state.edit_target_id = rec_id
                 st.session_state.show_edit_modal = True
                 st.rerun()  # 关闭当前 Dialog 并触发主程序的监听器
         with c2:
-            if st.button("🗑️ 删除记录", type="primary", use_container_width=True, key=f"pre_del_{rec_id}"):
+            if st.button("🗑️ 删除", type="primary", use_container_width=True, key=f"pre_del_{rec_id}"):
                 st.session_state[f"del_confirm_{rec_id}"] = True
                 st.rerun()  # 仅刷新弹窗内显示的内容
 
@@ -676,5 +674,6 @@ if not df_display.empty:
             row_action_dialog(hit.iloc[0], df_main, conn)
 else:
     st.info("💡 暂无数据。")
+
 
 

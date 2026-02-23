@@ -465,7 +465,7 @@ df_main = load_data()
 if st.session_state.get("show_action_menu", False):
     target_id = st.session_state.get("action_target_id")
     # 立即关掉开关，防止死循环
-    st.session_state.show_action_menu = False 
+    #st.session_state.show_action_menu = False 
     
     if target_id:
         hit = df_main[df_main["录入编号"] == target_id]
@@ -773,6 +773,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

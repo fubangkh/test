@@ -581,29 +581,29 @@ else:
     # 仅当搜索或筛选月份无数据时显示
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
 
-# --- 维护模块：物理复位增强版 ---
+# --- 维护模块：深度状态绑定版 ---
 st.markdown("---")
 
-# 1. 初始化状态 (保持不变)
-if 'maint_reset' not in st.session_state:
-    st.session_state.maint_reset = False
+# 1. 核心状态初始化
+if 'maint_expanded' not in st.session_state:
+    st.session_state.maint_expanded = False
+if 'maint_reset_trigger' not in st.session_state:
+    st.session_state.maint_reset_trigger = 0
 
-# 2. 核心：动态控制 Key 和 初始展开状态
-# 当 maint_reset 变化时，Key 变化会销毁旧组件，同时我们将 expanded 设为 False
-exp_key = f"maint_v_{st.session_state.maint_reset}" 
+# 2. 动态 Key
+# 每次点击删除都会增加这个计数器，强制销毁整个 expander
+current_key = f"maint_box_{st.session_state.maint_reset_trigger}"
 
-# 这里的 expanded=False 是关键，结合 Key 的变化，能确保它“缩”回去
-with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=False):
+# 绑定 expanded 到 session_state
+with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=st.session_state.maint_expanded):
     if not df_main.empty:
-        # 【重要】增加一个独立容器，确保内部组件随 key 销毁
-        m_container = st.container()
-        with m_container:
+        # 使用唯一 Key 的容器
+        with st.container(key=f"cont_{current_key}"):
             id_list = df_main['录入编号'].tolist()[::-1][:10]
-            # 给 selectbox 增加独特的 key
             selected_id = st.selectbox(
                 "选择要删除的编号", 
                 options=id_list, 
-                key=f"sel_{exp_key}"
+                key=f"sel_{current_key}"
             )
             
             mask = df_main['录入编号'] == selected_id
@@ -611,9 +611,9 @@ with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=False):
                 match_row = df_main[mask].iloc[0]
                 st.warning(f"即将删除：{match_row['摘要']} | 金额：{match_row['实际金额']}")
 
-                if st.button("❌ 确认删除并复位页面", type="primary", use_container_width=True, key=f"btn_{exp_key}"):
+                if st.button("❌ 确认删除并复位页面", type="primary", use_container_width=True, key=f"btn_{current_key}"):
                     try:
-                        # --- 执行删除 (逻辑保持不变) ---
+                        # --- 1. 执行核心删除逻辑 ---
                         updated_df = df_main[df_main['录入编号'] != selected_id].copy()
                         for col in ['收入', '支出']:
                             updated_df[col] = pd.to_numeric(updated_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
@@ -623,17 +623,15 @@ with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=False):
                         
                         conn.update(worksheet="Summary", data=updated_df)
                         
-                        # --- 触发复位 ---
+                        # --- 2. 强制触发物理状态变更 ---
                         st.cache_data.clear()
-                        # 切换布尔值，改变下一轮运行的 exp_key
-                        st.session_state.maint_reset = not st.session_state.maint_reset 
+                        # 重点：强制下一轮运行将 expander 设为关闭
+                        st.session_state.maint_expanded = False 
+                        # 重点：改变 key 强制销毁组件
+                        st.session_state.maint_reset_trigger += 1 
                         
                         st.success("✅ 删除成功！正在复位...")
-                        time.sleep(0.6) # 给用户看一眼成功提示的时间
-                        st.rerun()
+                        time.sleep(0.5)
+                        st.rerun() # 立即重启脚本
                     except Exception as e:
                         st.error(f"操作失败: {e}")
-
-
-
-

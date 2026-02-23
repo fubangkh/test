@@ -397,6 +397,18 @@ def edit_dialog(target_id, full_df, conn):
 st.header("📊 汇总统计")
 df_main = load_data()
 
+# --- 统一弹窗调度器 ---
+if st.session_state.get("show_action_menu", False):
+    target_id = st.session_state.action_target_id
+    # 复位状态，防止循环弹窗
+    st.session_state.show_action_menu = False
+    
+    # 从主表中检索数据
+    hit = df_main[df_main["录入编号"] == target_id]
+    if not hit.empty:
+        # 在这里安全地弹出操作窗口
+        row_action_dialog(hit.iloc[0], df_main, conn)
+
 if df_main.empty:
     st.warning("⚠️ 数据库目前没有数据，请点击下方按钮开始录入第一笔账单。")
     if st.button("➕ 立即录入", key="empty_add"):
@@ -740,13 +752,16 @@ if not df_display.empty:
 
     # 捕获点击
     if event and event.selection and event.selection.rows:
-        row_idx = event.selection.rows[0]
-        sel_id = df_display.iloc[row_idx]["录入编号"]
-        hit = df_main[df_main["录入编号"] == sel_id]
-        if not hit.empty:
-            row_action_dialog(hit.iloc[0], df_main, conn)
+    selected_index = event.selection.rows[0]
+    sel_id = df_display.iloc[selected_index]["录入编号"]
+    
+    # 💡 关键改动：存入 SessionState，不要直接调用函数
+    st.session_state.action_target_id = sel_id
+    st.session_state.show_action_menu = True
+    st.rerun() # 强制刷新，让程序回到主循环的最顶层去弹窗
 else:
     st.info("💡 暂无数据。")
+
 
 
 

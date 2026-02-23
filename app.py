@@ -83,36 +83,38 @@ def get_live_rates():
     return default_rates
 
 # --- 3. 数据连接 ---
-# 💡 建议暂时注释掉缓存，确保每次 version 改变时都执行物理读取
 @st.cache_data(ttl=0) 
 def load_data(version=0):
     try:
-        # 1. 强制直连读取 (ttl=0 确保不读取 streamlit 本地旧副本)
+        # 1. 强制直连读取
         df = conn.read(worksheet="Summary", ttl=0)
         df = df.dropna(how="all")
         
-        # 2. 核心清洗：确保数值列绝对干净
-        if '提交时间' in df.columns:
-            df['提交时间'] = pd.to_datetime(df['提交时间'], errors='coerce')
+        # 2. 核心清洗：数值列
         numeric_cols = ['实际金额', '收入', '支出', '余额']
         for col in numeric_cols:
             if col in df.columns:
-                # 即使是对象类型，也先转字符串，删掉逗号、空格、美元符号等
                 if df[col].dtype == 'object' or df[col].dtype == 'string':
                     df[col] = df[col].astype(str).str.replace(r'[$,\s]', '', regex=True)
-                
-                # 强制转换为浮点数，转换失败的填 0
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
         
-        # 3. 填充其余空值
-        df = df.fillna("")
+        # 3. 时间列处理（✨ 重点：放在 fillna 之前，并确保转换成功）
+        if '提交时间' in df.columns:
+            # 强制转换为日期格式，不认识的变为空 NaT
+            df['提交时间'] = pd.to_datetime(df['提交时间'], errors='coerce')
+            # 给个保底：如果时间是空的，填入当前时间，防止后续报错
+            df['提交时间'] = df['提交时间'].fillna(pd.Timestamp.now())
+        
+        # 4. 填充其余文本列空值（✨ 重点：排除时间列，防止日期变回字符串）
+        other_cols = df.columns.difference(['提交时间'])
+        df[other_cols] = df[other_cols].fillna("")
         
         # 设置显示精度
         pd.options.display.float_format = '{:,.2f}'.format
         
         return df
     except Exception as e:
-        st.error(f"❌ 加载失败: {e}")
+        st.error(f"数据加载异常: {e}")
         return pd.DataFrame()
 
 # get_dynamic_options 函数保持不变，它现在可以完美兼容上面返回的 df
@@ -561,19 +563,22 @@ with st.container(border=True):
     # 如果转换失败（NaT），数据会被丢弃，但不会导致程序崩溃报错
     temp_datetime = pd.to_datetime(df_main['提交时间'], errors='coerce')
     
-    # 使用临时变量进行筛选，避免 .dt 报错
+    # 1. 核心修复：确保 temp_datetime 包含最新的数据
+    temp_datetime = pd.to_datetime(df_main['提交时间'], errors='coerce')
+
+    # 2. 强力过滤：将两边都转为 int，消除格式和时区带来的匹配误差
     mask_this_month = (
-        (temp_datetime.dt.year == int(sel_year)) & 
-        (temp_datetime.dt.month == int(sel_month))
+        (temp_datetime.dt.year.fillna(0).astype(int) == int(sel_year)) & 
+        (temp_datetime.dt.month.fillna(0).astype(int) == int(sel_month))
     )
     df_this_month = df_main[mask_this_month].copy()
     
-    # 同理计算上月
+    # 3. 同理计算上月
     lm = 12 if sel_month == 1 else sel_month - 1
     ly = sel_year - 1 if sel_month == 1 else sel_year
     mask_last_month = (
-        (temp_datetime.dt.year == int(ly)) & 
-        (temp_datetime.dt.month == int(lm))
+        (temp_datetime.dt.year.fillna(0).astype(int) == int(ly)) & 
+        (temp_datetime.dt.month.fillna(0).astype(int) == int(lm))
     )
     df_last_month = df_main[mask_last_month].copy()
     
@@ -864,6 +869,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

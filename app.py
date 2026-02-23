@@ -402,6 +402,7 @@ if st.session_state.get("show_action_menu", False):
     target_id = st.session_state.action_target_id
     # 复位状态，防止循环弹窗
     st.session_state.show_action_menu = False
+    st.session_state.action_target_id = None
     
     # 从主表中检索数据
     hit = df_main[df_main["录入编号"] == target_id]
@@ -752,15 +753,17 @@ if not df_display.empty:
 
     # 捕获点击
     if event and event.selection and event.selection.rows:
-    selected_index = event.selection.rows[0]
-    sel_id = df_display.iloc[selected_index]["录入编号"]
-    
-    # 💡 关键改动：存入 SessionState，不要直接调用函数
-    st.session_state.action_target_id = sel_id
-    st.session_state.show_action_menu = True
-    st.rerun() # 强制刷新，让程序回到主循环的最顶层去弹窗
+        selected_index = event.selection.rows[0]
+        if 0 <= selected_index < len(df_display):
+            sel_id = df_display.iloc[selected_index]["录入编号"]
+        
+            # 存入状态并触发重刷，这是为了解决 Dialogs nested 报错
+            st.session_state.action_target_id = sel_id
+            st.session_state.show_action_menu = True
+            st.rerun()
 else:
-    st.info("💡 暂无数据。")
+    st.info("💡 暂无匹配的流水记录。")
+
 
 
 

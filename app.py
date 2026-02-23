@@ -83,8 +83,6 @@ def get_live_rates():
     return default_rates
 
 # --- 3. 数据连接 ---
-conn = st.connection("gsheets", type=GSheetsConnection)
-
 # 💡 建议暂时注释掉缓存，确保每次 version 改变时都执行物理读取
 # @st.cache_data(ttl=0) 
 def load_data(version=0):
@@ -216,7 +214,7 @@ def entry_dialog():
 
         try:
             # 重新加载最新数据，防止 full_df 未定义
-            current_df = df 
+            current_df = load_data(version=st.session_state.table_version + 1)
             now_dt = datetime.now(LOCAL_TZ)
             now_ts = now_dt.strftime("%Y-%m-%d %H:%M:%S")
             today_str = now_dt.strftime("%Y%m%d")
@@ -253,7 +251,17 @@ def entry_dialog():
                 full_df[col] = full_df[col].apply(lambda x: "{:.2f}".format(float(x)))
             
             conn.update(worksheet="Summary", data=full_df)
-            return True
+            # ✅ 写入后确认：避免云端延迟导致主页面读到旧数据
+            new_ids = [r[0] for r in new_rows]  # new_rows 里第 0 列就是录入编号
+            ok = False
+            for _ in range(6):  # 6 * 0.35s ≈ 2.1s
+                verify = conn.read(worksheet="Summary", ttl=0)
+                if not verify.empty and verify["录入编号"].astype(str).isin(new_ids).any():
+                    ok = True
+                    break
+                time.sleep(0.35)
+            
+            return ok
         except Exception as e:
             st.error(f"❌ 写入失败: {e}")
             return False
@@ -269,7 +277,6 @@ def entry_dialog():
                 st.balloons()
                 st.cache_data.clear()
                 st.session_state.table_version += 1
-                time.sleep(2)
                 st.rerun()
 
     if col_can.button("🗑️ 取消返回", use_container_width=True):
@@ -823,6 +830,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

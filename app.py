@@ -580,44 +580,47 @@ if not df_display.empty:
         }
     )
 
-    # --- 1. 动态 Key 初始化 (确保在整个 app 顶部或这里均可) ---
-    if 'maint_key' not in st.session_state:
-        st.session_state.maint_key = 0
+    # --- 1. 状态初始化 (放在这行 st.markdown("---") 上方) ---
+    if 'just_deleted' not in st.session_state:
+        st.session_state.just_deleted = False
+
+    # 如果刚刚删除了，我们这一轮直接不渲染这个 expander，强制它消失一次
+    if st.session_state.just_deleted:
+        st.session_state.just_deleted = False  # 重置标记
+        st.rerun()  # 再次刷新，彻底回到初始状态
 
     st.markdown("---")
     
-    # --- 2. 使用动态 key 强制复位 ---
-    # 只要 st.session_state.maint_key 改变，这个 expander 就会被强制销毁并以折叠状态重建
+    # --- 2. 正常渲染模块 ---
+    # 这里不需要动态 Key，直接用最简单的逻辑
     with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=False):
-        
         if not df_main.empty:
-            # 这里的 key 也要动态，防止组件冲突
             id_list = df_main['录入编号'].tolist()[::-1][:10]
-            selected_id = st.selectbox("选择编号", options=id_list, key=f"del_sel_{st.session_state.maint_key}")
+            selected_id = st.selectbox("选择要删除的编号", options=id_list, key="final_del_box")
             
             match_row = df_main[df_main['录入编号'] == selected_id].iloc[0]
             st.info(f"🚩 预览：{match_row['摘要']} | {match_row['实际金额']}")
-    
-            if st.button("❌ 确认删除并关闭窗口", type="primary", use_container_width=True, key=f"del_btn_{st.session_state.maint_key}"):
+
+            if st.button("❌ 确认删除", type="primary", use_container_width=True):
                 try:
-                    # 执行删除逻辑
+                    # A. 删除与重算逻辑
                     updated_df = df_main[df_main['录入编号'] != selected_id].copy()
                     for col in ['收入', '支出']:
                         updated_df[col] = pd.to_numeric(updated_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
                     updated_df['余额'] = updated_df['收入'].cumsum() - updated_df['支出'].cumsum()
+                    
                     for col in ['收入', '支出', '余额']:
                         updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
                     
+                    # B. 同步云端
                     conn.update(worksheet="Summary", data=updated_df)
                     
-                    # --- 执行复位核心动作 ---
-                    st.cache_data.clear() 
+                    # C. 设置标记并触发复位
+                    st.cache_data.clear()
+                    st.session_state.just_deleted = True  # 关键：告诉系统我刚才删了东西
                     
-                    # 关键：改变计数器，强制 expander 销毁重建
-                    st.session_state.maint_key += 1 
-                    
-                    st.success("✅ 删除成功，正在复位...")
-                    time.sleep(0.8)
+                    st.success("✅ 删除成功，正在复位界面...")
+                    time.sleep(0.5)
                     st.rerun() 
                     
                 except Exception as e:
@@ -625,34 +628,3 @@ if not df_display.empty:
 
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

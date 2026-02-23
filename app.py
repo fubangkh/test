@@ -700,23 +700,23 @@ if search_query:
 
 # --- 第三步：核心优化： Styler 全权接管展示层 ---
 # --- 第一步：预处理数据（统一币种名称） ---
-df_display['实际币种'] = df_display['实际币种'].replace('RMB', 'CNY')
+df_['实际币种'] = df_['实际币种'].replace('RMB', 'CNY')
 
 # --- 第二步：核心优化：Styler 全权接管展示层 ---
 def get_styled_df(df):
-    display_df = df.copy()
+    _df = df.copy()
     
     # 1. 物理对齐：给“实际币种”列应用居中/右对齐补位
     # 这里建议使用 .center(12) 看起来更平衡
-    display_df['实际币种'] = display_df['实际币种'].apply(lambda x: str(x).center(12))
+    _df['实际币种'] = _df['实际币种'].apply(lambda x: str(x).center(12))
 
     # 2. 转换数值（确保 format 不报错）
     money_cols = ['收入', '支出', '余额', '实际金额']
     for col in money_cols:
-        display_df[col] = pd.to_numeric(display_df[col], errors='coerce').fillna(0)
+        _df[col] = pd.to_numeric(_df[col], errors='coerce').fillna(0)
 
     # 3. Styler 样式控制
-    return display_df.style.format({
+    return _df.style.format({
         '收入': '${:,.2f}',
         '支出': '${:,.2f}',
         '余额': '${:,.2f}',
@@ -745,8 +745,15 @@ if st.session_state.get("show_edit_modal", False):
 # =========================================================
 
 if not df_display.empty:
+    st.write("当前流水表的列名有：", df_display.columns.tolist()) # 👈 加上这一行
+    styled_display = df_display.style.format({
+    "收入": "${:,.2f}",
+    "支出": "${:,.2f}",
+    "余额": "${:,.2f}"
+})
     event = st.dataframe(
-        df_display,
+        #df_display,
+        styled_display,
         use_container_width=True,
         hide_index=True,
         height=500,
@@ -763,9 +770,9 @@ if not df_display.empty:
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
             "实际金额": st.column_config.NumberColumn("原币金额", width="small"),
             "实际币种": st.column_config.TextColumn("原币种", width="small"),
-            "收入": st.column_config.NumberColumn("收入(USD)", format="%.2f", width="small"),
-            "支出": st.column_config.NumberColumn("支出(USD)", format="$%,.2f", width="small"),
-            "余额": st.column_config.NumberColumn("余额(USD)", format="$%,.2f", width="small"),
+            "收入": st.column_config.NumberColumn("收入(USD)", width="small"),
+            "支出": st.column_config.NumberColumn("支出(USD)", width="small"),
+            "余额": st.column_config.NumberColumn("余额(USD)", width="small"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
             "备注": st.column_config.TextColumn("备注", width="small"),
         }
@@ -789,6 +796,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

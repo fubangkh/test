@@ -580,56 +580,58 @@ if not df_display.empty:
         }
     )
 
-# 新增的【数据维护模块】
-    st.markdown("---")
-    with st.expander("🛠️ 账目维护 (撤销与删除)"):
-        st.warning("注意：删除操作不可逆，删除后系统会自动重算所有余额。")
+# --- 7. 数据维护模块 (已优化复位逻辑) ---
+st.markdown("---")
+# 注意：这里不要设置 expanded=True，保持默认关闭
+with st.expander("🛠️ 账目维护 (撤销与删除)"):
+    st.warning("注意：删除操作不可逆，删除后系统会自动重算所有余额并复位。")
+    
+    if not df_main.empty:
+        # 1. 编号选择
+        id_list = df_main['录入编号'].tolist()[::-1][:10]
+        selected_id = st.selectbox("选择要删除的录入编号", options=id_list, key="del_box")
         
-        # 使用你已经定义好的 df_main (这是 load_data 加载的最全数据)
-        if not df_main.empty:
-            # 获取最近录入的10个编号（按录入编号倒序排列）
-            id_list = df_main['录入编号'].tolist()[::-1][:10]
-            selected_id = st.selectbox("选择要删除的录入编号", options=id_list, key="delete_id_box")
-            
-            # 找到选中的那一行，显示摘要预览，防止删错
-            match_row = df_main[df_main['录入编号'] == selected_id].iloc[0]
-            st.info(f"🚩 即将删除：{match_row['摘要']} | 金额：{match_row['实际金额']} {match_row['实际币种']}")
-            
-            if st.button("❌ 确认删除该条记录", type="primary", use_container_width=True):
-                try:
-                    # 1. 过滤掉要删除的行
-                    updated_df = df_main[df_main['录入编号'] != selected_id].copy()
-                    
-                    # 2. 核心：重算余额逻辑
-                    # 确保数值列干净（处理字符串逗号等）
-                    for col in ['收入', '支出']:
-                        updated_df[col] = pd.to_numeric(
-                            updated_df[col].astype(str).str.replace(',', ''), 
-                            errors='coerce'
-                        ).fillna(0)
-                    
-                    # 3. 按原始顺序重新计算余额累加 (cumsum)
-                    # 逻辑：总收入 - 总支出
-                    updated_df['余额'] = updated_df['收入'].cumsum() - updated_df['支出'].cumsum()
-                    
-                    # 4. 转换回字符串格式（带2位小数）以便同步回 Google Sheets
-                    for col in ['收入', '支出', '余额']:
-                        updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-                    
-                    # 5. 执行云端同步
-                    conn.update(worksheet="Summary", data=updated_df)
-                    
-                    st.success(f"✅ 编号 {selected_id} 已成功删除，全表余额已自动完成对账重算！")
-                    st.cache_data.clear() # 强制清除缓存
-                    time.sleep(1.2)
-                    st.rerun() # 刷新页面
-                except Exception as e:
-                    st.error(f"删除失败，请检查网络: {e}")
-        else:
-            st.info("暂无数据可操作")
+        # 2. 预览即将删除的内容
+        match_row = df_main[df_main['录入编号'] == selected_id].iloc[0]
+        st.info(f"🚩 预览：{match_row['摘要']} | {match_row['实际金额']} {match_row['实际币种']}")
+
+        # 3. 删除执行
+        if st.button("❌ 确认删除并复位页面", type="primary", use_container_width=True):
+            try:
+                # 步骤 A: 过滤数据
+                updated_df = df_main[df_main['录入编号'] != selected_id].copy()
+                
+                # 步骤 B: 核心重算 (处理可能存在的千分位逗号)
+                for col in ['收入', '支出']:
+                    updated_df[col] = pd.to_numeric(
+                        updated_df[col].astype(str).str.replace(',', ''), 
+                        errors='coerce'
+                    ).fillna(0)
+                
+                # 步骤 C: 重新生成流水余额
+                updated_df['余额'] = updated_df['收入'].cumsum() - updated_df['支出'].cumsum()
+                
+                # 步骤 D: 格式化为字符串以符合 Sheets 存储习惯
+                for col in ['收入', '支出', '余额']:
+                    updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+                
+                # 步骤 E: 同步云端
+                conn.update(worksheet="Summary", data=updated_df)
+                
+                # --- 关键：触发复位 ---
+                st.success("✅ 删除成功！正在重置界面...")
+                st.cache_data.clear()  # 必须清除数据缓存，否则刷新后还是旧数据
+                time.sleep(1)          # 给用户 1 秒钟看一眼成功提示
+                st.rerun()             # 强制刷新页面，expander 会自动回到关闭状态
+                
+            except Exception as e:
+                st.error(f"删除失败: {e}")
+    else:
+        st.info("暂无数据可操作")
 
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

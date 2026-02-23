@@ -555,11 +555,14 @@ def get_styled_df(df):
 # --- 第三步：渲染层 ---
 if not df_display.empty:
     styled_df = get_styled_df(df_display)
-    st.dataframe(
+    # 使用 selection_mode="single_row" 允许用户点击行
+    event = st.dataframe(
         styled_df,
         use_container_width=True,
         hide_index=True,
         height=500,
+        on_select="rerun",  # 点击时重新运行以捕获选择
+        selection_mode="single_row",
         column_config={
             "提交时间": st.column_config.DatetimeColumn("提交时间", width="small"),
             "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="small"),
@@ -577,6 +580,14 @@ if not df_display.empty:
             "备注": st.column_config.TextColumn("备注", width="small"),
         }
     )
+
+    # --- 核心：检测点击并弹出窗口 ---
+    if event and event.selection.rows:
+        selected_row_index = event.selection.rows[0]
+        # 获取被点击的那一行原始数据
+        selected_row_data = df_display.iloc[selected_row_index]
+        # 弹出操作小窗口
+        row_action_dialog(selected_row_data, df_main)
 else:
     # 仅当搜索或筛选月份无数据时显示
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
@@ -657,4 +668,5 @@ with st.expander(expander_label, expanded=st.session_state.maint_expanded):
             # 这里改为点击后触发弹窗
             if st.button("❌ 申请删除此记录", type="primary", use_container_width=True, key=f"pre_btn_{st.session_state.maint_reset_trigger}"):
                 confirm_delete_dialog(match_row, df_main)
+
 

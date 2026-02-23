@@ -725,6 +725,7 @@ with b_add:
 
 # 筛选数据
 df_display = df_main.copy()
+df_display['提交时间'] = pd.to_datetime(df_display['提交时间'], errors='coerce')
 df_display = df_display[
 (df_display['提交时间'].dt.year == sel_year) & 
 (df_display['提交时间'].dt.month == sel_month)
@@ -863,6 +864,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

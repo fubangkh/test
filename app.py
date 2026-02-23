@@ -389,11 +389,20 @@ def edit_dialog(target_id, full_df, conn):
             st.success("✅ 修正并重算成功！")
             st.cache_data.clear()
             time.sleep(1)
+            st.session_state.show_edit_modal = False
+            st.session_state.last_processed_id = None
+            st.session_state.table_version += 1
             st.rerun()
         except Exception as e:
             st.error(f"保存错误: {e}")
 
     if ex.button("放弃", use_container_width=True):
+        st.session_state.show_edit_modal = False
+        st.session_state.show_action_menu = False
+        st.session_state.last_processed_id = None
+        
+        # 💡 让表格强制重置（清空勾选）
+        st.session_state.table_version += 1
         st.rerun()
 
 # =========================================================
@@ -453,6 +462,7 @@ def row_action_dialog(row_data, full_df, conn):
                     st.success("✅ 删除成功！")
                     time.sleep(0.3)
                     st.session_state.last_processed_id = None
+                    st.session_state.table_version += 1
                     st.rerun()
                 except Exception as e:
                     st.error(f"失败: {e}")
@@ -779,6 +789,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

@@ -552,17 +552,18 @@ def get_styled_df(df):
         lambda x: 'text-align: right;', subset=['余额', '实际金额']
     )
 
-# --- 第三步：渲染层 ---
+# --- 第三步：渲染层 (修复 Styler 冲突版) ---
 if not df_display.empty:
-    styled_df = get_styled_df(df_display)
-    # 使用 selection_mode="single_row" 允许用户点击行
+    # 重点：不要在 st.dataframe 里面用 styled_df
+    # 我们直接用 df_display，把格式化逻辑写在 column_config 里
+    
     event = st.dataframe(
-        styled_df,
+        df_display, # 使用原始 DataFrame
         use_container_width=True,
         hide_index=True,
         height=500,
-        on_select="rerun",  # 点击时重新运行以捕获选择
-        selection_mode="single_row",
+        on_select="rerun",  
+        selection_mode="single_row", 
         column_config={
             "提交时间": st.column_config.DatetimeColumn("提交时间", width="small"),
             "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="small"),
@@ -581,66 +582,71 @@ if not df_display.empty:
         }
     )
 
-    # --- 核心：检测点击并弹出窗口 ---
-    if event and event.selection.rows:
-        selected_row_index = event.selection.rows[0]
-        # 获取被点击的那一行原始数据
-        selected_row_data = df_display.iloc[selected_row_index]
-        # 弹出操作小窗口
-        row_action_dialog(selected_row_data, df_main)
+    # --- 2. 捕获点击事件 ---
+    if event and len(event.selection.rows) > 0:
+        selected_index = event.selection.rows[0]
+        # 这里的 selected_index 是当前显示表格的行号
+        selected_row = df_display.iloc[selected_index]
+        
+        # 弹出操作对话框
+        row_action_dialog(selected_row, df_main)
 else:
     # 仅当搜索或筛选月份无数据时显示
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
 
 # --- 维护模块 ---
-# --- 1. 核心：定义删除确认弹窗 ---
-@st.dialog("⚠️ 确认删除操作")
-def confirm_delete_dialog(row_data, full_df):
-    st.warning(f"您确定要彻底删除以下记录吗？此操作不可逆！")
+@st.dialog("🎯 行删除和修改操作", width="small")
+def row_action_dialog(row_data, full_df):
+    # 1. 简要显示选中的记录信息，核对无误
+    st.write(f"**编号：** `{row_data['录入编号']}`")
+    st.write(f"**摘要：** {row_data['摘要']}")
+    st.write(f"**金额：** {row_data['实际币种']} {row_data['实际金额']}")
+    st.divider()
     
-    # 显示详情表格，方便最后核对
-    st.table({
-        "录入编号": [row_data['录入编号']],
-        "摘要": [row_data['摘要']],
-        "金额": [f"{row_data['实际币种']} {row_data['实际金额']}"],
-        "结算账户": [row_data['结算账户']]
-    })
-    
+    # 使用 columns 让“修改”和“删除”并列分布
     c1, c2 = st.columns(2)
-    if c1.button("✅ 确定执行删除", type="primary", use_container_width=True):
-        try:
-            # 执行删除逻辑
-            selected_id = row_data['录入编号']
-            updated_df = full_df[full_df["录入编号"] != selected_id].copy()
-            
-            # 重新计算余额
-            for col in ["收入", "支出"]:
-                updated_df[col] = pd.to_numeric(
-                    updated_df[col].astype(str).str.replace(",", "", regex=False),
-                    errors="coerce"
-                ).fillna(0)
-            updated_df["余额"] = updated_df["收入"].cumsum() - updated_df["支出"].cumsum()
-            
-            for col in ["收入", "支出", "余额"]:
-                updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-
-            # 更新数据库
-            conn.update(worksheet="Summary", data=updated_df)
-            
-            # 清理状态并复位
-            st.cache_data.clear()
-            st.session_state.maint_expanded = False
-            st.session_state.maint_reset_trigger += 1
-            
-            st.success("✅ 数据已删除，页面即将刷新...")
-            time.sleep(1) # 留出一秒显示绿色的成功提示
+    # --- 选项 A：修改 ---
+    with c1:
+        if st.button("🛠️ 修改记录", use_container_width=True, key="btn_diag_edit"):
+            # 记录要修改的 ID
+            st.session_state.edit_target_id = row_data['录入编号']
+            st.session_state.show_edit_modal = True  
+            # 刷新页面以触发主程序中弹出的“修改表单”
             st.rerun()
-            
-        except Exception as e:
-            st.error(f"删除失败: {e}")
 
-    if c2.button("取消", use_container_width=True):
-        st.rerun()
+    # --- 选项 B：删除 ---
+    with c2:
+        if st.button("🗑️ 删除记录", type="primary", use_container_width=True, key="btn_diag_del"):
+            try:
+                # 1. 执行删除逻辑
+                selected_id = row_data['录入编号']
+                updated_df = full_df[full_df["录入编号"] != selected_id].copy()
+                
+                # 2. 重新计算余额 (保持你的核心重算逻辑)
+                for col in ["收入", "支出"]:
+                    updated_df[col] = pd.to_numeric(
+                        updated_df[col].astype(str).str.replace(",", "", regex=False),
+                        errors="coerce"
+                    ).fillna(0)
+                
+                # 重新计算累计余额流水
+                updated_df["余额"] = updated_df["收入"].cumsum() - updated_df["支出"].cumsum()
+                
+                # 重新格式化为字符串（匹配你数据库的存储格式）
+                for col in ["收入", "支出", "余额"]:
+                    updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+
+                # 3. 写入数据库
+                conn.update(worksheet="Summary", data=updated_df)
+                
+                # 4. 成功反馈并物理复位
+                st.cache_data.clear()
+                st.success("✅ 删除成功！")
+                time.sleep(0.8)
+                st.rerun()
+                
+            except Exception as e:
+                st.error(f"操作失败: {e}")
 
 # --- 2. 维护模块界面 ---
 st.markdown("---")
@@ -668,5 +674,6 @@ with st.expander(expander_label, expanded=st.session_state.maint_expanded):
             # 这里改为点击后触发弹窗
             if st.button("❌ 申请删除此记录", type="primary", use_container_width=True, key=f"pre_btn_{st.session_state.maint_reset_trigger}"):
                 confirm_delete_dialog(match_row, df_main)
+
 
 

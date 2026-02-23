@@ -215,35 +215,51 @@ def entry_dialog():
         else:
             val_hand = sel_hand
 
-    # --- 5. 项目信息 (空容器动态切换版) ---
+   # --- 5. 项目信息 (强力回填修复版) ---
+    proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
+    
+    # 初始化状态
     if "opt_proj" not in st.session_state:
         st.session_state.opt_proj = get_dynamic_options(df, "客户/项目信息")
-    if "proj_idx" not in st.session_state:
-        st.session_state.proj_idx = 0
+    if "proj_index" not in st.session_state:
+        st.session_state.proj_index = 0
+    if "sb_key_suffix" not in st.session_state:
+        st.session_state.sb_key_suffix = 0
 
-    # 创建一个动态占位符
-    proj_placeholder = st.empty()
+    # 动态生成的 Key，用于强制刷新组件
+    current_sb_key = f"sel_proj_active_{st.session_state.sb_key_suffix}"
 
-    with proj_placeholder.container():
-        proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
-        sel_proj = st.selectbox(proj_label, options=st.session_state.opt_proj, index=st.session_state.proj_idx)
+    sel_proj = st.selectbox(
+        proj_label, 
+        options=st.session_state.opt_proj, 
+        index=st.session_state.proj_index,
+        key=current_sb_key
+    )
 
-    # 如果选中新增，则立刻用“录入框”覆盖上面的“下拉框”
     if sel_proj == "➕ 新增...":
-        with proj_placeholder.container(border=True):
-            st.markdown("##### ✍️ 录入新项目")
-            new_p = st.text_input("请输入名称", key="k_new_p_final")
+        with st.container(border=True):
+            new_p = st.text_input("✍️ 录入新项目", key="input_new_p_val")
             c1, c2 = st.columns(2)
+            
             if c2.button("确定项目", type="primary", use_container_width=True):
                 if new_p.strip():
-                    if new_p not in st.session_state.opt_proj:
-                        st.session_state.opt_proj.insert(1, new_p)
-                    st.session_state.proj_idx = st.session_state.opt_proj.index(new_p)
-                    st.rerun() # 只要逻辑在 st.empty 内部，rerun 通常不会闪退
+                    new_val = new_p.strip()
+                    # 1. 更新列表数据
+                    if new_val not in st.session_state.opt_proj:
+                        st.session_state.opt_proj.insert(1, new_val)
+                    
+                    # 2. 更新索引指向新项目
+                    st.session_state.proj_index = st.session_state.opt_proj.index(new_val)
+                    
+                    # 3. 【核心修复】改变 Key 后 rerun，让下拉框彻底重造
+                    st.session_state.sb_key_suffix += 1
+                    st.rerun() 
                 else:
                     st.error("不能为空")
+            
             if c1.button("取消", use_container_width=True):
-                st.session_state.proj_idx = 0
+                st.session_state.proj_index = 0
+                st.session_state.sb_key_suffix += 1
                 st.rerun()
         val_proj = new_p
     else:
@@ -257,6 +273,40 @@ def entry_dialog():
         # 这里进行非空检查...
         if not val_sum.strip(): 
             st.error("请填写摘要")
+            return False
+
+        try:
+            # 1. 自动同步新项目到 Settings 表
+            df_set = conn.read(worksheet="Settings", ttl=0)
+            if val_proj != "--请选择--" and val_proj != "➕ 新增..." and val_proj not in df_set['客户项目'].values:
+                # 确保 Settings 表有这列
+                new_row = pd.DataFrame({'客户项目': [val_proj]})
+                df_set = pd.concat([df_set, new_row], ignore_index=True)
+                conn.update(worksheet="Settings", data=df_set)
+                st.cache_data.clear()
+
+            # 2. 【修复报错】定义 full_df
+            # 必须在提交前重新读取一次流水表，确保 full_df 是存在的
+            full_df = conn.read(worksheet="Summary", ttl=0)
+            
+            # 构造新行 (根据你实际列名调整)
+            new_record = {
+                "日期": val_date.strftime('%Y-%m-%d'),
+                "摘要": val_sum,
+                "分类": val_type,
+                "金额": val_amt if val_type == "收入" else -val_amt,
+                "结算账户": val_acc,
+                "经手人": val_hand,
+                "客户/项目信息": val_proj,
+                "备注": val_note
+            }
+            
+            # 合并并更新
+            updated_df = pd.concat([full_df, pd.DataFrame([new_record])], ignore_index=True)
+            conn.update(worksheet="Summary", data=updated_df)
+            return True
+        except Exception as e:
+            st.error(f"❌ 写入失败: {e}") # 这里的错误捕捉会告诉你具体的 full_df 问题
             return False
 
         try:
@@ -673,6 +723,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

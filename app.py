@@ -663,10 +663,12 @@ def row_action_dialog(row_data, full_df, conn):
 # 2. 监听器：放置在主程序中 (解决修改无反应)
 # =========================================================
 if st.session_state.get("show_edit_modal", False):
+    # 💡 关键：先拿到 ID，然后立即把全局状态设为 False
+    target_id = st.session_state.get("edit_target_id")
     st.session_state.show_edit_modal = False # 立即复位
-    # 这里调用之前定义的 edit_dialog
-    edit_dialog(st.session_state.edit_target_id, df_main, conn)
-
+    # 💡 只有在有 ID 的情况下才弹窗
+    if target_id:
+        edit_dialog(target_id, df_main, conn)
 # =========================================================
 # 3. 渲染层：明细表显示 (移除顶部冗余按钮)
 # =========================================================
@@ -701,13 +703,17 @@ if not df_display.empty:
     # 捕获点击 (修正后的逻辑)
     if event and event.selection and event.selection.rows:
         row_idx = event.selection.rows[0]
-        # 💡 第一步：拿到要操作的 ID
         sel_id = df_display.iloc[row_idx]["录入编号"]
-        # 💡 第二步：只设信号，不在这里弹窗
+        
+        # 💡 这里只改状态，千万不要写 row_action_dialog(...)
         st.session_state.action_target_id = sel_id
         st.session_state.show_action_menu = True
-        # 💡 第三步：强制刷新，让程序跳到 400 行的调度器去安全弹窗
+        
+        # 💡 这一步非常重要：清空表格的选择状态，否则 rerun 后它还是选中的，会再次触发！
+        event.selection.rows = [] 
+        
         st.rerun()
 else:
     st.info("💡 暂无数据。")
+
 

@@ -266,7 +266,7 @@ def entry_dialog():
     if col_can.button("🗑️ 取消返回", use_container_width=True):
         st.rerun()
 
-# --- 5. 数据修改模块 (升级版：直接根据点击的 ID 填表) ---
+# --- 5. 数据修正模块 (升级版：直接根据点击的 ID 填表) ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(target_id, full_df, conn):
     # 直接根据传进来的 ID 锁定原始数据
@@ -278,7 +278,7 @@ def edit_dialog(target_id, full_df, conn):
     c1, c2 = st.columns(2)
     with c1:
         st.write("**日期 (不可修改):**")
-        st.code(str(old.get("日期", ""))) # 使用 code 样式展示日期，清晰且不可编辑
+        st.text_input("业务日期 (系统锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
     # --- 第二行：核心金额区（恢复原币种修改） ---
@@ -708,3 +708,4 @@ if not df_display.empty:
             row_action_dialog(hit.iloc[0], df_main, conn)
 else:
     st.info("💡 暂无数据。")
+

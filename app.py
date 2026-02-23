@@ -563,7 +563,7 @@ if not df_display.empty:
         hide_index=True,
         height=500,
         on_select="rerun",  
-        selection_mode="single_row", 
+        selection_mode=["single_row"], 
         column_config={
             "提交时间": st.column_config.DatetimeColumn("提交时间", width="small"),
             "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="small"),
@@ -594,13 +594,12 @@ else:
     # 仅当搜索或筛选月份无数据时显示
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
 
-# --- 维护模块 ---
-@st.dialog("🎯 行删除和修改操作", width="small")
+# --- 维护模块（行修改和删除操作） ---
+@st.dialog("🎯 请选择操作")
 def row_action_dialog(row_data, full_df):
     # 1. 简要显示选中的记录信息，核对无误
-    st.write(f"**编号：** `{row_data['录入编号']}`")
-    st.write(f"**摘要：** {row_data['摘要']}")
-    st.write(f"**金额：** {row_data['实际币种']} {row_data['实际金额']}")
+    st.write(f"**记录编号：** `{row_data['录入编号']}`")
+    st.write(f"**摘要详情：** {row_data['摘要']}")
     st.divider()
     
     # 使用 columns 让“修改”和“删除”并列分布
@@ -674,6 +673,7 @@ with st.expander(expander_label, expanded=st.session_state.maint_expanded):
             # 这里改为点击后触发弹窗
             if st.button("❌ 申请删除此记录", type="primary", use_container_width=True, key=f"pre_btn_{st.session_state.maint_reset_trigger}"):
                 confirm_delete_dialog(match_row, df_main)
+
 
 
 

@@ -724,7 +724,6 @@ if st.session_state.get("show_edit_modal", False):
 # =========================================================
 # 3. 渲染层：明细表显示 (移除顶部冗余按钮)
 # =========================================================
-st.subheader("📑 财务流水明细")
 
 if not df_display.empty:
     event = st.dataframe(
@@ -768,6 +767,7 @@ if not df_display.empty:
         st.session_state.last_processed_id = None
 else:
     st.info("💡 暂无数据。")
+
 
 
 

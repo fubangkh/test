@@ -86,7 +86,7 @@ def get_live_rates():
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 @st.cache_data(ttl=0)
-def load_data():
+def load_data(version=0):
     csv_url = "https://docs.google.com/spreadsheets/d/1AC572Eq96yIF9it1xCJQAOrxjEEnskProsLmifK3DAs/export?format=csv&gid=0"
     try:
         df = pd.read_csv(csv_url)
@@ -262,6 +262,7 @@ def entry_dialog():
                 st.toast("记账成功！数据已实时同步", icon="💰")
                 st.balloons()
                 st.cache_data.clear()
+                st.session_state.table_version += 1
                 time.sleep(1)
                 st.rerun()
 
@@ -476,7 +477,7 @@ def row_action_dialog(row_data, full_df, conn):
 
 # --- 6. 主页面 ---
 st.header("📊 汇总统计")
-df_main = load_data()
+df_main = load_data(version=st.session_state.table_version)
 
 # 💡 插入下面这段：弹窗中转调度器
 if st.session_state.get("show_action_menu", False):
@@ -816,3 +817,4 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+

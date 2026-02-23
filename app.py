@@ -357,6 +357,17 @@ def edit_dialog(target_id, full_df, conn):
 st.header("📊 汇总统计")
 df_main = load_data()
 
+# 💡 插入下面这段：弹窗中转调度器
+if st.session_state.get("show_action_menu", False):
+    target_id = st.session_state.get("action_target_id")
+    # 立即关掉开关，防止死循环
+    st.session_state.show_action_menu = False 
+    
+    if target_id:
+        hit = df_main[df_main["录入编号"] == target_id]
+        if not hit.empty:
+            row_action_dialog(hit.iloc[0], df_main, conn)
+
 if df_main.empty:
     st.warning("⚠️ 数据库目前没有数据，请点击下方按钮开始录入第一笔账单。")
     if st.button("➕ 立即录入", key="empty_add"):
@@ -700,20 +711,22 @@ if not df_display.empty:
         }
     )
 
-    # 捕获点击 (修正后的逻辑)
+    # 捕获点击 (防抖 + 安全跳转版)
     if event and event.selection and event.selection.rows:
         row_idx = event.selection.rows[0]
         sel_id = df_display.iloc[row_idx]["录入编号"]
         
-        # 💡 这里只改状态，千万不要写 row_action_dialog(...)
-        st.session_state.action_target_id = sel_id
-        st.session_state.show_action_menu = True
-        
-        # 💡 这一步非常重要：清空表格的选择状态，否则 rerun 后它还是选中的，会再次触发！
-        event.selection.rows = [] 
-        
-        st.rerun()
+        # 只有当点击的是新行时才触发
+        if st.session_state.get("last_processed_id") != sel_id:
+            st.session_state.action_target_id = sel_id
+            st.session_state.show_action_menu = True
+            st.session_state.last_processed_id = sel_id
+            st.rerun() 
+    else:
+        # 弹窗关闭或取消选中时，重置防抖信号
+        st.session_state.last_processed_id = None
 else:
     st.info("💡 暂无数据。")
+
 
 

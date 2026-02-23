@@ -493,8 +493,6 @@ def row_action_dialog(row_data, full_df, conn):
 # --- 6. 主页面 ---
 df_main = load_data(version=st.session_state.table_version)
 st.header("📊 汇总统计")
-st.write("最新一笔数据的月份:", df_main['提交时间'].dt.month.iloc[-1] if not df_main.empty else "无")
-st.write("当前选择的月份:", sel_month)
 
 # 💡 插入下面这段：弹窗中转调度器
 if st.session_state.get("show_action_menu", False):
@@ -834,6 +832,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

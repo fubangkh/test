@@ -581,53 +581,58 @@ else:
     # 仅当搜索或筛选月份无数据时显示
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
 
-# --- 维护模块：必须确保在 if/else 结构之外，与 if 对齐 ---
+# --- 维护模块：物理复位增强版 ---
 st.markdown("---")
 
-# 1. 初始化状态
+# 1. 初始化状态 (保持不变)
 if 'maint_reset' not in st.session_state:
     st.session_state.maint_reset = False
 
-# 2. 动态 Key
-exp_key = "m1" if not st.session_state.maint_reset else "m2"
+# 2. 核心：动态控制 Key 和 初始展开状态
+# 当 maint_reset 变化时，Key 变化会销毁旧组件，同时我们将 expanded 设为 False
+exp_key = f"maint_v_{st.session_state.maint_reset}" 
 
+# 这里的 expanded=False 是关键，结合 Key 的变化，能确保它“缩”回去
 with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=False):
     if not df_main.empty:
-        # 使用最新的 df_main 重新获取列表
-        id_list = df_main['录入编号'].tolist()[::-1][:10]
-        selected_id = st.selectbox("选择要删除的编号", options=id_list, key=f"del_sel_{exp_key}")
-        
-        # 匹配预览
-        mask = df_main['录入编号'] == selected_id
-        if mask.any():
-            match_row = df_main[mask].iloc[0]
-            st.warning(f"即将删除：{match_row['摘要']} | 金额：{match_row['实际金额']}")
+        # 【重要】增加一个独立容器，确保内部组件随 key 销毁
+        m_container = st.container()
+        with m_container:
+            id_list = df_main['录入编号'].tolist()[::-1][:10]
+            # 给 selectbox 增加独特的 key
+            selected_id = st.selectbox(
+                "选择要删除的编号", 
+                options=id_list, 
+                key=f"sel_{exp_key}"
+            )
+            
+            mask = df_main['录入编号'] == selected_id
+            if mask.any():
+                match_row = df_main[mask].iloc[0]
+                st.warning(f"即将删除：{match_row['摘要']} | 金额：{match_row['实际金额']}")
 
-            if st.button("❌ 确认删除并复位", type="primary", use_container_width=True, key=f"del_btn_{exp_key}"):
-                try:
-                    updated_df = df_main[df_main['录入编号'] != selected_id].copy()
-                    
-                    # 重新计算余额
-                    for col in ['收入', '支出']:
-                        updated_df[col] = pd.to_numeric(updated_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-                    updated_df['余额'] = updated_df['收入'].cumsum() - updated_df['支出'].cumsum()
-                    
-                    for col in ['收入', '支出', '余额']:
-                        updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-                    
-                    # 写入数据库
-                    conn.update(worksheet="Summary", data=updated_df)
-                    
-                    # 清缓存并重启
-                    st.cache_data.clear()
-                    st.session_state.maint_reset = not st.session_state.maint_reset
-                    st.success("✅ 删除成功！")
-                    time.sleep(0.5)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"操作失败: {e}")
-    else:
-        st.write("数据库为空")
+                if st.button("❌ 确认删除并复位页面", type="primary", use_container_width=True, key=f"btn_{exp_key}"):
+                    try:
+                        # --- 执行删除 (逻辑保持不变) ---
+                        updated_df = df_main[df_main['录入编号'] != selected_id].copy()
+                        for col in ['收入', '支出']:
+                            updated_df[col] = pd.to_numeric(updated_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+                        updated_df['余额'] = updated_df['收入'].cumsum() - updated_df['支出'].cumsum()
+                        for col in ['收入', '支出', '余额']:
+                            updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+                        
+                        conn.update(worksheet="Summary", data=updated_df)
+                        
+                        # --- 触发复位 ---
+                        st.cache_data.clear()
+                        # 切换布尔值，改变下一轮运行的 exp_key
+                        st.session_state.maint_reset = not st.session_state.maint_reset 
+                        
+                        st.success("✅ 删除成功！正在复位...")
+                        time.sleep(0.6) # 给用户看一眼成功提示的时间
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"操作失败: {e}")
 
 
 

@@ -87,9 +87,8 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 @st.cache_data(ttl=0)
 def load_data(version=0):
-    csv_url = "https://docs.google.com/spreadsheets/d/1AC572Eq96yIF9it1xCJQAOrxjEEnskProsLmifK3DAs/export?format=csv&gid=0"
     try:
-        df = pd.read_csv(csv_url)
+        df = conn.read(worksheet="Summary", ttl=0)
         df = df.dropna(how="all")
         
         # 强制将这些涉及计算的列转为数字，空值填 0
@@ -817,4 +816,5 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 

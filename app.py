@@ -580,29 +580,27 @@ if not df_display.empty:
         }
     )
 
-    # --- 1. 在主程序顶部（或者是加载数据之前）初始化状态 ---
-    if 'expander_state' not in st.session_state:
-        st.session_state.expander_state = False  # 默认关闭
-    
-    # --- 2. 数据维护模块 ---
+    # --- 1. 动态 Key 初始化 (确保在整个 app 顶部或这里均可) ---
+    if 'maint_key' not in st.session_state:
+        st.session_state.maint_key = 0
+
     st.markdown("---")
     
-    # 使用 session_state 直接控制 expanded 属性
-    with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=st.session_state.expander_state):
+    # --- 2. 使用动态 key 强制复位 ---
+    # 只要 st.session_state.maint_key 改变，这个 expander 就会被强制销毁并以折叠状态重建
+    with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=False):
         
-        # 如果用户手动点了展开，我们需要一个机制能把它重置回 False
-        # 这里我们不需要额外代码，因为下方的删除逻辑会强制改写它
-    
         if not df_main.empty:
+            # 这里的 key 也要动态，防止组件冲突
             id_list = df_main['录入编号'].tolist()[::-1][:10]
-            selected_id = st.selectbox("选择编号", options=id_list, key="final_del_sel")
+            selected_id = st.selectbox("选择编号", options=id_list, key=f"del_sel_{st.session_state.maint_key}")
             
             match_row = df_main[df_main['录入编号'] == selected_id].iloc[0]
             st.info(f"🚩 预览：{match_row['摘要']} | {match_row['实际金额']}")
     
-            if st.button("❌ 确认删除并关闭窗口", type="primary", use_container_width=True):
+            if st.button("❌ 确认删除并关闭窗口", type="primary", use_container_width=True, key=f"del_btn_{st.session_state.maint_key}"):
                 try:
-                    # --- 执行删除与重算逻辑 ---
+                    # 执行删除逻辑
                     updated_df = df_main[df_main['录入编号'] != selected_id].copy()
                     for col in ['收入', '支出']:
                         updated_df[col] = pd.to_numeric(updated_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
@@ -612,27 +610,22 @@ if not df_display.empty:
                     
                     conn.update(worksheet="Summary", data=updated_df)
                     
-                    # --- 【核心修正点】 ---
+                    # --- 执行复位核心动作 ---
                     st.cache_data.clear() 
                     
-                    # 1. 强制将 expander 状态设为 False
-                    st.session_state.expander_state = False 
+                    # 关键：改变计数器，强制 expander 销毁重建
+                    st.session_state.maint_key += 1 
                     
                     st.success("✅ 删除成功，正在复位...")
-                    time.sleep(0.5)
-                    
-                    # 2. 立即重跑，此时 expanded 属性会被读为 False
+                    time.sleep(0.8)
                     st.rerun() 
                     
                 except Exception as e:
                     st.error(f"删除失败: {e}")
-    
-    # --- 3. 一个小技巧：如果用户手动打开了，确保它能被记录（可选） ---
-    # 这一步是为了防止 rerun 后 expander 永远打不开
-    # 但在你的需求里，只要 rerun，它就该是关上的。
 
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

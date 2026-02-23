@@ -393,7 +393,93 @@ def row_action_dialog(row_data, full_df, conn):
     if not st.session_state[f"del_confirm_{rec_id}"]:
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("🛠️ 修改", use_container_width=True, key=
+            if st.button("🛠️ 修改", use_container_width=True, key=f"edit_btn_{rec_id}"):
+                st.session_state.edit_target_id = rec_id
+                st.session_state.show_edit_modal = True
+                st.rerun()
+        with c2:
+            if st.button("🗑️ 删除", type="primary", use_container_width=True, key=f"pre_del_{rec_id}"):
+                st.session_state[f"del_confirm_{rec_id}"] = True
+                st.rerun()
+    else:
+        st.error("⚠️ 确定要彻底删除此记录吗？")
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            if st.button("✅ 确定删除", type="primary", use_container_width=True, key=f"real_del_{rec_id}"):
+                try:
+                    updated_df = full_df[full_df["录入编号"] != rec_id].copy()
+                    for col in ["收入", "支出"]:
+                        updated_df[col] = pd.to_numeric(updated_df[col].astype(str).str.replace(",", ""), errors="coerce").fillna(0)
+                    updated_df["余额"] = updated_df["收入"].cumsum() - updated_df["支出"].cumsum()
+                    for col in ["收入", "支出", "余额"]:
+                        updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+                    conn.update(worksheet="Summary", data=updated_df)
+                    st.cache_data.clear()
+                    st.success("✅ 删除成功！")
+                    time.sleep(0.6)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"失败: {e}")
+        with cc2:
+            if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
+                st.session_state[f"del_confirm_{rec_id}"] = False
+                st.rerun()
 
+# --- 6. 主页面 ---
+st.header("📊 汇总统计")
+df_main = load_data()
 
+# --- 统一弹窗调度器 (放在数据加载后) ---
+if st.session_state.get("show_action_menu", False):
+    target_id = st.session_state.action_target_id
+    st.session_state.show_action_menu = False
+    st.session_state.action_target_id = None
+    hit = df_main[df_main["录入编号"] == target_id]
+    if not hit.empty:
+        row_action_dialog(hit.iloc[0], df_main, conn)
 
+if st.session_state.get("show_edit_modal", False):
+    st.session_state.show_edit_modal = False
+    edit_dialog(st.session_state.edit_target_id, df_main, conn)
+
+# [此处保持你原有的看板、账户余额排行、明细表搜索等逻辑代码不变...]
+# ... (中间代码省略，直接跳到末尾渲染层)
+
+st.subheader("📑 财务流水明细")
+if not df_display.empty:
+    event = st.dataframe(
+        df_display,
+        use_container_width=True,
+        hide_index=True,
+        height=500,
+        on_select="rerun",
+        selection_mode="single-row",
+        key="main_data_table", # 💡 建议增加固定 Key
+        column_config={
+            "提交时间": st.column_config.DatetimeColumn("提交时间", width="small"),
+            "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="small"),
+            "录入编号": st.column_config.TextColumn("录入编号", width="small"),
+            "摘要": st.column_config.TextColumn("摘要", width="medium"),
+            "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
+            "结算账户": st.column_config.TextColumn("结算账户", width="small"),
+            "资金性质": st.column_config.TextColumn("资金性质", width="small"),
+            "实际金额": st.column_config.NumberColumn("原币金额", width="small"),
+            "实际币种": st.column_config.TextColumn("原币种", width="small"),
+            "收入": st.column_config.NumberColumn("收入(USD)", width="small"),
+            "支出": st.column_config.NumberColumn("支出(USD)", width="small"),
+            "余额": st.column_config.NumberColumn("余额(USD)", width="small"),
+            "经手人": st.column_config.TextColumn("经手人", width="small"),
+            "备注": st.column_config.TextColumn("备注", width="small"),
+        }
+    )
+
+    # 捕获点击 (修正缩进)
+    if event and event.selection and event.selection.rows:
+        selected_index = event.selection.rows[0]
+        if 0 <= selected_index < len(df_display):
+            sel_id = df_display.iloc[selected_index]["录入编号"]
+            st.session_state.action_target_id = sel_id
+            st.session_state.show_action_menu = True
+            st.rerun()
+else:
+    st.info("💡 暂无匹配的流水记录。")

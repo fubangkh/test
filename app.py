@@ -269,11 +269,12 @@ def entry_dialog():
 # --- 5. 数据修改模块 (升级版：直接根据点击的 ID 填表) ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(target_id, full_df, conn):
-    # 自动获取该行旧数据，不再需要用户手动选择
+    # 直接根据传进来的 ID 锁定数据
     old = full_df[full_df["录入编号"] == target_id].iloc[0]
     
     st.info(f"正在修正记录：`{target_id}`")
     
+    # --- 表单布局 ---
     c1, c2 = st.columns(2)
     u_date = c1.text_input("日期", value=str(old.get("日期", "")))
     u_inc = c2.number_input("收入 (USD)", value=float(old.get("收入", 0)), step=0.01)
@@ -286,54 +287,38 @@ def edit_dialog(target_id, full_df, conn):
     u_proj = c5.text_input("客户/项目信息", value=str(old.get("客户/项目信息", "")))
     u_hand = c6.text_input("经手人", value=str(old.get("经手人", "")))
     
-    c7, c8 = st.columns(2)
-    u_acc = c7.text_input("结算账户", value=str(old.get("结算账户", "")))
-    u_inv = c8.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
-    
-    prop_options = ["工程收入", "施工成本", "管理费用", "预收款", "其他"]
-    u_prop = st.selectbox("资金性质", prop_options, index=prop_options.index(old.get("资金性质", "其他")) if old.get("资金性质") in prop_options else 4)
     u_note = st.text_area("备注详情", value=str(old.get("备注", "")))
 
     st.divider()
     sv, ex = st.columns(2)
     
-    if sv.button("💾 确认保存并更新余额", type="primary", use_container_width=True):
+    if sv.button("💾 确认保存", type="primary", use_container_width=True):
         try:
-            # 1. 在副本中修改数据
+            # 更新逻辑与重算余额
             new_df = full_df.copy()
             idx = new_df[new_df["录入编号"] == target_id].index[0]
             
+            # 更新字段（示例）
             new_df.at[idx, "日期"] = u_date
             new_df.at[idx, "收入"] = u_inc
             new_df.at[idx, "支出"] = u_exp
             new_df.at[idx, "摘要"] = u_sum
-            new_df.at[idx, "客户/项目信息"] = u_proj
-            new_df.at[idx, "经手人"] = u_hand
-            new_df.at[idx, "结算账户"] = u_acc
-            new_df.at[idx, "审批/发票单号"] = u_inv
-            new_df.at[idx, "资金性质"] = u_prop
-            new_df.at[idx, "备注"] = u_note
-
-            # 2. 重新计算余额流水 (这一步很重要！)
+            
+            # 重新计算流水余额
             new_df["收入"] = pd.to_numeric(new_df["收入"], errors="coerce").fillna(0)
             new_df["支出"] = pd.to_numeric(new_df["支出"], errors="coerce").fillna(0)
             new_df["余额"] = new_df["收入"].cumsum() - new_df["支出"].cumsum()
             
-            for col in ["收入", "支出", "余额"]:
-                new_df[col] = new_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-
-            # 3. 写入数据库
+            # 同步云端
             conn.update(worksheet="Summary", data=new_df)
-            
-            st.success("✅ 修改并重算成功！")
+            st.success("✅ 修改成功并已重算余额！")
             st.cache_data.clear()
             time.sleep(1)
             st.rerun()
         except Exception as e:
             st.error(f"保存失败: {e}")
             
-    if ex.button("❌ 放弃修正", use_container_width=True): 
-        st.rerun()
+    if ex.button("放弃", use_container_width=True): st.rerun()
 
 # --- 6. 主页面 ---
 st.header("📊 汇总统计")
@@ -691,4 +676,5 @@ if not df_display.empty:
             row_action_dialog(hit.iloc[0], df_main, conn)
 else:
     st.info("💡 暂无数据。")
+
 

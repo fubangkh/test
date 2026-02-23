@@ -415,6 +415,7 @@ def row_action_dialog(row_data, full_df, conn):
         c1, c2 = st.columns(2)
         with c1:
             if st.button("🛠️ 修正", use_container_width=True, key=f"edit_{rec_id}"):
+                st.session_state.show_action_menu = False
                 st.session_state.edit_target_id = rec_id
                 st.session_state.show_edit_modal = True
                 st.rerun()  # 关闭当前 Dialog 并触发主程序的监听器
@@ -718,11 +719,11 @@ def get_styled_df(df):
 # 2. 监听器：放置在主程序中 (解决修改无反应)
 # =========================================================
 if st.session_state.get("show_edit_modal", False):
-    # 💡 关键：先拿到 ID，然后立即把全局状态设为 False
     target_id = st.session_state.get("edit_target_id")
     st.session_state.show_edit_modal = False # 立即复位
     # 💡 只有在有 ID 的情况下才弹窗
     if target_id:
+        st.session_state.show_action_menu = False
         edit_dialog(target_id, df_main, conn)
 # =========================================================
 # 3. 渲染层：明细表显示 (移除顶部冗余按钮)
@@ -772,6 +773,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

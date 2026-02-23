@@ -285,7 +285,7 @@ def edit_dialog(target_id, full_df, conn):
     c1, c2 = st.columns(2)
     with c1:
         # 修正：确保 value 传值正确，显示置灰日期
-        st.text_input("业务日期 (系统锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
+        st.text_input("录入时间 (系统锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
     # --- 第二部分：金额与币种 (同步录入换算逻辑) ---
@@ -346,7 +346,7 @@ def edit_dialog(target_id, full_df, conn):
     st.divider()
     sv, ex = st.columns(2)
     
-    if sv.button("💾 确认保存修正", type="primary", use_container_width=True):
+    if sv.button("💾 确认保存", type="primary", use_container_width=True):
         if not u_sum.strip():
             st.error("摘要不能为空")
             return
@@ -414,7 +414,7 @@ def row_action_dialog(row_data, full_df, conn):
     if not st.session_state[f"del_confirm_{rec_id}"]:
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("🛠️ 修改", use_container_width=True, key=f"edit_{rec_id}"):
+            if st.button("🛠️ 修正", use_container_width=True, key=f"edit_{rec_id}"):
                 st.session_state.edit_target_id = rec_id
                 st.session_state.show_edit_modal = True
                 st.rerun()  # 关闭当前 Dialog 并触发主程序的监听器
@@ -768,6 +768,7 @@ if not df_display.empty:
         st.session_state.last_processed_id = None
 else:
     st.info("💡 暂无数据。")
+
 
 
 

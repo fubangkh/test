@@ -553,7 +553,7 @@ def get_styled_df(df):
         lambda x: 'text-align: right;', subset=['余额', '实际金额']
     )
 
-# --- 第三步：渲染层（修改列名呼应） ---
+# --- 第三步：渲染层 ---
 if not df_display.empty:
     styled_df = get_styled_df(df_display)
     
@@ -627,8 +627,6 @@ with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=False):
             except Exception as e:
                 st.error(f"删除失败: {e}")
 
-    else:
-        st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
 
 
 

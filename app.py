@@ -449,13 +449,16 @@ def row_action_dialog(row_data, full_df, conn):
                     st.session_state.show_action_menu = False
                     st.cache_data.clear()
                     st.success("✅ 删除成功！")
-                    time.sleep(0.6)
+                    time.sleep(0.3)
+                    st.session_state.last_processed_id = None
                     st.rerun()
                 except Exception as e:
                     st.error(f"失败: {e}")
         with cc2:
             if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
                 st.session_state.show_action_menu = False
+                # 重置选中 ID
+                st.session_state.last_processed_id = None
                 st.rerun()
 
 # --- 6. 主页面 ---
@@ -773,6 +776,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

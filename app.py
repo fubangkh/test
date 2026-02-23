@@ -581,17 +581,64 @@ else:
     # 仅当搜索或筛选月份无数据时显示
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
 
-# --- 维护模块：深度状态绑定版 ---
+# --- 维护模块 ---
+# --- 1. 核心：定义删除确认弹窗 ---
+@st.dialog("⚠️ 确认删除操作")
+def confirm_delete_dialog(row_data, full_df):
+    st.warning(f"您确定要彻底删除以下记录吗？此操作不可逆！")
+    
+    # 显示详情表格，方便最后核对
+    st.table({
+        "录入编号": [row_data['录入编号']],
+        "摘要": [row_data['摘要']],
+        "金额": [f"{row_data['实际币种']} {row_data['实际金额']}"],
+        "结算账户": [row_data['结算账户']]
+    })
+    
+    c1, c2 = st.columns(2)
+    if c1.button("✅ 确定执行删除", type="primary", use_container_width=True):
+        try:
+            # 执行删除逻辑
+            selected_id = row_data['录入编号']
+            updated_df = full_df[full_df["录入编号"] != selected_id].copy()
+            
+            # 重新计算余额
+            for col in ["收入", "支出"]:
+                updated_df[col] = pd.to_numeric(
+                    updated_df[col].astype(str).str.replace(",", "", regex=False),
+                    errors="coerce"
+                ).fillna(0)
+            updated_df["余额"] = updated_df["收入"].cumsum() - updated_df["支出"].cumsum()
+            
+            for col in ["收入", "支出", "余额"]:
+                updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+
+            # 更新数据库
+            conn.update(worksheet="Summary", data=updated_df)
+            
+            # 清理状态并复位
+            st.cache_data.clear()
+            st.session_state.maint_expanded = False
+            st.session_state.maint_reset_trigger += 1
+            
+            st.success("✅ 数据已删除，页面即将刷新...")
+            time.sleep(1) # 留出一秒显示绿色的成功提示
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"删除失败: {e}")
+
+    if c2.button("取消", use_container_width=True):
+        st.rerun()
+
+# --- 2. 维护模块界面 ---
 st.markdown("---")
 
-# 1. 核心状态初始化
 if "maint_expanded" not in st.session_state:
     st.session_state.maint_expanded = False
 if "maint_reset_trigger" not in st.session_state:
     st.session_state.maint_reset_trigger = 0
 
-# 2) 关键：用“不可见字符”让 expander 的 label 每次都不同，从而强制重建
-# \u200b 是 zero-width space，不会显示，但字符串不同 => 组件不同
 expander_label = "🛠️ 账目维护 (撤销与删除)" + ("\u200b" * st.session_state.maint_reset_trigger)
 
 with st.expander(expander_label, expanded=st.session_state.maint_expanded):
@@ -606,35 +653,8 @@ with st.expander(expander_label, expanded=st.session_state.maint_expanded):
         mask = df_main["录入编号"] == selected_id
         if mask.any():
             match_row = df_main[mask].iloc[0]
-            st.warning(f"即将删除：{match_row['摘要']} | 金额：{match_row['实际金额']}")
+            
+            # 这里改为点击后触发弹窗
+            if st.button("❌ 申请删除此记录", type="primary", use_container_width=True, key=f"pre_btn_{st.session_state.maint_reset_trigger}"):
+                confirm_delete_dialog(match_row, df_main)
 
-            if st.button(
-                "❌ 确认删除并复位页面",
-                type="primary",
-                use_container_width=True,
-                key=f"btn_{st.session_state.maint_reset_trigger}"
-            ):
-                try:
-                    # --- 1. 执行核心删除逻辑 ---
-                    updated_df = df_main[df_main["录入编号"] != selected_id].copy()
-                    for col in ["收入", "支出"]:
-                        updated_df[col] = pd.to_numeric(
-                            updated_df[col].astype(str).str.replace(",", "", regex=False),
-                            errors="coerce"
-                        ).fillna(0)
-                    updated_df["余额"] = updated_df["收入"].cumsum() - updated_df["支出"].cumsum()
-                    for col in ["收入", "支出", "余额"]:
-                        updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-
-                    conn.update(worksheet="Summary", data=updated_df)
-
-                    # --- 2. 强制折叠：先关状态，再让 expander label 变化以重建 ---
-                    st.cache_data.clear()
-                    st.session_state.maint_expanded = False
-                    st.session_state.maint_reset_trigger += 1  # 下一次运行 label 变了 => 新 expander 默认折叠
-
-                    st.success("✅ 删除成功！正在复位...")
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(f"操作失败: {e}")

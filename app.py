@@ -459,6 +459,7 @@ def row_action_dialog(row_data, full_df, conn):
                 st.session_state.show_action_menu = False
                 # 重置选中 ID
                 st.session_state.last_processed_id = None
+                st.session_state.action_target_id = None
                 st.rerun()
 
 # --- 6. 主页面 ---
@@ -776,6 +777,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

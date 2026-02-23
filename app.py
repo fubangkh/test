@@ -266,43 +266,74 @@ def entry_dialog():
     if col_can.button("🗑️ 取消返回", use_container_width=True):
         st.rerun()
 
-# --- 5. 数据修改模块 ---
+# --- 5. 数据修改模块 (升级版：直接根据点击的 ID 填表) ---
 @st.dialog("🛠️ 数据修正", width="large")
-def edit_dialog(df):
-    target = st.selectbox("第一步：选择要修改的录入编号", ["-- 请选择 --"] + df["录入编号"].tolist()[::-1])
-    if target != "-- 请选择 --":
-        old = df[df["录入编号"] == target].iloc[0]
-        
-        c1, c2 = st.columns(2)
-        u_date = c1.text_input("日期", value=str(old.get("日期", "")))
-        u_inc = c2.number_input("收入 (USD)", value=float(old.get("收入", 0)))
-        
-        c3, c4 = st.columns(2)
-        u_sum = c3.text_input("摘要内容", value=str(old.get("摘要", "")))
-        u_exp = c4.number_input("支出 (USD)", value=float(old.get("支出", 0)))
-        
-        c5, c6 = st.columns(2)
-        u_proj = c5.text_input("客户/项目信息", value=str(old.get("客户/项目信息", "")))
-        u_hand = c6.text_input("经手人", value=str(old.get("经手人", "")))
-        
-        c7, c8 = st.columns(2)
-        u_acc = c7.text_input("结算账户", value=str(old.get("结算账户", "")))
-        u_inv = c8.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
-        
-        u_prop = st.selectbox("资金性质", ["工程收入", "施工成本", "管理费用", "预收款", "其他"])
-        u_note = st.text_area("备注详情", value=str(old.get("备注", "")))
+def edit_dialog(target_id, full_df, conn):
+    # 自动获取该行旧数据，不再需要用户手动选择
+    old = full_df[full_df["录入编号"] == target_id].iloc[0]
+    
+    st.info(f"正在修正记录：`{target_id}`")
+    
+    c1, c2 = st.columns(2)
+    u_date = c1.text_input("日期", value=str(old.get("日期", "")))
+    u_inc = c2.number_input("收入 (USD)", value=float(old.get("收入", 0)), step=0.01)
+    
+    c3, c4 = st.columns(2)
+    u_sum = c3.text_input("摘要内容", value=str(old.get("摘要", "")))
+    u_exp = c4.number_input("支出 (USD)", value=float(old.get("支出", 0)), step=0.01)
+    
+    c5, c6 = st.columns(2)
+    u_proj = c5.text_input("客户/项目信息", value=str(old.get("客户/项目信息", "")))
+    u_hand = c6.text_input("经手人", value=str(old.get("经手人", "")))
+    
+    c7, c8 = st.columns(2)
+    u_acc = c7.text_input("结算账户", value=str(old.get("结算账户", "")))
+    u_inv = c8.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
+    
+    prop_options = ["工程收入", "施工成本", "管理费用", "预收款", "其他"]
+    u_prop = st.selectbox("资金性质", prop_options, index=prop_options.index(old.get("资金性质", "其他")) if old.get("资金性质") in prop_options else 4)
+    u_note = st.text_area("备注详情", value=str(old.get("备注", "")))
 
-        st.divider()
-        sv, ex = st.columns(2)
-        if sv.button("💾 确认保存", type="primary", use_container_width=True):
-            st.balloons()
-            st.success("修正成功！")
-            time.sleep(1.2)
+    st.divider()
+    sv, ex = st.columns(2)
+    
+    if sv.button("💾 确认保存并更新余额", type="primary", use_container_width=True):
+        try:
+            # 1. 在副本中修改数据
+            new_df = full_df.copy()
+            idx = new_df[new_df["录入编号"] == target_id].index[0]
+            
+            new_df.at[idx, "日期"] = u_date
+            new_df.at[idx, "收入"] = u_inc
+            new_df.at[idx, "支出"] = u_exp
+            new_df.at[idx, "摘要"] = u_sum
+            new_df.at[idx, "客户/项目信息"] = u_proj
+            new_df.at[idx, "经手人"] = u_hand
+            new_df.at[idx, "结算账户"] = u_acc
+            new_df.at[idx, "审批/发票单号"] = u_inv
+            new_df.at[idx, "资金性质"] = u_prop
+            new_df.at[idx, "备注"] = u_note
+
+            # 2. 重新计算余额流水 (这一步很重要！)
+            new_df["收入"] = pd.to_numeric(new_df["收入"], errors="coerce").fillna(0)
+            new_df["支出"] = pd.to_numeric(new_df["支出"], errors="coerce").fillna(0)
+            new_df["余额"] = new_df["收入"].cumsum() - new_df["支出"].cumsum()
+            
+            for col in ["收入", "支出", "余额"]:
+                new_df[col] = new_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+
+            # 3. 写入数据库
+            conn.update(worksheet="Summary", data=new_df)
+            
+            st.success("✅ 修改并重算成功！")
             st.cache_data.clear()
+            time.sleep(1)
             st.rerun()
-        st.markdown('<div class="red-btn">', unsafe_allow_html=True)
-        if ex.button("❌ 放弃修正", use_container_width=True): st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+        except Exception as e:
+            st.error(f"保存失败: {e}")
+            
+    if ex.button("❌ 放弃修正", use_container_width=True): 
+        st.rerun()
 
 # --- 6. 主页面 ---
 st.header("📊 汇总统计")
@@ -553,70 +584,78 @@ def get_styled_df(df):
     )
 
 # =========================================================
-# ✅ 最终整段：行点击弹窗（修改/删除） + 稳定性修复
+# 1. 操作枢纽：行点击后的对话框 (包含 修改 + 删除确认)
 # =========================================================
-
-# --- 1. 统一操作对话框 ---
 @st.dialog("🎯 账目操作", width="small")
 def row_action_dialog(row_data, full_df, conn):
     rec_id = row_data["录入编号"]
     
-    # 状态管理：是否进入“确认删除”阶段
-    if f"confirm_delete_{rec_id}" not in st.session_state:
-        st.session_state[f"confirm_delete_{rec_id}"] = False
+    # 内部状态：控制是否显示“删除确认”界面
+    if f"del_confirm_{rec_id}" not in st.session_state:
+        st.session_state[f"del_confirm_{rec_id}"] = False
 
     st.write(f"**记录编号：** `{rec_id}`")
-    st.write(f"**摘要：** {row_data.get('摘要','')}")
+    st.write(f"**摘要详情：** {row_data.get('摘要','')}")
     st.write(f"**金额：** {row_data.get('实际币种','')} {row_data.get('实际金额','')}")
     st.divider()
 
-    # --- 情况 A：常规选择界面 ---
-    if not st.session_state[f"confirm_delete_{rec_id}"]:
+    # --- 逻辑 A：初始选择界面 ---
+    if not st.session_state[f"del_confirm_{rec_id}"]:
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("🛠️ 修改记录", use_container_width=True, key=f"btn_row_edit_{rec_id}"):
+            if st.button("🛠️ 修改记录", use_container_width=True, key=f"edit_{rec_id}"):
                 st.session_state.edit_target_id = rec_id
                 st.session_state.show_edit_modal = True
-                st.rerun() # 必须 rerun，让主程序捕获状态并弹出修改单
+                st.rerun()  # 关闭当前 Dialog 并触发主程序的监听器
         with c2:
-            if st.button("🗑️ 删除记录", type="primary", use_container_width=True, key=f"btn_row_del_{rec_id}"):
-                st.session_state[f"confirm_delete_{rec_id}"] = True
-                st.rerun()
+            if st.button("🗑️ 删除记录", type="primary", use_container_width=True, key=f"pre_del_{rec_id}"):
+                st.session_state[f"del_confirm_{rec_id}"] = True
+                st.rerun()  # 仅刷新弹窗内显示的内容
 
-    # --- 情况 B：确认删除界面 (解决嵌套 Dialog 报错) ---
+    # --- 逻辑 B：弹窗内的删除确认界面 (解决 Nested Dialog 报错) ---
     else:
-        st.error("⚠️ 确定要彻底删除此记录吗？操作不可逆！")
+        st.error("⚠️ 确定要彻底删除此记录吗？操作不可恢复！")
         cc1, cc2 = st.columns(2)
         with cc1:
-            if st.button("✅ 确认执行", type="primary", use_container_width=True, key=f"btn_real_del_{rec_id}"):
+            if st.button("✅ 确定删除", type="primary", use_container_width=True, key=f"real_del_{rec_id}"):
                 try:
-                    # 执行删除重算逻辑
+                    # 1. 执行删除并重算
                     updated_df = full_df[full_df["录入编号"] != rec_id].copy()
-                    
                     for col in ["收入", "支出"]:
                         updated_df[col] = pd.to_numeric(
                             updated_df[col].astype(str).str.replace(",", "", regex=False),
                             errors="coerce"
                         ).fillna(0)
-                    
                     updated_df["余额"] = updated_df["收入"].cumsum() - updated_df["支出"].cumsum()
-                    
                     for col in ["收入", "支出", "余额"]:
                         updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
 
+                    # 2. 同步数据库
                     conn.update(worksheet="Summary", data=updated_df)
                     st.cache_data.clear()
-                    st.success("✅ 已删除")
-                    time.sleep(0.5)
+                    st.success("✅ 删除成功！")
+                    time.sleep(0.6)
                     st.rerun()
                 except Exception as e:
                     st.error(f"失败: {e}")
         with cc2:
-            if st.button("取消", use_container_width=True, key=f"btn_cancel_del_{rec_id}"):
-                st.session_state[f"confirm_delete_{rec_id}"] = False
+            if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
+                st.session_state[f"del_confirm_{rec_id}"] = False
                 st.rerun()
 
-# --- 2. 渲染层（表格显示） ---
+# =========================================================
+# 2. 监听器：放置在主程序中 (解决修改无反应)
+# =========================================================
+if st.session_state.get("show_edit_modal", False):
+    st.session_state.show_edit_modal = False # 立即复位
+    # 这里调用之前定义的 edit_dialog
+    edit_dialog(st.session_state.edit_target_id, df_main, conn)
+
+# =========================================================
+# 3. 渲染层：明细表显示 (移除顶部冗余按钮)
+# =========================================================
+st.subheader("📑 财务流水明细")
+
 if not df_display.empty:
     event = st.dataframe(
         df_display,
@@ -624,7 +663,7 @@ if not df_display.empty:
         hide_index=True,
         height=500,
         on_select="rerun",
-        selection_mode="single-row",   # Streamlit 1.54 正确写法
+        selection_mode="single-row",
         column_config={
             "提交时间": st.column_config.DatetimeColumn("提交时间", width="small"),
             "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="small"),
@@ -643,22 +682,13 @@ if not df_display.empty:
         }
     )
 
-    # --- 3. 捕获点击事件 ---
+    # 捕获点击
     if event and event.selection and event.selection.rows:
-        selected_index = event.selection.rows[0]
-        sel_id = df_display.iloc[selected_index]["录入编号"]
-        # 回查主表，防止错位
+        row_idx = event.selection.rows[0]
+        sel_id = df_display.iloc[row_idx]["录入编号"]
         hit = df_main[df_main["录入编号"] == sel_id]
         if not hit.empty:
             row_action_dialog(hit.iloc[0], df_main, conn)
-
-# --- 4. 修改表单监听器 (解决修改无反应) ---
-# 必须放在主程序逻辑中，不能放在 dialog 内部
-if st.session_state.get("show_edit_modal", False):
-    st.session_state.show_edit_modal = False # 复位
-    # 这里调用你真正的修改表单 Dialog 函数
-    # 注意：确保这个函数也使用了 @st.dialog 装饰器
-    # edit_entry_dialog(st.session_state.edit_target_id) 
-    st.info(f"正在调起修改表单：记录 {st.session_state.edit_target_id}") 
-    # 请在这里插入你实际的修改函数调用代码
+else:
+    st.info("💡 暂无数据。")
 

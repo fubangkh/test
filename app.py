@@ -353,6 +353,66 @@ def edit_dialog(target_id, full_df, conn):
     if ex.button("放弃", use_container_width=True): 
         st.rerun()
 
+# =========================================================
+# 1. 操作枢纽：行点击后的对话框 (包含 修改 + 删除确认)
+# =========================================================
+@st.dialog("🎯 账目操作", width="small")
+def row_action_dialog(row_data, full_df, conn):
+    rec_id = row_data["录入编号"]
+    
+    # 内部状态：控制是否显示“删除确认”界面
+    if f"del_confirm_{rec_id}" not in st.session_state:
+        st.session_state[f"del_confirm_{rec_id}"] = False
+
+    st.write(f"**记录编号：** `{rec_id}`")
+    st.write(f"**摘要详情：** {row_data.get('摘要','')}")
+    st.write(f"**金额：** {row_data.get('实际币种','')} {row_data.get('实际金额','')}")
+    st.divider()
+
+    # --- 逻辑 A：初始选择界面 ---
+    if not st.session_state[f"del_confirm_{rec_id}"]:
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("🛠️ 修改", use_container_width=True, key=f"edit_{rec_id}"):
+                st.session_state.edit_target_id = rec_id
+                st.session_state.show_edit_modal = True
+                st.rerun()  # 关闭当前 Dialog 并触发主程序的监听器
+        with c2:
+            if st.button("🗑️ 删除", type="primary", use_container_width=True, key=f"pre_del_{rec_id}"):
+                st.session_state[f"del_confirm_{rec_id}"] = True
+                st.rerun()  # 仅刷新弹窗内显示的内容
+
+    # --- 逻辑 B：弹窗内的删除确认界面 (解决 Nested Dialog 报错) ---
+    else:
+        st.error("⚠️ 确定要彻底删除此记录吗？操作不可恢复！")
+        cc1, cc2 = st.columns(2)
+        with cc1:
+            if st.button("✅ 确定删除", type="primary", use_container_width=True, key=f"real_del_{rec_id}"):
+                try:
+                    # 1. 执行删除并重算
+                    updated_df = full_df[full_df["录入编号"] != rec_id].copy()
+                    for col in ["收入", "支出"]:
+                        updated_df[col] = pd.to_numeric(
+                            updated_df[col].astype(str).str.replace(",", "", regex=False),
+                            errors="coerce"
+                        ).fillna(0)
+                    updated_df["余额"] = updated_df["收入"].cumsum() - updated_df["支出"].cumsum()
+                    for col in ["收入", "支出", "余额"]:
+                        updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+
+                    # 2. 同步数据库
+                    conn.update(worksheet="Summary", data=updated_df)
+                    st.cache_data.clear()
+                    st.success("✅ 删除成功！")
+                    time.sleep(0.6)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"失败: {e}")
+        with cc2:
+            if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
+                st.session_state[f"del_confirm_{rec_id}"] = False
+                st.rerun()
+
 # --- 6. 主页面 ---
 st.header("📊 汇总统计")
 df_main = load_data()
@@ -611,66 +671,6 @@ def get_styled_df(df):
     )
 
 # =========================================================
-# 1. 操作枢纽：行点击后的对话框 (包含 修改 + 删除确认)
-# =========================================================
-@st.dialog("🎯 账目操作", width="small")
-def row_action_dialog(row_data, full_df, conn):
-    rec_id = row_data["录入编号"]
-    
-    # 内部状态：控制是否显示“删除确认”界面
-    if f"del_confirm_{rec_id}" not in st.session_state:
-        st.session_state[f"del_confirm_{rec_id}"] = False
-
-    st.write(f"**记录编号：** `{rec_id}`")
-    st.write(f"**摘要详情：** {row_data.get('摘要','')}")
-    st.write(f"**金额：** {row_data.get('实际币种','')} {row_data.get('实际金额','')}")
-    st.divider()
-
-    # --- 逻辑 A：初始选择界面 ---
-    if not st.session_state[f"del_confirm_{rec_id}"]:
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("🛠️ 修改", use_container_width=True, key=f"edit_{rec_id}"):
-                st.session_state.edit_target_id = rec_id
-                st.session_state.show_edit_modal = True
-                st.rerun()  # 关闭当前 Dialog 并触发主程序的监听器
-        with c2:
-            if st.button("🗑️ 删除", type="primary", use_container_width=True, key=f"pre_del_{rec_id}"):
-                st.session_state[f"del_confirm_{rec_id}"] = True
-                st.rerun()  # 仅刷新弹窗内显示的内容
-
-    # --- 逻辑 B：弹窗内的删除确认界面 (解决 Nested Dialog 报错) ---
-    else:
-        st.error("⚠️ 确定要彻底删除此记录吗？操作不可恢复！")
-        cc1, cc2 = st.columns(2)
-        with cc1:
-            if st.button("✅ 确定删除", type="primary", use_container_width=True, key=f"real_del_{rec_id}"):
-                try:
-                    # 1. 执行删除并重算
-                    updated_df = full_df[full_df["录入编号"] != rec_id].copy()
-                    for col in ["收入", "支出"]:
-                        updated_df[col] = pd.to_numeric(
-                            updated_df[col].astype(str).str.replace(",", "", regex=False),
-                            errors="coerce"
-                        ).fillna(0)
-                    updated_df["余额"] = updated_df["收入"].cumsum() - updated_df["支出"].cumsum()
-                    for col in ["收入", "支出", "余额"]:
-                        updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-
-                    # 2. 同步数据库
-                    conn.update(worksheet="Summary", data=updated_df)
-                    st.cache_data.clear()
-                    st.success("✅ 删除成功！")
-                    time.sleep(0.6)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"失败: {e}")
-        with cc2:
-            if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
-                st.session_state[f"del_confirm_{rec_id}"] = False
-                st.rerun()
-
-# =========================================================
 # 2. 监听器：放置在主程序中 (解决修改无反应)
 # =========================================================
 if st.session_state.get("show_edit_modal", False):
@@ -727,6 +727,7 @@ if not df_display.empty:
         st.session_state.last_processed_id = None
 else:
     st.info("💡 暂无数据。")
+
 
 
 

@@ -277,8 +277,8 @@ def edit_dialog(target_id, full_df, conn):
     # --- 第一行：日期（锁定不可改）与 摘要 ---
     c1, c2 = st.columns(2)
     with c1:
-        
-        st.text_input("业务日期 (系统锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
+        st.write("**录入时间 (系统锁定):**")
+        st.text_input(value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
     # --- 第二行：核心金额区（恢复原币种修改） ---
@@ -708,5 +708,6 @@ if not df_display.empty:
             row_action_dialog(hit.iloc[0], df_main, conn)
 else:
     st.info("💡 暂无数据。")
+
 
 

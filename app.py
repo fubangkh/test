@@ -121,7 +121,7 @@ def get_dynamic_options(df, column_name):
         pass
     return ["-- 请选择 --", "➕ 新增..."]
     
-   # --- 4. 录入模块 ---
+   # --- 4. 录入模块 (回归稳定版) ---
 @st.dialog("📝 新增录入", width="large")
 def entry_dialog():
     # --- A. 内部常量定义 ---
@@ -140,7 +140,7 @@ def entry_dialog():
     # 1. 摘要与时间
     c1, c2 = st.columns(2)
     val_sum = c1.text_input("摘要内容", placeholder="请输入流水说明")
-    val_time = c2.datetime_input("业务时间", value=datetime.now(LOCAL_TZ))
+    val_time = c2.date_input("业务时间", value=datetime.now(LOCAL_TZ)) # 建议用 date_input 更稳
     
     # 2. 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
@@ -168,116 +168,81 @@ def entry_dialog():
         val_acc_from = r3_c1.selectbox("➡️ 转出账户", options=get_dynamic_options(df, "结算账户"))
         val_acc_to = r3_c2.selectbox("⬅️ 转入账户", options=get_dynamic_options(df, "结算账户"))
         val_hand = "系统自动结转"
+        val_acc = "资金结转" # 预设值避免变量缺失
     else:
         sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "结算账户"))
-        val_acc = st.text_input("✍️ 录入新账户") if sel_acc == "➕ 新增..." else sel_acc
+        val_acc = r3_c1.text_input("✍️ 录入新账户") if sel_acc == "➕ 新增..." else sel_acc
         sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
-        val_hand = st.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
+        val_hand = r3_c2.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
 
-    # --- 5. 客户或项目信息
+    # --- 5. 客户或项目信息 (回归稳定逻辑) ---
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
-    # 现在 sel_proj 默认会是 "-- 请选择 --"
     sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
 
-    # 如果选了新增，或者还没选（刚打开弹窗时），显示输入框
+    # 如果选了新增，或者还没选，显示输入框。
+    # 提交时 val_proj 将获取输入框中的最终文字。
     if sel_proj == "➕ 新增..." or sel_proj == "-- 请选择 --":
-        val_proj = st.text_input("✍️ 录入新客户/项目", value="", key="k_new_proj_input", placeholder="请输入或选择项目名称...")
+        val_proj = st.text_input("✍️ 录入新客户/项目", key="k_new_proj_input", placeholder="请输入项目名称...")
     else:
         val_proj = sel_proj
+
     val_note = st.text_area("备注")
 
-    # --- 6. 核心提交逻辑函数 (注意这个函数的缩进) ---
+    # --- 6. 核心提交逻辑函数 ---
     def validate_and_submit():
         if not val_sum.strip():
             st.error("⚠️ 请填写摘要内容！")
             return False
         if val_amt <= 0:
-            st.error("⚠️ 金额必须大于 0！")
+            st.error("⚠️ 金婚必须大于 0！")
             return False
         if not val_inv or val_inv.strip() == "":
             st.error("⚠️ 请输入【审批/发票单号】！")
             return False
-        if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --", "--", "-"]):
+        
+        # 项目校验
+        if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --"]):
             st.error(f"⚠️ 【{val_prop}】必须关联有效项目！")
             return False
-        if is_transfer:
-            if val_acc_from == "-- 请选择 --" or val_acc_to == "-- 请选择 --":
-                st.error("⚠️ 请选择转出或转入账户！")
-                return False
-        else:
-            if not val_acc or val_acc.strip() in ["", "-- 请选择 --"]:
-                st.error("⚠️ 请输入或选择【结算账户】！")
-                return False
-            if not val_hand or val_hand.strip() in ["", "-- 请选择 --"]:
-                st.error("⚠️ 请输入或选择【经手人】！")
-                return False
-        
+
         try:
-            current_df = load_data()
+            # 重新加载最新数据，防止 full_df 未定义
+            current_df = load_data() 
             now_dt = datetime.now(LOCAL_TZ)
             now_ts = now_dt.strftime("%Y-%m-%d %H:%M:%S")
             today_str = now_dt.strftime("%Y%m%d")
 
-            # 编号生成逻辑 (R + 年月日 + 3位顺位码)
+            # 编号生成
             today_mask = current_df['录入编号'].astype(str).str.contains(f"R{today_str}", na=False)
             today_records = current_df[today_mask]
             start_num = (int(str(today_records['录入编号'].iloc[-1])[-3:]) + 1) if not today_records.empty else 1
 
             new_rows = []
-            # --- 核心修改：定义 15 列结构的行生成函数 ---
             def create_row(offset, s, p, a, i, pr, raw_v, raw_c, inc, exp, h, n):
                 sn = f"R{today_str}{(start_num + offset):03d}"
-                # 严格对应 Sheets 15列顺序：
-                # 1.录入编号, 2.提交时间, 3.修改时间, 4.摘要, 5.客户/项目信息, 6.结算账户, 
-                # 7.审批/发票单号, 8.资金性质, 9.实际金额, 10.实际币种, 11.收入, 12.支出, 
-                # 13.余额, 14.经手人, 15.备注
-                return [
-                    sn, now_ts, now_ts, s, p, a, i, pr, 
-                    round(float(raw_v), 2),  # 第9列：实际金额
-                    raw_c,                   # 第10列：实际币种
-                    round(float(inc), 2),    # 第11列：收入(USD)
-                    round(float(exp), 2),    # 第12列：支出(USD)
-                    0,                       # 第13列：余额 (后面代码会统一重算)
-                    h, n                     # 第14,15列：经手人, 备注
-                ]
+                return [sn, now_ts, now_ts, s, p, a, i, pr, round(float(raw_v), 2), raw_c, round(float(inc), 2), round(float(exp), 2), 0, h, n]
 
             if is_transfer:
-                # 转出：实际金额也记为 val_amt
                 new_rows.append(create_row(0, f"【转出】{val_sum}", "内部调拨", val_acc_from, val_inv, val_prop, val_amt, val_curr, 0, converted_usd, val_hand, val_note))
-                # 转入：实际金额也记为 val_amt
                 new_rows.append(create_row(1, f"【转入】{val_sum}", "内部调拨", val_acc_to, val_inv, val_prop, val_amt, val_curr, converted_usd, 0, val_hand, val_note))
             else:
                 inc_val = converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0
                 exp_val = converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0
-                # 正常录入
                 new_rows.append(create_row(0, val_sum, val_proj, val_acc, val_inv, val_prop, val_amt, val_curr, inc_val, exp_val, val_hand, val_note))
-           # --- 3. 合并并重算余额 (全列强制保留2位小数显示) ---
+
             new_df = pd.DataFrame(new_rows, columns=current_df.columns)
             full_df = pd.concat([current_df, new_df], ignore_index=True)
             
-            # 确保数据是数值类型进行计算
-            full_df['收入'] = pd.to_numeric(full_df['收入'], errors='coerce').fillna(0)
-            full_df['支出'] = pd.to_numeric(full_df['支出'], errors='coerce').fillna(0)
-            
-            # --- 核心计算环节 ---
-            # 1. 安全处理：先把可能存在的逗号去掉，再转为数字，确保计算不出错
+            # 数值计算
             for col in ['收入', '支出']:
-                full_df[col] = (
-                    full_df[col].astype(str)
-                    .str.replace(',', '', regex=False)
-                    .pipe(pd.to_numeric, errors='coerce')
-                    .fillna(0)
-                )
+                full_df[col] = pd.to_numeric(full_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
 
-            # 2. 重新计算余额流水
             full_df['余额'] = (full_df['收入'].cumsum() - full_df['支出'].cumsum())
 
-            # 3. 核心修正：将金额列转换为带2位小数的字符串 (不带逗号存入)
-            # 这样上传到 Google Sheets 后，由表格的“财务格式”来负责显示逗号
+            # 格式化存入
             for col in ['收入', '支出', '余额']:
                 full_df[col] = full_df[col].apply(lambda x: "{:.2f}".format(float(x)))
             
-            # --- 4. 同步 Google Sheets ---
             conn.update(worksheet="Summary", data=full_df)
             return True
         except Exception as e:
@@ -285,26 +250,21 @@ def entry_dialog():
             return False
 
     # --- 7. 底部按钮区域 ---
-    st.divider() # 加上分割线更有层次感
+    st.divider()
     col_sub, col_can = st.columns(2)
 
-    # 1. 提交按钮
     if col_sub.button("🚀 确认提交", type="primary", use_container_width=True):
         with st.spinner("正在同步至云端..."):
             if validate_and_submit():
                 st.toast("记账成功！数据已实时同步", icon="💰")
                 st.balloons()
-                st.cache_data.clear() # 清除缓存确保主页看到最新数据
-                time.sleep(1.2)
+                st.cache_data.clear()
+                time.sleep(1)
                 st.rerun()
 
-    # 2. 取消按钮
     if col_can.button("🗑️ 取消返回", use_container_width=True):
         st.rerun()
 
-    # 如果你之前有手动开启的 div 标签，记得闭合它
-    st.markdown('</div>', unsafe_allow_html=True)
-    
 # --- 5. 数据修改模块 ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(df):
@@ -620,6 +580,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

@@ -460,7 +460,7 @@ def row_action_dialog(row_data, full_df, conn):
                     st.session_state.show_action_menu = False
                     st.cache_data.clear()
                     st.success("✅ 删除成功！")
-                    time.sleep(0.3)
+                    time.sleep(0.5)
                     st.session_state.last_processed_id = None
                     st.session_state.table_version += 1
                     st.rerun()
@@ -789,6 +789,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

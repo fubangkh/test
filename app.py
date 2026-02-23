@@ -85,27 +85,34 @@ def get_live_rates():
 # --- 3. 数据连接 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-@st.cache_data(ttl=0)
+# 💡 建议暂时注释掉缓存，确保每次 version 改变时都执行物理读取
+# @st.cache_data(ttl=0) 
 def load_data(version=0):
     try:
+        # 1. 强制直连读取 (ttl=0 确保不读取 streamlit 本地旧副本)
         df = conn.read(worksheet="Summary", ttl=0)
         df = df.dropna(how="all")
         
-        # 强制将这些涉及计算的列转为数字，空值填 0
-        numeric_cols = ['实际金额','收入', '支出', '余额'] # 根据你表格的实际列名添加
+        # 2. 核心清洗：确保数值列绝对干净
+        numeric_cols = ['实际金额', '收入', '支出', '余额']
         for col in numeric_cols:
             if col in df.columns:
-                # 转换前先去掉逗号（Google Sheets 导出的 CSV 有时会带 379,167.21 里的逗号）
-                if df[col].dtype == 'object':
-                    df[col] = df[col].str.replace(',', '')
+                # 即使是对象类型，也先转字符串，删掉逗号、空格、美元符号等
+                if df[col].dtype == 'object' or df[col].dtype == 'string':
+                    df[col] = df[col].astype(str).str.replace(r'[$,\s]', '', regex=True)
+                
+                # 强制转换为浮点数，转换失败的填 0
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
         
+        # 3. 填充其余空值
         df = df.fillna("")
+        
+        # 设置显示精度
         pd.options.display.float_format = '{:,.2f}'.format
         
         return df
     except Exception as e:
-        st.error(f"加载失败: {e}")
+        st.error(f"❌ 加载失败: {e}")
         return pd.DataFrame()
 
 # get_dynamic_options 函数保持不变，它现在可以完美兼容上面返回的 df
@@ -209,7 +216,7 @@ def entry_dialog():
 
         try:
             # 重新加载最新数据，防止 full_df 未定义
-            current_df = load_data() 
+            current_df = df 
             now_dt = datetime.now(LOCAL_TZ)
             now_ts = now_dt.strftime("%Y-%m-%d %H:%M:%S")
             today_str = now_dt.strftime("%Y%m%d")
@@ -262,7 +269,7 @@ def entry_dialog():
                 st.balloons()
                 st.cache_data.clear()
                 st.session_state.table_version += 1
-                time.sleep(1)
+                time.sleep(2)
                 st.rerun()
 
     if col_can.button("🗑️ 取消返回", use_container_width=True):
@@ -816,5 +823,6 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 

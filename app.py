@@ -215,58 +215,82 @@ def entry_dialog():
         else:
             val_hand = sel_hand
 
-    # --- 5. 项目与备注 (防闪退 + 自动回填版) ---
-    # --- 5. 项目信息 (Popover 方案：彻底杜绝闪退与失效) ---
-    proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
-    
-    # 获取基础选项列表
-    proj_options = get_dynamic_options(df, "客户/项目信息")
-    
-    # 布局：左边是下拉框，右边是新增按钮
-    p_col1, p_col2 = st.columns([4, 1])
-    
-    with p_col1:
-        # 主下拉框：不再包含“新增”选项，只负责展示已有项目
-        sel_proj = st.selectbox(proj_label, options=proj_options, key="main_proj_box")
+    # --- 5. 项目信息 (空容器动态切换版) ---
+    if "opt_proj" not in st.session_state:
+        st.session_state.opt_proj = get_dynamic_options(df, "客户/项目信息")
+    if "proj_idx" not in st.session_state:
+        st.session_state.proj_idx = 0
 
-    with p_col2:
-        st.write("") # 调整对齐间距
-        st.write("") 
-        with st.popover("➕", help="录入新项目"):
-            st.markdown("### ✍️ 录入新项目")
-            new_p = st.text_input("项目全称", key="pop_new_p_input")
-            if st.button("确定并回填", key="btn_pop_confirm", type="primary", use_container_width=True):
-                if new_p and new_p.strip():
-                    # 仅在内存中暂存这个新值，不触发页面刷新
-                    st.session_state.tmp_added_proj = new_p.strip()
-                    st.success(f"已就绪: {new_p}")
-                    st.info("请直接在下方填写备注并提交即可")
+    # 创建一个动态占位符
+    proj_placeholder = st.empty()
+
+    with proj_placeholder.container():
+        proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
+        sel_proj = st.selectbox(proj_label, options=st.session_state.opt_proj, index=st.session_state.proj_idx)
+
+    # 如果选中新增，则立刻用“录入框”覆盖上面的“下拉框”
+    if sel_proj == "➕ 新增...":
+        with proj_placeholder.container(border=True):
+            st.markdown("##### ✍️ 录入新项目")
+            new_p = st.text_input("请输入名称", key="k_new_p_final")
+            c1, c2 = st.columns(2)
+            if c2.button("确定项目", type="primary", use_container_width=True):
+                if new_p.strip():
+                    if new_p not in st.session_state.opt_proj:
+                        st.session_state.opt_proj.insert(1, new_p)
+                    st.session_state.proj_idx = st.session_state.opt_proj.index(new_p)
+                    st.rerun() # 只要逻辑在 st.empty 内部，rerun 通常不会闪退
                 else:
-                    st.error("请输入名称")
+                    st.error("不能为空")
+            if c1.button("取消", use_container_width=True):
+                st.session_state.proj_idx = 0
+                st.rerun()
+        val_proj = new_p
+    else:
+        val_proj = sel_proj
 
-    # 逻辑判断：最终提交给数据库的值
-    # 如果用户在 Popover 里填了新名字，则优先用新名字，否则用下拉框选的名字
-    final_val_proj = st.session_state.get("tmp_added_proj", sel_proj)
-    
-    # 实时回显（给用户反馈，防止用户疑惑）
-    if "tmp_added_proj" in st.session_state:
-        st.caption(f"✨ 当前已锁定新项目: **{st.session_state.tmp_added_proj}**")
-        if st.button("❌ 撤销新增", key="btn_clear_tmp"):
-            del st.session_state.tmp_added_proj
-            st.rerun()
-
-    val_proj = final_val_proj
     val_note = st.text_area("备注详情")
-      
     st.divider()
 
-    # --- 6. 核心提交逻辑函数 ---
+    # --- 6. 核心提交逻辑 (修复 full_df 报错) ---
     def validate_and_submit():
-        # (前面的非空校验逻辑保持不变...)
-        if not val_sum.strip():
-            st.error("⚠️ 请填写摘要内容！")
+        # 这里进行非空检查...
+        if not val_sum.strip(): 
+            st.error("请填写摘要")
             return False
-        # ... 其他 if 校验 ...
+
+        try:
+            # 1. 自动同步新项目到 Settings 表
+            df_set = conn.read(worksheet="Settings", ttl=0)
+            if val_proj == "➕ 新增..." or (val_proj not in df_set['客户项目'].values and val_proj != "--请选择--"):
+                new_row = pd.DataFrame({'客户项目': [val_proj]})
+                df_set = pd.concat([df_set, new_row], ignore_index=True)
+                conn.update(worksheet="Settings", data=df_set)
+                st.cache_data.clear()
+
+            # 2. 写入流水账
+            # 注意：这里要确保 load_data() 返回的是你的流水表数据
+            full_df = load_data() 
+            
+            # 构造新数据行 (请根据你实际的列名修改)
+            new_data = {
+                "日期": val_date.strftime('%Y-%m-%d'),
+                "摘要": val_sum,
+                "分类": val_type,
+                "金额": val_amt if val_type == "收入" else -val_amt,
+                "结算账户": val_acc,
+                "经手人": val_hand,
+                "客户/项目信息": val_proj,
+                "备注": val_note
+            }
+            
+            # 合并并上传
+            updated_df = pd.concat([full_df, pd.DataFrame([new_data])], ignore_index=True)
+            conn.update(worksheet="Summary", data=updated_df)
+            return True
+        except Exception as e:
+            st.error(f"写入失败: {e}")
+            return False
 
         try:
             # --- 【核心保留：sync_settings 逻辑】 ---
@@ -649,6 +673,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

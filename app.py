@@ -759,20 +759,20 @@ if not df_display.empty:
         row_idx = event.selection.rows[0]
         sel_id = df_display.iloc[row_idx]["录入编号"]
         
-    # 💡 如果现在已经有弹窗在显示了，就不要再触发 rerun 了
-    if not st.session_state.get("show_action_menu", False):
-        # 只有当点击的是新行时才触发
-        if st.session_state.get("last_processed_id") != sel_id:
-            st.session_state.action_target_id = sel_id
-            st.session_state.show_action_menu = True
-            st.session_state.last_processed_id = sel_id
-            st.rerun() 
+        # 💡 如果现在已经有弹窗在显示了，就不要再触发 rerun 了
+        if not st.session_state.get("show_action_menu", False):
+            # 只有当点击的是新行时才触发
+            if st.session_state.get("last_processed_id") != sel_id:
+                st.session_state.action_target_id = sel_id
+                st.session_state.show_action_menu = True
+                st.session_state.last_processed_id = sel_id
+                st.rerun() 
     else:
         st.session_state.last_processed_id = None
-        # 💡 当取消选中或没选中时，确保删除标志位复位
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

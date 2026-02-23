@@ -456,10 +456,16 @@ def row_action_dialog(row_data, full_df, conn):
                     st.error(f"失败: {e}")
         with cc2:
             if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
+                # 1. 关闭弹窗开关
                 st.session_state.show_action_menu = False
-                # 重置选中 ID
+                
+                # 2. 清除监听器的记忆
                 st.session_state.last_processed_id = None
                 st.session_state.action_target_id = None
+                
+                # 💡 3. 重要：给 dataframe 一个新的 key（如果没起效，看下方的补充说明）
+                # 这一步是为了强制让表格在刷新后清空所有勾选
+                
                 st.rerun()
 
 # --- 6. 主页面 ---
@@ -777,6 +783,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

@@ -310,9 +310,8 @@ df_main = load_data()
 
 if df_main.empty:
     st.warning("⚠️ 数据库目前没有数据，请点击下方按钮开始录入第一笔账单。")
-    if st.button("➕ 立即录入"):
+    if st.button("➕ 立即录入", key="empty_add"):
         entry_dialog()
-    st.stop()
 
 # --- 第一步：数据预处理 ---
 # 1. 币种归一化（这是最优先的，确保后续所有逻辑看到的都是统一币种）
@@ -556,7 +555,6 @@ def get_styled_df(df):
 # --- 第三步：渲染层 ---
 if not df_display.empty:
     styled_df = get_styled_df(df_display)
-    
     st.dataframe(
         styled_df,
         use_container_width=True,
@@ -583,49 +581,53 @@ else:
     # 仅当搜索或筛选月份无数据时显示
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
 
-# --- 维护模块：注意这里的缩进，它现在和上面的 if 平级，确保永远显示 ---
+# --- 维护模块：必须确保在 if/else 结构之外，与 if 对齐 ---
+st.markdown("---")
 
-# 1. 强制刷新开关初始化
+# 1. 初始化状态
 if 'maint_reset' not in st.session_state:
     st.session_state.maint_reset = False
 
-# 2. 维护模块
-st.markdown("---")
-
-# 动态 Key 切换，确保删除后 expander 自动收起
-exp_key = "maint_1" if not st.session_state.maint_reset else "maint_2"
+# 2. 动态 Key
+exp_key = "m1" if not st.session_state.maint_reset else "m2"
 
 with st.expander("🛠️ 账目维护 (撤销与删除)", expanded=False):
-    # 这里使用 df_main 确保即便本月没数据也能选到编号进行维护
     if not df_main.empty:
+        # 使用最新的 df_main 重新获取列表
         id_list = df_main['录入编号'].tolist()[::-1][:10]
         selected_id = st.selectbox("选择要删除的编号", options=id_list, key=f"del_sel_{exp_key}")
         
-        match_row = df_main[df_main['录入编号'] == selected_id].iloc[0]
-        st.info(f"🚩 预览：{match_row['摘要']} | {match_row['实际金额']}")
+        # 匹配预览
+        mask = df_main['录入编号'] == selected_id
+        if mask.any():
+            match_row = df_main[mask].iloc[0]
+            st.warning(f"即将删除：{match_row['摘要']} | 金额：{match_row['实际金额']}")
 
-        if st.button("❌ 确认删除并复位", type="primary", use_container_width=True, key=f"del_btn_{exp_key}"):
-            try:
-                # --- 核心删除逻辑 (保留你提供的逻辑) ---
-                updated_df = df_main[df_main['录入编号'] != selected_id].copy()
-                for col in ['收入', '支出']:
-                    updated_df[col] = pd.to_numeric(updated_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-                updated_df['余额'] = updated_df['收入'].cumsum() - updated_df['支出'].cumsum()
-                for col in ['收入', '支出', '余额']:
-                    updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-                
-                conn.update(worksheet="Summary", data=updated_df)
-                
-                # --- 平滑复位 ---
-                st.cache_data.clear() 
-                st.session_state.maint_reset = not st.session_state.maint_reset # 切换 key
-                
-                st.success("✅ 删除成功！")
-                time.sleep(0.5) 
-                st.rerun() 
-                
-            except Exception as e:
-                st.error(f"删除失败: {e}")
+            if st.button("❌ 确认删除并复位", type="primary", use_container_width=True, key=f"del_btn_{exp_key}"):
+                try:
+                    updated_df = df_main[df_main['录入编号'] != selected_id].copy()
+                    
+                    # 重新计算余额
+                    for col in ['收入', '支出']:
+                        updated_df[col] = pd.to_numeric(updated_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+                    updated_df['余额'] = updated_df['收入'].cumsum() - updated_df['支出'].cumsum()
+                    
+                    for col in ['收入', '支出', '余额']:
+                        updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+                    
+                    # 写入数据库
+                    conn.update(worksheet="Summary", data=updated_df)
+                    
+                    # 清缓存并重启
+                    st.cache_data.clear()
+                    st.session_state.maint_reset = not st.session_state.maint_reset
+                    st.success("✅ 删除成功！")
+                    time.sleep(0.5)
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"操作失败: {e}")
+    else:
+        st.write("数据库为空")
 
 
 

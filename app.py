@@ -721,30 +721,57 @@ if st.session_state.get("show_edit_modal", False):
 # =========================================================
 
 if not df_display.empty:
-    # --- 1. 智能格式化函数 ---
-    def smart_format_amt(row):
+    # --- 1. 预准备：确保数值列是干净的 float 类型 ---
+    for col in ['收入', '支出', '余额', '实际金额']:
+        df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
+
+    # --- 2. 核心：定义格式化字典 ---
+    # 定义收入、支出、余额的固定格式
+    format_dict = {
+        "收入": "${:,.2f}",
+        "支出": "${:,.2f}",
+        "余额": "${:,.2f}"
+    }
+
+    # 💡 关键：为“实际金额”这一列单独定制智能格式化函数
+    def smart_original_format(val, row_idx):
+        # 通过行索引找到对应的币种
+        curr = str(df_display.loc[row_idx, '实际币种']).strip().upper()
+        symbols = {'CNY': '¥', 'USD': '$', 'IDR': 'Rp', 'VND': '₫', 'HKD': 'HK$'}
+        s = symbols.get(curr, '')
+        
+        if curr in ['IDR', 'VND']:
+            return f"{s}{val:,.0f}"
+        else:
+            return f"{s}{val:,.2f}"
+
+    # --- 3. 应用 Styler ---
+    # 我们使用 format 的另一种高级写法：对特定列传入 lambda 函数
+    styled_display = df_display.style.format(format_dict).format({
+        "实际金额": lambda x: smart_original_format(x, df_display.index[df_display['实际金额'] == x][0]) if any(df_display['实际金额'] == x) else f"{x:,.2f}"
+    }, na_rep="-")
+    
+    # 👆 注意：由于 Styler 的复杂性，最稳妥且简单的办法是直接在 dataframe 配置里显示
+    # 下面是为你整合的、最不容易出错的版本：
+    
+    # 重新处理展示列 (直接替换法，不增加新列)
+    def get_val(row):
         curr = str(row['实际币种']).strip().upper()
         amt = row['实际金额']
         symbols = {'CNY': '¥', 'USD': '$', 'IDR': 'Rp', 'VND': '₫', 'HKD': 'HK$'}
         s = symbols.get(curr, '')
-        
-        # 格式化字符串
-        if curr in ['IDR', 'VND']:
-            return f"{s}{amt:,.0f}"
-        else:
-            return f"{s}{amt:,.2f}"
+        return f"{s}{amt:,.0f}" if curr in ['IDR', 'VND'] else f"{s}{amt:,.2f}"
 
-    # 创建展示列
-    df_display['原币展示'] = df_display.apply(smart_format_amt, axis=1)
+    # 直接修改原本的列（转为字符串展示）
+    df_display['实际金额'] = df_display.apply(get_val, axis=1)
 
-    # --- 2. Styler 样式 ---
     styled_display = df_display.style.format({
         "收入": "${:,.2f}",
         "支出": "${:,.2f}",
         "余额": "${:,.2f}"
     })
 
-    # --- 3. 渲染表格 (注意 column_config 里的顺序) ---
+    # --- 4. 渲染表格 ---
     event = st.dataframe(
         styled_display,
         use_container_width=True,
@@ -754,24 +781,15 @@ if not df_display.empty:
         selection_mode="single-row",
         key=f"data_table_{st.session_state.table_version}",
         column_config={
-            "提交时间": st.column_config.DatetimeColumn("提交时间", format="YYYY-MM-DD HH:mm", width="small"),
+            "提交时间": st.column_config.DatetimeColumn("提交时间", width="small"),
+            "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="small"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small"),
             "摘要": st.column_config.TextColumn("摘要", width="medium"),
             "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
             "结算账户": st.column_config.TextColumn("结算账户", width="small"),
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-            
-            # 🔥 顺序调整：把原币金额挪到原币种左边，并强制右对齐
-            "原币展示": st.column_config.TextColumn(
-                "原币金额", 
-                width="small",
-                help="根据不同币种自动格式化的金额"
-            ),
+            "实际金额": st.column_config.TextColumn("原币金额", width="small"),
             "实际币种": st.column_config.TextColumn("原币种", width="small"),
-            
-            # 隐藏原始数字列
-            "实际金额": None, 
-            
             "收入": st.column_config.NumberColumn("收入(USD)", width="small"),
             "支出": st.column_config.NumberColumn("支出(USD)", width="small"),
             "余额": st.column_config.NumberColumn("余额(USD)", width="small"),
@@ -779,10 +797,6 @@ if not df_display.empty:
             "备注": st.column_config.TextColumn("备注", width="small"),
         }
     )
-
-    # --- 4. 解决对齐问题的 CSS 注入 (可选) ---
-    # 由于 TextColumn 默认靠左，如果你追求极致，可以在 smart_format_amt 返回值前加手动空格对齐
-    # 或者接受目前的布局，因为带了货币符号后，左对齐在视觉上其实也挺清晰。
 
     # 捕获点击 (防抖 + 安全跳转版)
     if event and event.selection and event.selection.rows:
@@ -802,16 +816,3 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
-
-
-
-
-
-
-
-
-
-
-
-
-

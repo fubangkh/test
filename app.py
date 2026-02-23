@@ -185,8 +185,6 @@ def entry_dialog():
     else:
         val_proj = sel_proj
     val_note = st.text_area("备注")
-    
-    st.divider()
 
     # --- 6. 核心提交逻辑函数 (注意这个函数的缩进) ---
     def validate_and_submit():
@@ -622,6 +620,7 @@ if not df_display.empty:
     )
 else:
     st.info(f"💡 {sel_year}年{sel_month}月 暂无流水记录，您可以尝试切换月份或点击录入。")
+
 
 
 

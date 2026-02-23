@@ -651,9 +651,8 @@ with col_r:
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "资金性质": st..TextColumn("资金性质", width="medium"),
-                # 使用 NumberColumn 借用其右对齐外壳，且不设 format
-                "支出": st..NumberColumn("支出金额", width="medium")
+                "资金性质": st.TextColumn("资金性质", width="medium"),
+                "支出": st.NumberColumn("支出金额", width="medium")
             }
         )
     else:
@@ -780,4 +779,5 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 

@@ -444,6 +444,8 @@ def row_action_dialog(row_data, full_df, conn):
 
                     # 2. 同步数据库
                     conn.update(worksheet="Summary", data=updated_df)
+                    # 💡 关键：成功后，手动关闭弹窗信号，清除缓存，然后刷新
+                    st.session_state.show_action_menu = False
                     st.cache_data.clear()
                     st.success("✅ 删除成功！")
                     time.sleep(0.6)
@@ -452,7 +454,7 @@ def row_action_dialog(row_data, full_df, conn):
                     st.error(f"失败: {e}")
         with cc2:
             if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
-                st.session_state[f"del_confirm_{rec_id}"] = False
+                st.session_state.show_action_menu = False
                 st.rerun()
 
 # --- 6. 主页面 ---
@@ -757,6 +759,8 @@ if not df_display.empty:
         row_idx = event.selection.rows[0]
         sel_id = df_display.iloc[row_idx]["录入编号"]
         
+    # 💡 如果现在已经有弹窗在显示了，就不要再触发 rerun 了
+    if not st.session_state.get("show_action_menu", False):
         # 只有当点击的是新行时才触发
         if st.session_state.get("last_processed_id") != sel_id:
             st.session_state.action_target_id = sel_id
@@ -769,6 +773,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

@@ -84,7 +84,7 @@ def get_live_rates():
 
 # --- 3. 数据连接 ---
 # 💡 建议暂时注释掉缓存，确保每次 version 改变时都执行物理读取
-# @st.cache_data(ttl=0) 
+@st.cache_data(ttl=0) 
 def load_data(version=0):
     try:
         # 1. 强制直连读取 (ttl=0 确保不读取 streamlit 本地旧副本)
@@ -92,6 +92,8 @@ def load_data(version=0):
         df = df.dropna(how="all")
         
         # 2. 核心清洗：确保数值列绝对干净
+        if '提交时间' in df.columns:
+            df['提交时间'] = pd.to_datetime(df['提交时间'], errors='coerce')
         numeric_cols = ['实际金额', '收入', '支出', '余额']
         for col in numeric_cols:
             if col in df.columns:
@@ -216,7 +218,7 @@ def entry_dialog():
             # 重新加载最新数据，防止 full_df 未定义
             current_df = load_data(version=st.session_state.table_version + 1)
             now_dt = datetime.now(LOCAL_TZ)
-            now_ts = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+            now_ts = now_dt.strftime("%Y-%m-%d %H:%M")
             today_str = now_dt.strftime("%Y%m%d")
 
             # 编号生成
@@ -490,7 +492,6 @@ def row_action_dialog(row_data, full_df, conn):
 
 # --- 6. 主页面 ---
 df_main = load_data(version=st.session_state.table_version)
-st.write(f"调试信息 - 当前总行数: {len(df_main)} | 版本号: {st.session_state.table_version}")
 st.header("📊 汇总统计")
 df_main = load_data(version=st.session_state.table_version)
 
@@ -797,7 +798,7 @@ if not df_display.empty:
         selection_mode="single-row",
         key=f"data_table_{st.session_state.table_version}",
         column_config={
-            "提交时间": st.column_config.DatetimeColumn("提交时间", width="small"),
+            "提交时间": st.column_config.DatetimeColumn("提交时间", format="YYYY-MM-DD HH:mm", width="small"),
             "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="small"),
             "录入编号": st.column_config.TextColumn("录入编号", width="small"),
             "摘要": st.column_config.TextColumn("摘要", width="medium"),
@@ -832,6 +833,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

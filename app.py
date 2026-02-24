@@ -208,18 +208,42 @@ def entry_dialog():
 
     # --- 6. 核心提交逻辑函数 ---
     def validate_and_submit():
+        # 1. 摘要内容校验
         if not val_sum.strip():
             st.error("⚠️ 请填写摘要内容！")
             return False
+            
+        # 2. 金额校验
         if val_amt <= 0:
-            st.error("⚠️ 金婚必须大于 0！")
+            st.error("⚠️ 原币金额必须大于 0！")
             return False
+            
+        # 3. 审批/发票单号校验
         if not val_inv or val_inv.strip() == "":
             st.error("⚠️ 请输入【审批/发票单号】！")
             return False
+
+        # 4. 结算账户校验
+        if not is_transfer: # 非结转模式下校验
+            if not val_acc or val_acc.strip() in ["", "-- 请选择 --", "➕ 新增..."]:
+                st.error("⚠️ 请选择或输入【结算账户】！")
+                return False
+        else: # 结转模式下校验两个账户
+            if val_acc_from == "-- 请选择 --" or val_acc_to == "-- 请选择 --":
+                st.error("⚠️ 资金结转模式下，转出和转入账户均不能为空！")
+                return False
+            if val_acc_from == val_acc_to:
+                st.error("⚠️ 转出账户和转入账户不能相同！")
+                return False
+
+        # 5. 经手人校验
+        if not is_transfer: # 结转通常是系统自动，非结转必须校验
+            if not val_hand or val_hand.strip() in ["", "-- 请选择 --", "➕ 新增..."]:
+                st.error("⚠️ 请选择或输入【经手人】！")
+                return False
         
-        # 项目校验
-        if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --"]):
+        # 6. 项目校验
+        if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --", "➕ 新增..."]):
             st.error(f"⚠️ 【{val_prop}】必须关联有效项目！")
             return False
 
@@ -277,7 +301,7 @@ def entry_dialog():
             st.error(f"❌ 写入失败: {e}")
             return False
 
-    # --- 7. 底部按钮区域 ---
+    # --- 7. 底部提交按钮 ---
     st.divider()
     col_sub, col_can = st.columns(2)
 
@@ -854,6 +878,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

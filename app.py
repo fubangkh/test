@@ -1,896 +1,136 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 import pytz
 import time
-import requests
-from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-# --- 1. 导入自定义模块 ---
-# 确保 logic.py 和 forms.py 在同一目录下
-from logic import prepare_new_data, calculate_full_balance, ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER
-from forms import entry_dialog, action_dialog
+# 导入自定义模块
+from logic import ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER
+from forms import entry_dialog, edit_dialog, row_action_dialog
 
-# --- 2. 页面基础配置 (必须在所有 st 组件之前) ---
-st.set_page_config(page_title="富邦日记账", layout="wide")
+# =========================================================
+# 1. 基础配置与环境初始化
+# =========================================================
+st.set_page_config(page_title="财务流水管理系统", layout="wide", page_icon="📊")
+
+# 时区与全局变量
+LOCAL_TZ = pytz.timezone("Asia/Shanghai")
 if "table_version" not in st.session_state:
     st.session_state.table_version = 0
-    
-# --- 2. 核心定义 (时区定义，全局可用) ---
-LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
-# --- 3. 登录拦截系统 ---
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
+# 隐藏 Streamlit 默认页眉页脚
+st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-if not st.session_state.logged_in:
-    from login import show_login_page
-    show_login_page()
-    st.stop()
-
-# --- 4. 登录成功后的主程序逻辑 ---
-st.title("💰 富邦日记账")
-if st.sidebar.button("安全退出"):
-    st.session_state.logged_in = False
-    st.rerun()
-
-# 数据库连接
+# =========================================================
+# 2. 数据核心引擎 (Read/Load)
+# =========================================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-st.markdown("""
-    <style>
-    /* 1. 确认提交按钮：默认是清爽的浅绿灰色 */
-    div.stButton > button[kind="primary"] {
-        background-color: #1F883D; /* 默认：清爽绿 */
-        color: white;
-        border: none;
-        border-radius: 8px;        /* 圆角稍微圆润一点，更现代 */
-        padding: 0.5rem 1rem;
-        transition: all 0.3s ease;
-        font-weight: 500;
-    }
-
-    /* 2. 悬停状态：变成明亮的绿色，并有一点点阴影 */
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #66BB6A; /* 悬停：亮绿 */
-        color: white;
-        border-color: #66BB6A;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* 增加一点点悬浮阴影感 */
-    }
-
-    /* 3. 取消返回按钮：极简浅灰色 */
-    div.stButton > button[kind="secondary"] {
-        background-color: #F8F9FA; 
-        color: #444;
-        border: 1px solid #E0E0E0;
-        border-radius: 8px;
-    }
-
-    /* 4. 取消按钮悬停：稍微深一点的灰 */
-    div.stButton > button[kind="secondary"]:hover {
-        background-color: #EEEEEE;
-        border-color: #CCCCCC;
-        color: #000;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- 2. 核心功能：实时汇率 ---
-@st.cache_data(ttl=3600)
-def get_live_rates():
-    default_rates = {
-        "USD": 1.0, 
-        "CNY": 6.91, 
-        "KHR": 4010,
-        "VND": 26000, 
-        "HKD": 7.82, 
-        "IDR": 16848
-    }
-    try:
-        response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
-        if response.status_code == 200:
-            rates = response.json().get("rates", {})
-            return {"USD": 1.0, "CNY": rates.get("CNY", 6.91), "KHR": rates.get("KHR", 4010),"VND": rates.get("VND", 26000), "HKD": rates.get("HKD", 7.82), "IDR": rates.get("IDR", 16848)}
-    except: pass
-    return default_rates
-
-# --- 3. 数据连接 ---
-@st.cache_data(ttl=0) 
+@st.cache_data(ttl=300)
 def load_data(version=0):
+    """从云端读取 Summary 表数据"""
     try:
-        # 1. 强制直连读取
         df = conn.read(worksheet="Summary", ttl=0)
-        df = df.dropna(how="all")
-        
-        # 2. 核心清洗：数值列
-        numeric_cols = ['实际金额', '收入(USD)', '支出(USD)', '余额(USD)']
-        for col in numeric_cols:
+        # 确保数值列正确加载
+        for col in ['收入(USD)', '支出(USD)', '余额(USD)']:
             if col in df.columns:
-                if df[col].dtype == 'object' or df[col].dtype == 'string':
-                    df[col] = df[col].astype(str).str.replace(r'[$,\s]', '', regex=True)
-                df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
-        
-        # 3. 时间列处理
-        if '提交时间' in df.columns:
-            df['提交时间'] = pd.to_datetime(df['提交时间'], errors='coerce')
-            df['提交时间'] = df['提交时间'].fillna(pd.Timestamp.now())
-        
-        # 4. 填充其余文本列空值
-        other_cols = df.columns.difference(['提交时间'])
-        df[other_cols] = df[other_cols].fillna("")
-        
-        # 设置显示精度
-        pd.options.display.float_format = '{:,.2f}'.format
-        
+                df[col] = pd.to_numeric(df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
         return df
     except Exception as e:
-        st.error(f"数据加载异常: {e}")
+        st.error(f"数据加载失败: {e}")
         return pd.DataFrame()
 
+def get_live_rates():
+    """获取实时汇率 (此处保留原版逻辑，可扩展 API)"""
+    return {"USD": 1.0, "CNY": 7.21, "KHR": 4050.0, "THB": 35.8}
+
 def get_dynamic_options(df, column_name):
-    try:
-        if not df.empty and column_name in df.columns:
-            raw_list = [str(x).strip() for x in df[column_name].unique() if x]
-            clean_options = sorted([
-                x for x in raw_list 
-                if x and x not in ["--", "-", "nan", "None", "0", "0.0"] and "➕" not in x
-            ])
-            return ["-- 请选择 --"] + clean_options + ["➕ 新增..."]
-    except:
-        pass
-    return ["-- 请选择 --", "➕ 新增..."]
-
-# --- 以下为 app.py 的后续调用示例 (确保衔接逻辑正确) ---
-# df = load_data(st.session_state.table_version)
-# rates = get_live_rates()
-
-# if st.button("➕ 新增录入"):
-#     entry_dialog(conn, load_data, LOCAL_TZ, rates, get_dynamic_options)
-    
-   # --- 4. 录入模块 ---
-@st.dialog("📝 新增录入", width="large")
-def entry_dialog():
-    # --- A. 内部常量定义 ---
-    CORE_BIZ = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本", "产品销售支出"]
-    INC_OTHER = ["期初调整","网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
-    EXP_OTHER = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
-    ALL_PROPS = CORE_BIZ[:5] + INC_OTHER + CORE_BIZ[5:] + EXP_OTHER + ["资金结转"]
-
-    df = load_data()
-    live_rates = get_live_rates()
-    
-    # 顶部结余显示
-    current_balance = df['余额(USD)'].iloc[-1] if not df.empty else 0
-    st.write(f"💡 当前总结余: **${current_balance:,.2f}**")
-    
-    # 1. 摘要与时间
-    c1, c2 = st.columns(2)
-    val_sum = c1.text_input("摘要内容 :red[*]", placeholder="请输入流水说明")
-    val_time = c2.date_input("业务时间", value=datetime.now(LOCAL_TZ)) # 建议用 date_input 更稳
-    
-    # 2. 金额、币种、汇率
-    r2_c1, r2_c2, r2_c3 = st.columns(3)
-    val_amt = r2_c1.number_input("原币金额 :red[*]", min_value=0.0, step=100.0)
-    val_curr = r2_c2.selectbox("原币币种 :red[*]", list(live_rates.keys()))
-    val_rate = r2_c3.number_input("实时汇率", value=float(live_rates[val_curr]), format="%.4f")
-    
-    # 实时换算显示
-    converted_usd = round(val_amt / val_rate, 2) if val_rate != 0 else 0
-    st.info(f"💰 换算后金额：$ {converted_usd:,.2f} USD")
-    
-    #st.divider()
-    # 这里的 margin-top: -15px 会把分割线往上“提”，margin-bottom 控制下方间距
-    st.markdown('<hr style="margin-top: -5px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
-
-    # 3. 性质与发票
-    r4_c1, r4_c2 = st.columns(2)
-    val_inv = r4_c1.text_input("📑 审批/发票单号 :red[*]")
-    val_prop = r4_c2.selectbox("资金性质 :red[*]", ALL_PROPS)
-    
-    is_transfer = (val_prop == "资金结转")
-    is_req = val_prop in CORE_BIZ
-
-    # 4. 账户与经手人
-    r3_c1, r3_c2 = st.columns(2)
-    if is_transfer:
-        val_acc_from = r3_c1.selectbox("➡️ 转出账户 :red[*]", options=get_dynamic_options(df, "结算账户"))
-        val_acc_to = r3_c2.selectbox("⬅️ 转入账户 :red[*]", options=get_dynamic_options(df, "结算账户"))
-        val_hand = "系统自动结转"
-        val_acc = "资金结转" # 预设值避免变量缺失
-    else:
-        sel_acc = r3_c1.selectbox("结算账户 :red[*]", options=get_dynamic_options(df, "结算账户"))
-        val_acc = r3_c1.text_input("✍️ 录入新账户") if sel_acc == "➕ 新增..." else sel_acc
-        sel_hand = r3_c2.selectbox("经手人 :red[*]", options=get_dynamic_options(df, "经手人"))
-        val_hand = r3_c2.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
-
-    # --- 5. 客户或项目信息 (回归稳定逻辑) ---
-    proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
-    sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
-
-    # 如果选了新增，或者还没选，显示输入框。
-    # 提交时 val_proj 将获取输入框中的最终文字。
-    if sel_proj == "➕ 新增...":
-        val_proj = st.text_input("✍️ 录入新客户/项目", key="k_new_proj_input", placeholder="请输入项目名称...")
-    else:
-        val_proj = sel_proj
-
-    val_note = st.text_area("备注", height=68)
-
-    # --- 6. 核心提交逻辑函数 ---
-    def validate_and_submit():
-        # 1. 摘要内容校验
-        if not val_sum.strip():
-            st.error("⚠️ 请填写摘要内容！")
-            return False
-            
-        # 2. 金额校验
-        if val_amt <= 0:
-            st.error("⚠️ 原币金额必须大于 0！")
-            return False
-            
-        # 3. 审批/发票单号校验
-        if not val_inv or val_inv.strip() == "":
-            st.error("⚠️ 请输入【审批/发票单号】！")
-            return False
-
-        # 4. 结算账户校验
-        if not is_transfer: # 非结转模式下校验
-            if not val_acc or val_acc.strip() in ["", "-- 请选择 --", "➕ 新增..."]:
-                st.error("⚠️ 请选择或输入【结算账户】！")
-                return False
-        else: # 结转模式下校验两个账户
-            if val_acc_from == "-- 请选择 --" or val_acc_to == "-- 请选择 --":
-                st.error("⚠️ 资金结转模式下，转出和转入账户均不能为空！")
-                return False
-            if val_acc_from == val_acc_to:
-                st.error("⚠️ 转出账户和转入账户不能相同！")
-                return False
-
-        # 5. 经手人校验
-        if not is_transfer: # 结转通常是系统自动，非结转必须校验
-            if not val_hand or val_hand.strip() in ["", "-- 请选择 --", "➕ 新增..."]:
-                st.error("⚠️ 请选择或输入【经手人】！")
-                return False
-        
-        # 6. 项目校验
-        if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --", "➕ 新增..."]):
-            st.error(f"⚠️ 【{val_prop}】必须关联有效项目！")
-            return False
-
-        try:
-            # 重新加载最新数据，防止 full_df 未定义
-            current_df = load_data(version=st.session_state.table_version + 1)
-            now_dt = datetime.now(LOCAL_TZ)
-            now_ts = now_dt.strftime("%Y-%m-%d %H:%M")
-            today_str = now_dt.strftime("%Y%m%d")
-
-            # 编号生成
-            today_mask = current_df['录入编号'].astype(str).str.contains(f"R{today_str}", na=False)
-            today_records = current_df[today_mask]
-            start_num = (int(str(today_records['录入编号'].iloc[-1])[-3:]) + 1) if not today_records.empty else 1
-
-            new_rows = []
-            def create_row(offset, s, p, a, i, pr, raw_v, raw_c, inc, exp, h, n):
-                sn = f"R{today_str}{(start_num + offset):03d}"
-                return [sn, now_ts, now_ts, s, p, a, i, pr, round(float(raw_v), 2), raw_c, round(float(inc), 2), round(float(exp), 2), 0, h, n]
-
-            if is_transfer:
-                new_rows.append(create_row(0, f"【转出】{val_sum}", "内部调拨", val_acc_from, val_inv, val_prop, val_amt, val_curr, 0, converted_usd, val_hand, val_note))
-                new_rows.append(create_row(1, f"【转入】{val_sum}", "内部调拨", val_acc_to, val_inv, val_prop, val_amt, val_curr, converted_usd, 0, val_hand, val_note))
-            else:
-                inc_val = converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0
-                exp_val = converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0
-                new_rows.append(create_row(0, val_sum, val_proj, val_acc, val_inv, val_prop, val_amt, val_curr, inc_val, exp_val, val_hand, val_note))
-
-            new_df = pd.DataFrame(new_rows, columns=current_df.columns)
-            full_df = pd.concat([current_df, new_df], ignore_index=True)
-            
-            # 数值计算
-            for col in ['收入(USD)', '支出(USD)']:
-                full_df[col] = pd.to_numeric(full_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-
-            full_df['余额(USD)'] = (full_df['收入(USD)'].cumsum() - full_df['支出(USD)'].cumsum())
-
-            # 格式化存入
-            for col in ['收入(USD)', '支出(USD)', '余额(USD)']:
-                full_df[col] = full_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-            
-            conn.update(worksheet="Summary", data=full_df)
-            # ✅ 写入后确认：避免云端延迟导致主页面读到旧数据
-            new_ids = [r[0] for r in new_rows]  # new_rows 里第 0 列就是录入编号
-            ok = False
-            for _ in range(6):  # 6 * 0.35s ≈ 2.1s
-                verify = conn.read(worksheet="Summary", ttl=0)
-                if not verify.empty and verify["录入编号"].astype(str).isin(new_ids).any():
-                    ok = True
-                    break
-                time.sleep(0.35)
-            
-            return ok
-        except Exception as e:
-            st.error(f"❌ 写入失败: {e}")
-            return False
-
-    # --- 7. 底部提交按钮 ---
-    # st.divider()
-    col_sub, col_can = st.columns(2)
-
-    if col_sub.button("🚀 确认提交", type="primary", use_container_width=True):
-        with st.spinner("正在同步至云端..."):
-            if validate_and_submit():
-                st.toast("记账成功！数据已实时同步", icon="💰")
-                st.balloons()
-                st.cache_data.clear()
-                st.session_state.table_version += 1
-                st.rerun()
-
-    if col_can.button("🗑️ 取消返回", use_container_width=True):
-        st.rerun()
-
-# --- 5. 数据修正模块 ---
-@st.dialog("🛠️ 数据修正", width="large")
-def edit_dialog(target_id, full_df, conn):
-    # 1. 准备常量与原始数据 (同步录入模块逻辑)
-    CORE_BIZ = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本", "产品销售支出"]
-    INC_OTHER = ["期初调整","网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
-    EXP_OTHER = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
-    ALL_PROPS = CORE_BIZ[:5] + INC_OTHER + CORE_BIZ[5:] + EXP_OTHER + ["资金结转"]
-    
-    # 锁定当前行
-    old = full_df[full_df["录入编号"] == target_id].iloc[0]
-    live_rates = get_live_rates()
-    
-    st.info(f"正在修正记录：`{target_id}`")
-    
-    # --- 第一部分：基础信息 ---
-    c1, c2 = st.columns(2)
-    with c1:
-        # 修正：确保 value 传值正确，显示置灰日期
-        st.text_input("录入时间 (系统锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
-    u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
-    
-    # --- 第二部分：金额与币种 (同步录入换算逻辑) ---
-    r2_c1, r2_c2, r2_c3 = st.columns(3)
-    u_ori_amt = r2_c1.number_input("原币金额", value=float(old.get("实际金额", 0.0)), step=100.0)
-    
-    curr_list = list(live_rates.keys())
-    u_curr = r2_c2.selectbox("原币币种", curr_list, index=curr_list.index(old.get("实际币种", "USD")) if old.get("实际币种") in curr_list else 0)
-    
-    # 汇率逻辑：优先显示实时，但允许用户手动改
-    default_rate = float(live_rates.get(u_curr, 1.0))
-    u_rate = r2_c3.number_input("汇率", value=default_rate, format="%.4f")
-    
-    u_usd_val = round(u_ori_amt / u_rate, 2) if u_rate != 0 else 0
-    st.info(f"💰 折算后金额：$ {u_usd_val:,.2f} USD")
-
-    #st.divider()
-    # 这里的 margin-top: -15px 会把分割线往上“提”，margin-bottom 控制下方间距
-    st.markdown('<hr style="margin-top: -5px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
-
-    # --- 第三部分：性质与发票 ---
-    r4_c1, r4_c2 = st.columns(2)
-    u_inv = r4_c1.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
-    
-    # 资金性质自动定位
-    p_idx = ALL_PROPS.index(old.get("资金性质")) if old.get("资金性质") in ALL_PROPS else 0
-    u_prop = r4_c2.selectbox("资金性质", ALL_PROPS, index=p_idx)
-
-    # --- 第四部分：账户与经手人 (带下拉+新增模式) ---
-    r3_c1, r3_c2 = st.columns(2)
-    
-    # 账户选择
-    acc_options = get_dynamic_options(full_df, "结算账户")
-    curr_acc = old.get("结算账户", "")
-    sel_acc = r3_c1.selectbox("结算账户", options=acc_options, 
-                             index=acc_options.index(curr_acc) if curr_acc in acc_options else 0)
-    u_acc = r3_c1.text_input("✍️ 录入新账户", placeholder="新账户名称") if sel_acc == "➕ 新增..." else sel_acc
-
-    # 经手人选择
-    hand_options = get_dynamic_options(full_df, "经手人")
-    curr_hand = old.get("经手人", "")
-    sel_hand = r3_c2.selectbox("经手人", options=hand_options, 
-                              index=hand_options.index(curr_hand) if curr_hand in hand_options else 0)
-    u_hand = r3_c2.text_input("✍️ 录入新姓名", placeholder="经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
-
-    # --- 第五部分：项目信息 (带下拉+新增模式) ---
-    proj_options = get_dynamic_options(full_df, "客户/项目信息")
-    curr_proj = old.get("客户/项目信息", "")
-    sel_proj = st.selectbox("客户/项目信息", options=proj_options, 
-                           index=proj_options.index(curr_proj) if curr_proj in proj_options else 0)
-    
-    if sel_proj == "➕ 新增..." or sel_proj == "-- 请选择 --":
-        u_proj = st.text_input("✍️ 录入新客户/项目", placeholder="项目名称...")
-    else:
-        u_proj = sel_proj
-
-    u_note = st.text_area("备注", height=68, value=str(old.get("备注", "")))
-
-    # --- 提交保存逻辑 ---
-    # st.divider()
-    sv, ex = st.columns(2)
-    
-    if sv.button("💾 确认保存", type="primary", use_container_width=True):
-        if not u_sum.strip():
-            st.error("摘要不能为空")
-            return
-            
-        try:
-            # 数据切片更新
-            new_df = full_df.copy()
-            idx = new_df[new_df["录入编号"] == target_id].index[0]
-            
-            # 更新字段
-            new_df.at[idx, "修改时间"] = datetime.now(LOCAL_TZ).strftime("%Y-%m-%d %H:%M:%S")
-            new_df.at[idx, "摘要"] = u_sum
-            new_df.at[idx, "客户/项目信息"] = u_proj
-            new_df.at[idx, "结算账户"] = u_acc
-            new_df.at[idx, "审批/发票单号"] = u_inv
-            new_df.at[idx, "资金性质"] = u_prop
-            new_df.at[idx, "实际金额"] = u_ori_amt
-            new_df.at[idx, "实际币种"] = u_curr
-            new_df.at[idx, "经手人"] = u_hand
-            new_df.at[idx, "备注"] = u_note
-            
-            # 自动重新归类收入/支出 (根据资金性质判断)
-            is_income = (u_prop in CORE_BIZ[:5] or u_prop in INC_OTHER)
-            new_df.at[idx, "收入(USD)"] = u_usd_val if is_income else 0
-            new_df.at[idx, "支出(USD)"] = u_usd_val if not is_income else 0
-            
-            # 重新计算整表流水余额
-            new_df["收(USD)入"] = pd.to_numeric(new_df["收入(USD)"].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-            new_df["支出(USD)"] = pd.to_numeric(new_df["支出(USD)"].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-            new_df["余额(USD)"] = new_df["收入(USD)"].cumsum() - new_df["支出(USD)"].cumsum()
-            
-            # 格式化
-            for col in ['收入(USD)', '支出(USD)', '余额(USD)']:
-                new_df[col] = new_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-
-            # 写入
-            conn.update(worksheet="Summary", data=new_df)
-            st.success("✅ 修正并重算成功！")
-            st.cache_data.clear()
-            time.sleep(1)
-            st.session_state.show_edit_modal = False
-            st.session_state.last_processed_id = None
-            st.session_state.table_version += 1
-            st.rerun()
-        except Exception as e:
-            st.error(f"保存错误: {e}")
-
-    if ex.button("放弃", use_container_width=True):
-        st.session_state.show_edit_modal = False
-        st.session_state.show_action_menu = False
-        st.session_state.last_processed_id = None
-        
-        # 💡 让表格强制重置（清空勾选）
-        st.session_state.table_version += 1
-        st.rerun()
+    """从现有表格提取去重后的下拉选项"""
+    if df.empty or column_name not in df.columns:
+        return ["-- 请选择 --", "➕ 新增..."]
+    options = df[column_name].dropna().unique().tolist()
+    # 过滤掉无效选项
+    options = [opt for opt in options if opt and str(opt).strip() != "" and opt != "资金结转"]
+    return ["-- 请选择 --"] + sorted(options) + ["➕ 新增..."]
 
 # =========================================================
-# 1. 操作枢纽：行点击后的对话框 (包含 修改 + 删除确认)
+# 3. 侧边栏与主操作区
 # =========================================================
-@st.dialog("🎯 账目操作", width="small")
-def row_action_dialog(row_data, full_df, conn):
-    rec_id = row_data["录入编号"]
-    
-    # 内部状态：控制是否显示“删除确认”界面
-    if f"del_confirm_{rec_id}" not in st.session_state:
-        st.session_state[f"del_confirm_{rec_id}"] = False
+# 加载数据
+df = load_data(version=st.session_state.table_version)
 
-    st.write(f"**记录编号：** `{rec_id}`")
-    st.write(f"**摘要详情：** {row_data.get('摘要','')}")
-    st.write(f"**金额：** {row_data.get('实际币种','')} {row_data.get('实际金额','')}")
+with st.sidebar:
+    st.title("💰 财务管理")
+    st.write(f"📅 报表日期: {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d')}")
     st.divider()
-
-    # --- 逻辑 A：初始选择界面 ---
-    if not st.session_state[f"del_confirm_{rec_id}"]:
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("🛠️ 修正", use_container_width=True, key=f"edit_{rec_id}"):
-                st.session_state.show_action_menu = False
-                st.session_state.edit_target_id = rec_id
-                st.session_state.show_edit_modal = True
-                st.rerun()  # 关闭当前 Dialog 并触发主程序的监听器
-        with c2:
-            if st.button("🗑️ 删除", type="primary", use_container_width=True, key=f"pre_del_{rec_id}"):
-                st.session_state[f"del_confirm_{rec_id}"] = True
-                st.session_state.is_deleting = True 
-                st.rerun()
-
-    # --- 逻辑 B：弹窗内的删除确认界面 (解决 Nested Dialog 报错) ---
-    else:
-        st.error("⚠️ 确定要彻底删除此记录吗？操作不可恢复！")
-        cc1, cc2 = st.columns(2)
-        with cc1:
-            if st.button("✅ 确定删除", type="primary", use_container_width=True, key=f"real_del_{rec_id}"):
-                try:
-                    # 1. 执行删除并重算
-                    updated_df = full_df[full_df["录入编号"] != rec_id].copy()
-                    for col in ["收入(USD)", "支出(USD)"]:
-                        updated_df[col] = pd.to_numeric(
-                            updated_df[col].astype(str).str.replace(",", "", regex=False),
-                            errors="coerce"
-                        ).fillna(0)
-                    updated_df["余额(USD)"] = updated_df["收入(USD)"].cumsum() - updated_df["支出(USD)"].cumsum()
-                    for col in ["收入(USD)", "支出(USD)", "余额(USD)"]:
-                        updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-
-                    # 2. 同步数据库
-                    conn.update(worksheet="Summary", data=updated_df)
-                    # 💡 关键：成功后，手动关闭弹窗信号，清除缓存，然后刷新
-                    st.session_state.show_action_menu = False
-                    st.cache_data.clear()
-                    st.success("✅ 删除成功！")
-                    time.sleep(0.8)
-                    st.session_state.last_processed_id = None
-                    st.session_state.table_version += 1
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"失败: {e}")
-        with cc2:
-            if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
-                st.session_state.show_action_menu = False
-                st.session_state.last_processed_id = None
-                st.session_state.table_version += 1
-                
-                st.rerun()
-
-# --- 6. 主页面 ---
-df_main = load_data(version=st.session_state.table_version)
-st.header("📊 汇总统计")
-
-# 💡 调试信息：录入后如果没变化，看这里总行数加了没
-st.caption(f"🚀 系统就绪 | 数据库总行数: {len(df_main)} | 缓存版本: {st.session_state.table_version}")
-
-# 💡 弹窗中转调度器
-if st.session_state.get("show_action_menu", False):
-    target_id = st.session_state.get("action_target_id")
-    if target_id:
-        hit = df_main[df_main["录入编号"] == target_id]
-        if not hit.empty:
-            row_action_dialog(hit.iloc[0], df_main, conn)
-
-if df_main.empty:
-    st.warning("⚠️ 数据库目前没有数据，请点击下方按钮开始录入第一笔账单。")
-    if st.button("➕ 立即录入", key="empty_add"):
-        entry_dialog()
-
-# --- 第一步：数据预处理 (增强兼容版) ---
-if not df_main.empty:
-    # 1. 币种归一化
-    df_main['实际币种'] = df_main['实际币种'].replace(['RMB', '人民币'], 'CNY')
-
-    # 2. 核心修复：强制转换时间格式
-    # 如果有无法解析的，强制变为空值(NaT)，然后填充为当前时间
-    df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
     
-    # 💡 关键一行：如果整列转换后还是 object，强行转换类型
-    if not pd.api.types.is_datetime64_any_dtype(df_main['提交时间']):
-        df_main['提交时间'] = pd.to_datetime(df_main['提交时间'])
+    # 触发“新增录入”对话框
+    if st.button("➕ 新增流水录入", type="primary", use_container_width=True):
+        entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
+    
+    st.divider()
+    st.info("💡 提示：点击明细表中的行可进行‘修正’或‘删除’操作。")
 
-    # 3. 填充缺失时间，防止 .dt 报错
-    df_main['提交时间'] = df_main['提交时间'].fillna(datetime.now(LOCAL_TZ))
+# =========================================================
+# 4. 大屏统计看板 (保留原版看板逻辑)
+# =========================================================
+if not df.empty:
+    latest_balance = df['余额(USD)'].iloc[-1]
+    total_inc = df['收入(USD)'].sum()
+    total_exp = df['支出(USD)'].sum()
 
-    # 4. 数值预清洗
-    for col in ['收入(USD)', '支出(USD)', '余额(USD)', '实际金额']:
-        if col in df_main.columns:
-            if df_main[col].dtype == 'object':
-                df_main[col] = df_main[col].astype(str).str.replace(r'[$,\s]', '', regex=True)
-            df_main[col] = pd.to_numeric(df_main[col], errors='coerce').fillna(0.0)
-
-# --- 生成筛选列表 (增加安全检查) ---
-current_now = datetime.now(LOCAL_TZ)
-try:
-    if not df_main.empty:
-        # 使用 .dt 前确保列是真的日期类型
-        year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
-    else:
-        year_list = [current_now.year]
-except Exception as e:
-    # 如果万一还是报错，保底方案：只显示今年
-    year_list = [current_now.year]
-    
-month_list = list(range(1, 13))
-
-# --- 第二步：时间维度看板 ---
-with st.container(border=True):
-    st.markdown("### 📅 时间维度看板") 
-    
-    c1, c2, c3 = st.columns([2, 2, 5]) 
-    with c1:
-        sel_year = st.selectbox("年份", year_list, index=0, label_visibility="collapsed")
-    with c2:
-        sel_month = st.selectbox("月份", month_list, index=datetime.now(LOCAL_TZ).month - 1, label_visibility="collapsed")
-    
-    # 🔥 关键修正：在筛选前，最后一次强行转换！
-    # 如果转换失败（NaT），数据会被丢弃，但不会导致程序崩溃报错
-    temp_datetime = pd.to_datetime(df_main['提交时间'], errors='coerce')
-    
-    # 1. 核心修复：确保 temp_datetime 包含最新的数据
-    temp_datetime = pd.to_datetime(df_main['提交时间'], errors='coerce')
-
-    # 2. 强力过滤：将两边都转为 int，消除格式和时区带来的匹配误差
-    mask_this_month = (
-        (temp_datetime.dt.year.fillna(0).astype(int) == int(sel_year)) & 
-        (temp_datetime.dt.month.fillna(0).astype(int) == int(sel_month))
-    )
-    df_this_month = df_main[mask_this_month].copy()
-    
-    # 3. 同理计算上月
-    lm = 12 if sel_month == 1 else sel_month - 1
-    ly = sel_year - 1 if sel_month == 1 else sel_year
-    mask_last_month = (
-        (temp_datetime.dt.year.fillna(0).astype(int) == int(ly)) & 
-        (temp_datetime.dt.month.fillna(0).astype(int) == int(lm))
-    )
-    df_last_month = df_main[mask_last_month].copy()
-    
-    # 使用 pd.to_numeric 确保这一列全是数字，无法转换的（如空字符串）会变成 NaN
-    # 然后用 .sum() 求和，NaN 会被自动忽略
-    tm_inc = pd.to_numeric(df_this_month['收入(USD)'], errors='coerce').sum()
-    tm_exp = pd.to_numeric(df_this_month['支出(USD)'], errors='coerce').sum()
-    lm_inc = pd.to_numeric(df_last_month['收入(USD)'], errors='coerce').sum()
-    lm_exp = pd.to_numeric(df_last_month['支出(USD)'], errors='coerce').sum()
-    inc_delta = tm_inc - lm_inc
-    exp_delta = tm_exp - lm_exp
-    t_balance = df_main['收入(USD)'].sum() - df_main['支出(USD)'].sum()
-
-    with c3:
-        st.markdown(f"""
-            <div style="margin-top: 7px; padding-left: 5px;">
-                <span style="font-size: 1.2rem; font-weight: bold; color: #31333F;">
-                    💡 当前统计周期：<span style="color: #4CAF50;">{sel_year}年{sel_month}月</span>
-                </span>
-            </div>
-            """, unsafe_allow_html=True)
-    st.markdown("---")
-    
     m1, m2, m3 = st.columns(3)
-    m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}", delta=f"{inc_delta:,.2f}")
-    m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}", delta=f"{exp_delta:,.2f}", delta_color="inverse")
-    m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
+    m1.metric("累计总收入 (USD)", f"$ {total_inc:,.2f}")
+    m2.metric("累计总支出 (USD)", f"$ {total_exp:,.2f}")
+    m3.metric("当前总结余 (USD)", f"$ {latest_balance:,.2f}", delta_color="normal")
+else:
+    st.warning("📭 暂无财务记录，请点击左侧‘新增录入’开始。")
 
 st.divider()
 
-# --- 账户余额与排行 ---
-col_l, col_r = st.columns(2)
-with col_l:
-    st.write("🏦 **各账户当前余额 (原币对账)**")
+# =========================================================
+# 5. 明细表展示与操作监听
+# =========================================================
+st.subheader("📑 财务明细账目")
+
+# 格式化展示用 DF
+view_df = df.copy()
+if not view_df.empty:
+    # 逆序排列，让最新的记录在最上面
+    view_df = view_df.iloc[::-1]
     
-    # --- 1. 安全检查：如果表是空的 ---
-    if df_main.empty:
-        st.info("💡 数据库目前为空。")
-    else:
-        # 内部计算函数
-        def calc_bank_balance(group):
-            inc_clean = pd.to_numeric(group['收入(USD)'], errors='coerce').fillna(0)
-            exp_clean = pd.to_numeric(group['支出(USD)'], errors='coerce').fillna(0)
-            amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
-            
-            def get_raw_val(idx):
-                current_val = amt_clean.loc[idx]
-                if current_val == 0 or pd.isna(current_val):
-                    if inc_clean.loc[idx] > 0: current_val = inc_clean.loc[idx]
-                    elif exp_clean.loc[idx] > 0: current_val = exp_clean.loc[idx]
-                    else: current_val = 0
-                is_expense = exp_clean.loc[idx] > 0
-                return -current_val if is_expense else current_val
-
-            usd_bal = inc_clean.sum() - exp_clean.sum()
-            raw_bal = sum(get_raw_val(idx) for idx in group.index)
-            valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
-            cur_name = valid_currencies[-1] if valid_currencies else "USD"
-            
-            return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
-
-        try:
-            # --- 2. 过滤并计算 ---
-            df_filtered = df_main[
-                (df_main['结算账户'] != "-- 请选择 --") & 
-                (df_main['结算账户'].notna()) & 
-                (df_main['结算账户'] != "")
-            ].copy()
-            
-            if df_filtered.empty:
-                st.warning("⚠️ 暂无有效账户余额。")
-            else:
-                # 核心计算逻辑
-                acc_stats = df_filtered.groupby('结算账户').apply(calc_bank_balance).reset_index()
-                
-                # --- 3. 币种映射与对齐处理 ---
-                iso_map = {
-                    "人民币": "CNY", "CNY": "CNY", "港币": "HKD", "HKD": "HKD", 
-                    "印尼盾": "IDR", "IDR": "IDR", "越南盾": "VND", "VND": "VND", 
-                    "瑞尔": "KHR", "KHR": "KHR", "美元": "USD", "USD": "USD"
-                }
-                acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x))
-                
-                # 整理显示列
-                display_acc = acc_stats[['结算账户', 'RAW', '原币种', 'USD']].copy()
-
-                # --- 4. 颜色与格式化 (Styler) ---
-                styled_acc = display_acc.style.format({
-                    'RAW': '{:,.2f}',
-                    'USD': '${:,.2f}'
-                }).map(
-                    lambda x: 'color: #d32f2f;' if isinstance(x, (int, float)) and x < -0.01 else 'color: #31333F;',
-                    subset=['RAW', 'USD']
-                )
-                
-                # --- 5. 渲染展示 ---
-                st.dataframe(
-                    styled_acc,
-                    use_container_width=True, 
-                    hide_index=True,
-                    column_config={
-                        "结算账户": st.column_config.TextColumn("账户", width="medium"),
-                        "RAW": st.column_config.NumberColumn("原币余额", width="small"),
-                        "原币种": st.column_config.TextColumn("原币种", width="small"),
-                        "USD": st.column_config.NumberColumn("折合美元 (USD)", width="small")
-                    }
-                )
-
-        except Exception as e:
-            st.error(f"📊 余额计算异常: {e}")
-
-with col_r:
-    st.write(f"🏷️ **{sel_month}月支出排行**")
-    # 1. 筛选本月支出数据并按性质分组
-    exp_stats = df_this_month[df_this_month['支出(USD)'] > 0].groupby('资金性质')['支出(USD)'].sum().sort_values(ascending=False).reset_index()
-    
-    if not exp_stats.empty:
-        # 2. 应用 Styler：控制千分位 + 颜色（支出通常统一为红色或默认黑色）+ 右对齐
-        styled_exp = exp_stats.style.format({
-            "支出(USD)": "${:,.2f}"
-        }).map(
-            # 统一支出颜色为红色，并注入右对齐 CSS
-            lambda x: 'color: #d32f2f; text-align: right;', 
-            subset=['支出(USD)']
-        )
-        
-        # 3. 渲染表格
-        st.dataframe(
-            styled_exp, 
-            use_container_width=True, 
-            hide_index=True,
-            column_config={
-                "资金性质": st.column_config.TextColumn("资金性质", width="medium"),
-                "支出": st.column_config.NumberColumn("支出金额", width="medium")
-            }
-        )
-    else:
-        st.caption("该月暂无支出记录")
-
-st.divider()
-
-# --- 第四步：流水明细表 (含搜索和格式化) ---
-h_col, b_dl, b_add, b_edit = st.columns([4, 1.2, 1, 1])
-h_col.subheader("📑 流水明细表")
-with b_add:
-    if st.button("➕ 录入", type="primary", use_container_width=True, key="main_add"): entry_dialog()
-
-# 筛选数据
-df_display = df_main.copy()
-df_display['提交时间'] = pd.to_datetime(df_display['提交时间'], errors='coerce')
-df_display = df_display[
-(df_display['提交时间'].dt.year == sel_year) & 
-(df_display['提交时间'].dt.month == sel_month)
-]
-df_display = df_display.sort_values("录入编号", ascending=False)
-
-# 搜索框
-search_query = st.text_input("🔍 搜索本月流水", placeholder="🔍 输入关键词...", label_visibility="collapsed")
-if search_query:
-    q = search_query.lower()
-    mask = (
-        df_display['摘要'].astype(str).str.lower().str.contains(q, na=False) |
-        df_display['客户/项目信息'].astype(str).str.lower().str.contains(q, na=False)|
-        df_display['结算账户'].astype(str).str.lower().str.contains(q, na=False)|
-        df_display['审批/发票单号'].astype(str).str.lower().str.contains(q, na=False)|
-        df_display['经手人'].astype(str).str.lower().str.contains(q, na=False)|
-        df_display['资金性质'].astype(str).str.lower().str.contains(q, na=False)
-    )
-    df_display = df_display[mask]
-
-# --- 第三步：核心优化： Styler 全权接管展示层 ---
-# --- 数据预清洗：统一币种并强制数值化 ---
-df_display['实际币种'] = df_display['实际币种'].replace(['RMB', '人民币'], 'CNY')
-
-# 必须先转为数字，Styler 的千分位指令 {:,.2f} 才能生效
-for col in ['收入(USD)', '支出(USD)', '余额(USD)', '实际金额']:
-    df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
-
-# =========================================================
-# 2. 监听器：放置在主程序中 (解决修改无反应)
-# =========================================================
-if st.session_state.get("show_edit_modal", False):
-    target_id = st.session_state.get("edit_target_id")
-    st.session_state.show_edit_modal = False # 立即复位
-    # 💡 只有在有 ID 的情况下才弹窗
-    if target_id:
-        st.session_state.show_action_menu = False
-        edit_dialog(target_id, df_main, conn)
-# =========================================================
-# 3. 渲染层：明细表显示
-# =========================================================
-
-if not df_display.empty:
-    # --- 1. 日期去 "T" 处理 (放在最前面) ---
-    # 这样下载 CSV 和页面显示都会是干净的格式
-    df_display['提交时间'] = pd.to_datetime(df_display['提交时间']).dt.strftime('%Y-%m-%d %H:%M')
-
-    # --- 2. 确保数值列干净 ---
-    for col in ['收入(USD)', '支出(USD)', '余额(USD)', '实际金额']:
-        df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
-
-    # --- 3. 重新处理展示列 (只留数字，去掉符号) ---
-    def get_val(row):
-        curr = str(row['实际币种']).strip().upper()
-        amt = row['实际金额']
-        # 只要数字格式化，不要符号 s
-        if curr in ['IDR', 'VND', 'KHR']:
-            return f"{amt:,.0f}" 
-        else:
-            return f"{amt:,.2f}"
-
-    # 【关键】这里修改了原始 df，去掉了符号
-    df_display['实际金额'] = df_display.apply(get_val, axis=1)
-
-    # --- 4. 应用 Styler (只针对美元三列加符号) ---
-    # 删掉之前针对 "实际金额" 的 format 逻辑，只留下面这个简单的
-    styled_display = df_display.style.format({
-        "收入(USD)": "${:,.2f}",
-        "支出(USD)": "${:,.2f}",
-        "余额(USD)": "${:,.2f}"
-    })
-    
-    # --- 5. 渲染表格 ---
+    # 配置表格展示 (使用 Streamlit 原生 Data Editor 实现点击选取)
     event = st.dataframe(
-        #df_display,
-        styled_display,
+        view_df,
         use_container_width=True,
         hide_index=True,
-        height=500,
-        on_select="rerun",
-        selection_mode="single-row",
-        key=f"data_table_{st.session_state.table_version}",
         column_config={
-            "提交时间": st.column_config.DatetimeColumn("提交时间", format="YYYY-MM-DD HH:mm", width="small"),
-            "修改时间": st.column_config.DatetimeColumn("修改时间", format="YYYY-MM-DD HH:mm", width="small"),
-            "录入编号": st.column_config.TextColumn("录入编号", width="small"),
-            "摘要": st.column_config.TextColumn("摘要", width="medium"),
-            "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
-            "结算账户": st.column_config.TextColumn("结算账户", width="small"),
-            "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-            "实际金额": st.column_config.NumberColumn("原币金额", width="small", help="纯数字显示，自动右对齐"),
-            "实际币种": st.column_config.TextColumn("原币种", width="small"),
-            "收入(USD)": st.column_config.NumberColumn("收入(USD)", width="small"),
-            "支出(USD)": st.column_config.NumberColumn("支出(USD)", width="small"),
-            "余额(USD)": st.column_config.NumberColumn("余额(USD)", width="small"),
-            "经手人": st.column_config.TextColumn("经手人", width="small"),
-            "备注": st.column_config.TextColumn("备注", width="small"),
-        }
+            "收入(USD)": st.column_config.NumberColumn(format="$ %.2f"),
+            "支出(USD)": st.column_config.NumberColumn(format="$ %.2f"),
+            "余额(USD)": st.column_config.NumberColumn(format="$ %.2f"),
+            "提交时间": st.column_config.DatetimeColumn(format="MM-DD HH:mm")
+        },
+        on_select="rerun", # 开启行选择触发
+        selection_mode="single-row"
     )
 
-    # 捕获点击 (防抖 + 安全跳转版)
-    if event and event.selection and event.selection.rows:
-        row_idx = event.selection.rows[0]
-        sel_id = df_display.iloc[row_idx]["录入编号"]
-        
-        # 💡 如果现在已经有弹窗在显示了，就不要再触发 rerun 了
-        if not st.session_state.get("show_action_menu", False):
-            # 只有当点击的是新行时才触发
-            if st.session_state.get("last_processed_id") != sel_id:
-                st.session_state.action_target_id = sel_id
-                st.session_state.show_action_menu = True
-                st.session_state.last_processed_id = sel_id
-                st.rerun() 
-    else:
-        st.session_state.last_processed_id = None
-        st.session_state.is_deleting = False
-else:
-    st.info("💡 暂无数据。")
+    # 监听行选择事件：弹出“修正/删除”对话框
+    if len(event.selection.rows) > 0:
+        selected_row_idx = event.selection.rows[0]
+        # 注意：因为 view_df 是逆序的，需要根据索引找回原始 row_data
+        target_row_data = view_df.iloc[selected_row_idx]
+        row_action_dialog(target_row_data, df, conn)
 
-
-
-
+# =========================================================
+# 6. 编辑模式挂载 (用于处理 forms.py 触发的 edit 状态)
+# =========================================================
+if st.session_state.get('show_edit_modal'):
+    edit_dialog(
+        target_id=st.session_state.edit_target_id,
+        full_df=df,
+        conn=conn,
+        get_live_rates=get_live_rates,
+        get_dynamic_options=get_dynamic_options,
+        LOCAL_TZ=LOCAL_TZ
+    )

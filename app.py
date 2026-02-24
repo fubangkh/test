@@ -98,7 +98,7 @@ def load_data(version=0):
         df = df.dropna(how="all")
         
         # 2. 核心清洗：数值列
-        numeric_cols = ['实际金额', '收入', '支出', '余额']
+        numeric_cols = ['实际金额', '收入(USD)', '支出(USD)', '余额(USD)']
         for col in numeric_cols:
             if col in df.columns:
                 if df[col].dtype == 'object' or df[col].dtype == 'string':
@@ -252,13 +252,13 @@ def entry_dialog():
             full_df = pd.concat([current_df, new_df], ignore_index=True)
             
             # 数值计算
-            for col in ['收入', '支出']:
+            for col in ['收入(USD)', '支出(USD)']:
                 full_df[col] = pd.to_numeric(full_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
 
-            full_df['余额'] = (full_df['收入'].cumsum() - full_df['支出'].cumsum())
+            full_df['余额(USD)'] = (full_df['收入(USD)'].cumsum() - full_df['支出(USD)'].cumsum())
 
             # 格式化存入
-            for col in ['收入', '支出', '余额']:
+            for col in ['收入(USD)', '支出(USD)', '余额(USD)']:
                 full_df[col] = full_df[col].apply(lambda x: "{:.2f}".format(float(x)))
             
             conn.update(worksheet="Summary", data=full_df)
@@ -397,16 +397,16 @@ def edit_dialog(target_id, full_df, conn):
             
             # 自动重新归类收入/支出 (根据资金性质判断)
             is_income = (u_prop in CORE_BIZ[:5] or u_prop in INC_OTHER)
-            new_df.at[idx, "收入"] = u_usd_val if is_income else 0
-            new_df.at[idx, "支出"] = u_usd_val if not is_income else 0
+            new_df.at[idx, "收入(USD)"] = u_usd_val if is_income else 0
+            new_df.at[idx, "支出(USD)"] = u_usd_val if not is_income else 0
             
             # 重新计算整表流水余额
-            new_df["收入"] = pd.to_numeric(new_df["收入"].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-            new_df["支出"] = pd.to_numeric(new_df["支出"].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
-            new_df["余额"] = new_df["收入"].cumsum() - new_df["支出"].cumsum()
+            new_df["收(USD)入"] = pd.to_numeric(new_df["收入(USD)"].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+            new_df["支出(USD)"] = pd.to_numeric(new_df["支出(USD)"].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+            new_df["余额(USD)"] = new_df["收入(USD)"].cumsum() - new_df["支出(USD)"].cumsum()
             
             # 格式化
-            for col in ['收入', '支出', '余额']:
+            for col in ['收入(USD)', '支出(USD)', '余额(USD)']:
                 new_df[col] = new_df[col].apply(lambda x: "{:.2f}".format(float(x)))
 
             # 写入
@@ -470,13 +470,13 @@ def row_action_dialog(row_data, full_df, conn):
                 try:
                     # 1. 执行删除并重算
                     updated_df = full_df[full_df["录入编号"] != rec_id].copy()
-                    for col in ["收入", "支出"]:
+                    for col in ["收入(USD)", "支出(USD)"]:
                         updated_df[col] = pd.to_numeric(
                             updated_df[col].astype(str).str.replace(",", "", regex=False),
                             errors="coerce"
                         ).fillna(0)
-                    updated_df["余额"] = updated_df["收入"].cumsum() - updated_df["支出"].cumsum()
-                    for col in ["收入", "支出", "余额"]:
+                    updated_df["余额(USD)"] = updated_df["收入(USD)"].cumsum() - updated_df["支出(USD)"].cumsum()
+                    for col in ["收入(USD)", "支出(USD)", "余额(USD)"]:
                         updated_df[col] = updated_df[col].apply(lambda x: "{:.2f}".format(float(x)))
 
                     # 2. 同步数据库
@@ -536,7 +536,7 @@ if not df_main.empty:
     df_main['提交时间'] = df_main['提交时间'].fillna(datetime.now(LOCAL_TZ))
 
     # 4. 数值预清洗
-    for col in ['收入', '支出', '余额', '实际金额']:
+    for col in ['收入(USD)', '支出(USD)', '余额(USD)', '实际金额']:
         if col in df_main.columns:
             if df_main[col].dtype == 'object':
                 df_main[col] = df_main[col].astype(str).str.replace(r'[$,\s]', '', regex=True)
@@ -591,13 +591,13 @@ with st.container(border=True):
     
     # 使用 pd.to_numeric 确保这一列全是数字，无法转换的（如空字符串）会变成 NaN
     # 然后用 .sum() 求和，NaN 会被自动忽略
-    tm_inc = pd.to_numeric(df_this_month['收入'], errors='coerce').sum()
-    tm_exp = pd.to_numeric(df_this_month['支出'], errors='coerce').sum()
-    lm_inc = pd.to_numeric(df_last_month['收入'], errors='coerce').sum()
-    lm_exp = pd.to_numeric(df_last_month['支出'], errors='coerce').sum()
+    tm_inc = pd.to_numeric(df_this_month['收入(USD)'], errors='coerce').sum()
+    tm_exp = pd.to_numeric(df_this_month['支出(USD)'], errors='coerce').sum()
+    lm_inc = pd.to_numeric(df_last_month['收入(USD)'], errors='coerce').sum()
+    lm_exp = pd.to_numeric(df_last_month['支出(USD)'], errors='coerce').sum()
     inc_delta = tm_inc - lm_inc
     exp_delta = tm_exp - lm_exp
-    t_balance = df_main['收入'].sum() - df_main['支出'].sum()
+    t_balance = df_main['收入(USD)'].sum() - df_main['支出(USD)'].sum()
 
     with c3:
         st.markdown(f"""
@@ -627,8 +627,8 @@ with col_l:
     else:
         # 内部计算函数
         def calc_bank_balance(group):
-            inc_clean = pd.to_numeric(group['收入'], errors='coerce').fillna(0)
-            exp_clean = pd.to_numeric(group['支出'], errors='coerce').fillna(0)
+            inc_clean = pd.to_numeric(group['收入(USD)'], errors='coerce').fillna(0)
+            exp_clean = pd.to_numeric(group['支出(USD)'], errors='coerce').fillna(0)
             amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
             
             def get_raw_val(idx):
@@ -761,7 +761,7 @@ if search_query:
 df_display['实际币种'] = df_display['实际币种'].replace(['RMB', '人民币'], 'CNY')
 
 # 必须先转为数字，Styler 的千分位指令 {:,.2f} 才能生效
-for col in ['收入', '支出', '余额', '实际金额']:
+for col in ['收入(USD)', '支出(USD)', '余额(USD)', '实际金额']:
     df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
 
 # =========================================================
@@ -784,7 +784,7 @@ if not df_display.empty:
     df_display['提交时间'] = pd.to_datetime(df_display['提交时间']).dt.strftime('%Y-%m-%d %H:%M')
 
     # --- 2. 确保数值列干净 ---
-    for col in ['收入', '支出', '余额', '实际金额']:
+    for col in ['收入(USD)', '支出(USD)', '余额(USD)', '实际金额']:
         df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
 
     # --- 3. 重新处理展示列 (只留数字，去掉符号) ---
@@ -803,9 +803,9 @@ if not df_display.empty:
     # --- 4. 应用 Styler (只针对美元三列加符号) ---
     # 删掉之前针对 "实际金额" 的 format 逻辑，只留下面这个简单的
     styled_display = df_display.style.format({
-        "收入": "${:,.2f}",
-        "支出": "${:,.2f}",
-        "余额": "${:,.2f}"
+        "收入(USD)": "${:,.2f}",
+        "支出(USD)": "${:,.2f}",
+        "余额(USD)": "${:,.2f}"
     })
     
     # --- 5. 渲染表格 ---
@@ -828,9 +828,9 @@ if not df_display.empty:
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
             "实际金额": st.column_config.NumberColumn("原币金额", width="small", help="纯数字显示，自动右对齐"),
             "实际币种": st.column_config.TextColumn("原币种", width="small"),
-            "收入": st.column_config.NumberColumn("收入(USD)", width="small"),
-            "支出": st.column_config.NumberColumn("支出(USD)", width="small"),
-            "余额": st.column_config.NumberColumn("余额(USD)", width="small"),
+            "收入(USD)": st.column_config.NumberColumn("收入(USD)", width="small"),
+            "支出(USD)": st.column_config.NumberColumn("支出(USD)", width="small"),
+            "余额(USD)": st.column_config.NumberColumn("余额(USD)", width="small"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
             "备注": st.column_config.TextColumn("备注", width="small"),
         }
@@ -854,6 +854,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

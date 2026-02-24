@@ -670,7 +670,7 @@ with col_l:
                 acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x).rjust(10))
                 
                 # 整理显示列
-                display_acc = acc_stats[['结算账户', '原币种', 'RAW', 'USD']].copy()
+                display_acc = acc_stats[['结算账户', 'RAW', '原币种', 'USD']].copy()
 
                 # --- 4. 颜色与格式化 (Styler) ---
                 styled_acc = display_acc.style.format({
@@ -688,8 +688,8 @@ with col_l:
                     hide_index=True,
                     column_config={
                         "结算账户": st.column_config.TextColumn("账户", width="medium"),
-                        "原币种": st.column_config.TextColumn("币种", width="small"),
                         "RAW": st.column_config.NumberColumn("原币余额", width="small"),
+                        "原币种": st.column_config.TextColumn("原币种", width="small"),
                         "USD": st.column_config.NumberColumn("折合美元 (USD)", width="small")
                     }
                 )
@@ -873,6 +873,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

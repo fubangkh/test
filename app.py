@@ -775,60 +775,40 @@ if st.session_state.get("show_edit_modal", False):
         st.session_state.show_action_menu = False
         edit_dialog(target_id, df_main, conn)
 # =========================================================
-# 3. 渲染层：明细表显示 (移除顶部冗余按钮)
+# 3. 渲染层：明细表显示
 # =========================================================
 
 if not df_display.empty:
-    # --- 1. 预准备：确保数值列是干净的 float 类型 ---
+    # --- 1. 日期去 "T" 处理 (放在最前面) ---
+    # 这样下载 CSV 和页面显示都会是干净的格式
+    df_display['提交时间'] = pd.to_datetime(df_display['提交时间']).dt.strftime('%Y-%m-%d %H:%M')
+
+    # --- 2. 确保数值列干净 ---
     for col in ['收入', '支出', '余额', '实际金额']:
         df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
 
-    # --- 2. 核心：定义格式化字典 ---
-    # 定义收入、支出、余额的固定格式
-    format_dict = {
-        "收入": "${:,.2f}",
-        "支出": "${:,.2f}",
-        "余额": "${:,.2f}"
-    }
-
-    # 💡 关键：为“实际金额”这一列单独定制智能格式化函数
-    def smart_original_format(val, row_idx):
-        # 通过行索引找到对应的币种
-        curr = str(df_display.loc[row_idx, '实际币种']).strip().upper()
-        symbols = {'CNY': '¥', 'USD': '$', 'KHR': '៛','IDR': 'Rp', 'VND': '₫', 'HKD': 'HK$'}
-        s = symbols.get(curr, '')
-        
-        if curr in ['IDR', 'VND', 'KHR']:
-            return f"{s}{val:,.0f}"
-        else:
-            return f"{s}{val:,.2f}"
-
-    # --- 3. 应用 Styler ---
-    # 我们使用 format 的另一种高级写法：对特定列传入 lambda 函数
-    styled_display = df_display.style.format(format_dict).format({
-        "实际金额": lambda x: smart_original_format(x, df_display.index[df_display['实际金额'] == x][0]) if any(df_display['实际金额'] == x) else f"{x:,.2f}"
-    }, na_rep="-")
-    
-    # 👆 注意：由于 Styler 的复杂性，最稳妥且简单的办法是直接在 dataframe 配置里显示
-    # 重新处理展示列 (直接替换法，不增加新列)
+    # --- 3. 重新处理展示列 (只留数字，去掉符号) ---
     def get_val(row):
         curr = str(row['实际币种']).strip().upper()
         amt = row['实际金额']
+        # 只要数字格式化，不要符号 s
         if curr in ['IDR', 'VND', 'KHR']:
-            return f"{amt:,.0f}"  # 大额币种不要小数
+            return f"{amt:,.0f}" 
         else:
-            return f"{amt:,.2f}"  # 其他保留两位小数
+            return f"{amt:,.2f}"
 
-    # 直接修改原本的列（转为字符串展示）
+    # 【关键】这里修改了原始 df，去掉了符号
     df_display['实际金额'] = df_display.apply(get_val, axis=1)
 
+    # --- 4. 应用 Styler (只针对美元三列加符号) ---
+    # 删掉之前针对 "实际金额" 的 format 逻辑，只留下面这个简单的
     styled_display = df_display.style.format({
         "收入": "${:,.2f}",
         "支出": "${:,.2f}",
         "余额": "${:,.2f}"
     })
-   
-    # --- 2. 渲染表格 ---
+    
+    # --- 5. 渲染表格 ---
     event = st.dataframe(
         #df_display,
         styled_display,
@@ -874,6 +854,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

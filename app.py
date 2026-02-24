@@ -829,7 +829,8 @@ if not df_display.empty:
    
     # --- 2. 渲染表格 ---
     event = st.dataframe(
-        df_display,
+        #df_display,
+        styled_display,
         use_container_width=True,
         hide_index=True,
         height=500,
@@ -872,6 +873,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

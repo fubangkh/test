@@ -10,7 +10,8 @@ from forms import entry_dialog, edit_dialog, row_action_dialog
 
 # --- 1. 基础页面配置 ---
 st.set_page_config(page_title="财务流水管理系统", layout="wide", page_icon="📊")
-# 🌍 恢复金边时区
+
+# ✅ 找回并锁定您的金边时区
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
 # 初始化全局状态
@@ -27,7 +28,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 @st.cache_data(ttl=300)
 def load_data(version=0):
     try:
-        # 使用 version 强制刷新缓存
+        # 使用 version 作为缓存键实现手动强刷
         df = conn.read(worksheet="Summary", ttl=0)
         return df
     except Exception as e:
@@ -47,7 +48,7 @@ def get_dynamic_options(df, column_name):
 # --- 3. 侧边栏 ---
 with st.sidebar:
     st.title("💰 财务管理系统")
-    st.markdown(f"**📅 当前日期:** {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d')}")
+    st.markdown(f"**📅 当前日期 (金边):** {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M')}")
     st.divider()
     
     if st.button("🚪 退出/重置系统", use_container_width=True):
@@ -57,12 +58,11 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
     
-    st.info("💡 提示：点击退出将刷新数据缓存并重置所有选择。")
+    st.info("💡 提示：此操作将清除本地缓存并重新从云端同步数据。")
 
-# --- 4. 主页面数据加载 ---
+# --- 4. 主页面布局 ---
 df_main = load_data(version=st.session_state.table_version)
 
-# 录入按钮布局
 c_title, c_btn = st.columns([5, 2])
 with c_title:
     st.header("📊 汇总统计")
@@ -79,23 +79,28 @@ if st.session_state.get("show_edit_modal", False):
 
 # --- 5. 数据预处理 (如实反映：空即是空) ---
 if not df_main.empty:
+    # 币种对齐
     df_main['实际币种'] = df_main['实际币种'].replace(['RMB', '人民币'], 'CNY')
     
-    # 【修正解析逻辑】只解析，不填充默认值
+    # 【修正解析逻辑】仅解析，绝不自动填充 datetime.now()
     def clean_date_for_stats(x):
-        if pd.isna(x) or str(x).strip() == "" or str(x).strip().lower() == "nan":
-            return pd.NaT # 保持为空，不填充 datetime.now()
+        s = str(x).strip()
+        if pd.isna(x) or s == "" or s.lower() == "nan":
+            return pd.NaT # 真正为空时不填充
         try:
-            s = str(x).strip()
+            # 统一尝试 Pandas 解析
             dt = pd.to_datetime(s, errors='coerce')
-            return dt.replace(tzinfo=None) if dt is not pd.NaT else pd.NaT
+            if pd.isna(dt):
+                return pd.NaT
+            # 剥离时区信息以支持表格筛选
+            return dt.replace(tzinfo=None)
         except:
             return pd.NaT
 
-    # 建立隐藏辅助列，仅用于看板分月计算
+    # 建立隐藏辅助列，专门用于看板月份计算，避免干扰原始列显示
     df_main['_calc_date'] = df_main['提交时间'].apply(clean_date_for_stats)
 
-    # 数值清洗
+    # 数值列清洗
     for col in ['收入(USD)', '支出(USD)', '余额(USD)', '实际金额']:
         if col in df_main.columns:
             df_main[col] = (
@@ -106,14 +111,14 @@ if not df_main.empty:
                 .fillna(0.0)
             )
 
-# --- 6. 生成时间筛选列表 ---
+# --- 6. 生成看板筛选列表 ---
 current_now = datetime.now(LOCAL_TZ)
 try:
     if not df_main.empty:
-        # 排除空日期后提取年份
-        valid_years = df_main['_calc_date'].dropna()
-        if not valid_years.empty:
-            year_list = sorted(valid_years.dt.year.unique().tolist(), reverse=True)
+        # 只从有日期记录的行里提取年份
+        valid_dates = df_main['_calc_date'].dropna()
+        if not valid_dates.empty:
+            year_list = sorted(valid_dates.dt.year.unique().tolist(), reverse=True)
         else:
             year_list = [current_now.year]
     else:
@@ -132,37 +137,36 @@ with st.container(border=True):
     with c2:
         sel_month = st.selectbox("月份", month_list, index=current_now.month - 1, label_visibility="collapsed")
     
-    # 仅针对有日期的行进行月度统计
+    # 基于辅助列进行月份统计筛选
     mask_this_month = (
         (df_main['_calc_date'].dt.year == int(sel_year)) & 
         (df_main['_calc_date'].dt.month == int(sel_month))
     )
     df_this_month = df_main[mask_this_month].copy()
     
-    lm = 12 if sel_month == 1 else sel_month - 1
-    ly = sel_year - 1 if sel_month == 1 else sel_year
-    mask_last_month = (
-        (df_main['_calc_date'].dt.year == int(ly)) & 
-        (df_main['_calc_date'].dt.month == int(lm))
-    )
-    df_last_month = df_main[mask_last_month].copy()
-    
-    tm_inc, tm_exp = df_this_month['收入(USD)'].sum(), df_this_month['支出(USD)'].sum()
-    lm_inc, lm_exp = df_last_month['收入(USD)'].sum(), df_last_month['支出(USD)'].sum()
+    # 计算月度统计数据
+    tm_inc = df_this_month['收入(USD)'].sum()
+    tm_exp = df_this_month['支出(USD)'].sum()
     t_balance = df_main['收入(USD)'].sum() - df_main['支出(USD)'].sum()
 
     with c3:
-        st.markdown(f"""<div style="margin-top: 7px; padding-left: 5px;"><span style="font-size: 1.2rem; font-weight: bold; color: #31333F;">💡 当前统计周期：<span style="color: #4CAF50;">{sel_year}年{sel_month}月</span></span></div>""", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div style="margin-top: 7px; padding-left: 5px;">
+                <span style="font-size: 1.2rem; font-weight: bold; color: #31333F;">
+                    💡 当前统计周期：<span style="color: #4CAF50;">{sel_year}年{sel_month}月</span>
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
     st.markdown("---")
     
     m1, m2, m3 = st.columns(3)
-    m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}", delta=f"{tm_inc - lm_inc:,.2f}")
-    m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}", delta=f"{tm_exp - lm_exp:,.2f}", delta_color="inverse")
+    m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}")
+    m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}")
     m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
 
 st.divider()
 
-# --- 8. 账户余额与排行 ---
+# --- 8. 余额对账与排行 ---
 col_l, col_r = st.columns([1.6, 1])
 with col_l:
     st.write("🏦 **各账户当前余额 (原币对账)**")
@@ -183,10 +187,9 @@ with col_l:
             df_filtered = df_main[(df_main['结算账户'].notna()) & (df_main['结算账户'] != "") & (df_main['结算账户'] != "-- 请选择 --")].copy()
             if not df_filtered.empty:
                 acc_stats = df_filtered.groupby('结算账户', group_keys=False).apply(calc_bank_balance).reset_index()
-                iso_map = {"人民币": "CNY", "CNY": "CNY", "港币": "HKD", "HKD": "HKD", "印尼盾": "IDR", "IDR": "IDR", "越南盾": "VND", "VND": "VND", "瑞尔": "KHR", "KHR": "KHR", "美元": "USD", "USD": "USD"}
+                iso_map = {"人民币": "CNY", "CNY": "CNY", "港币": "HKD", "HKD": "HKD", "瑞尔": "KHR", "KHR": "KHR", "美元": "USD", "USD": "USD"}
                 acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x))
-                styled_acc = acc_stats[['结算账户', 'RAW', '原币种', 'USD']].style.format({'RAW': '{:,.2f}', 'USD': '${:,.2f}'})
-                st.dataframe(styled_acc, use_container_width=True, hide_index=True)
+                st.dataframe(acc_stats[['结算账户', 'RAW', '原币种', 'USD']], use_container_width=True, hide_index=True)
         except Exception as e:
             st.error(f"📊 余额计算异常: {e}")
 
@@ -200,12 +203,15 @@ with col_r:
 
 st.divider()
 
-# --- 9. 数据明细表 ---
+# --- 9. 数据明细表 (如实反映原始数据) ---
 st.subheader("📑 财务流水账目明细")
 if not df_main.empty:
-    # 💡 关键：只显示 Sheets 原始列，彻底排除以 _ 开头的辅助列
+    # 💡 核心修正：只展示 Google Sheets 里的原始列，彻底排除后台辅助列
+    # 辅助列统一以 "_" 开头，我们将其过滤掉
     display_cols = [c for c in df_main.columns if not str(c).startswith('_')] 
-    view_df = df_main[display_cols].copy().iloc[::-1] # 倒序排列
+    
+    # 倒序展示，让最新录入在最上面
+    view_df = df_main[display_cols].copy().iloc[::-1]
     
     table_key = f"main_table_v_{st.session_state.table_version}"
     event = st.dataframe(
@@ -217,6 +223,7 @@ if not df_main.empty:
         key=table_key
     )
 
+    # 选中行逻辑
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)

@@ -6,7 +6,12 @@ import requests
 from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
 
-# --- 1. 全局配置 (必须放在最前面) ---
+# --- 1. 导入自定义模块 ---
+# 确保 logic.py 和 forms.py 在同一目录下
+from logic import prepare_new_data, calculate_full_balance, ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER
+from forms import entry_dialog, action_dialog
+
+# --- 2. 页面基础配置 (必须在所有 st 组件之前) ---
 st.set_page_config(page_title="富邦日记账", layout="wide")
 if "table_version" not in st.session_state:
     st.session_state.table_version = 0
@@ -105,14 +110,12 @@ def load_data(version=0):
                     df[col] = df[col].astype(str).str.replace(r'[$,\s]', '', regex=True)
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
         
-        # 3. 时间列处理（✨ 重点：放在 fillna 之前，并确保转换成功）
+        # 3. 时间列处理
         if '提交时间' in df.columns:
-            # 强制转换为日期格式，不认识的变为空 NaT
             df['提交时间'] = pd.to_datetime(df['提交时间'], errors='coerce')
-            # 给个保底：如果时间是空的，填入当前时间，防止后续报错
             df['提交时间'] = df['提交时间'].fillna(pd.Timestamp.now())
         
-        # 4. 填充其余文本列空值（✨ 重点：排除时间列，防止日期变回字符串）
+        # 4. 填充其余文本列空值
         other_cols = df.columns.difference(['提交时间'])
         df[other_cols] = df[other_cols].fillna("")
         
@@ -124,11 +127,9 @@ def load_data(version=0):
         st.error(f"数据加载异常: {e}")
         return pd.DataFrame()
 
-# get_dynamic_options 函数保持不变，它现在可以完美兼容上面返回的 df
 def get_dynamic_options(df, column_name):
     try:
         if not df.empty and column_name in df.columns:
-            # 这里的 x 已经是字符串了，因为上面做了 fillna("")
             raw_list = [str(x).strip() for x in df[column_name].unique() if x]
             clean_options = sorted([
                 x for x in raw_list 
@@ -138,6 +139,13 @@ def get_dynamic_options(df, column_name):
     except:
         pass
     return ["-- 请选择 --", "➕ 新增..."]
+
+# --- 以下为 app.py 的后续调用示例 (确保衔接逻辑正确) ---
+# df = load_data(st.session_state.table_version)
+# rates = get_live_rates()
+
+# if st.button("➕ 新增录入"):
+#     entry_dialog(conn, load_data, LOCAL_TZ, rates, get_dynamic_options)
     
    # --- 4. 录入模块 ---
 @st.dialog("📝 新增录入", width="large")
@@ -882,6 +890,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

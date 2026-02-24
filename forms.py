@@ -28,7 +28,7 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     val_curr = r2_c2.selectbox("原币币种 :red[*]", list(live_rates.keys()))
     val_rate = r2_c3.number_input("实时汇率", value=float(live_rates[val_curr]), format="%.4f")
     
-    # 实时换算显示 (变回绿色)
+    # 实时换算显示
     converted_usd = round(val_amt / val_rate, 2) if val_rate != 0 else 0
     st.success(f"💰 换算后金额：$ {converted_usd:,.2f} USD")
     
@@ -98,7 +98,8 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
                     'acc_to': val_acc_to if is_transfer else None,
                     'inc_val': converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0,
                     'exp_val': converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0,
-                    'converted_usd': converted_usd
+                    'converted_usd': converted_usd,
+                    'modified_time': ""  # ✨ 关键点：新增时修改时间留空
                 }
                 full_df, new_ids = prepare_new_data(current_df, entry_data, LOCAL_TZ)
                 conn.update(worksheet="Summary", data=full_df)
@@ -113,7 +114,7 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     if col_can.button("🗑️ 取消返回", use_container_width=True):
         st.rerun()
 
-# --- 5. 数据修正模块 (一字不删版) ---
+# --- 5. 数据修正模块 ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, LOCAL_TZ):
     try:
@@ -125,12 +126,10 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
     live_rates = get_live_rates()
     st.info(f"正在修正记录：`{target_id}`")
     
-    # 字段 1 & 2
     c1, c2 = st.columns(2)
     with c1: st.text_input("录入时间 (锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
-    # 字段 3, 4, 5
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     u_ori_amt = r2_c1.number_input("原币金额", value=float(old.get("实际金额", 0.0)), step=100.0)
     curr_list = list(live_rates.keys())
@@ -141,13 +140,11 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
     st.success(f"💰 折算后金额：$ {u_usd_val:,.2f} USD")
     st.markdown('<hr>', unsafe_allow_html=True)
 
-    # 字段 6 & 7
     r4_c1, r4_c2 = st.columns(2)
     u_inv = r4_c1.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
     p_idx = ALL_PROPS.index(old.get("资金性质")) if old.get("资金性质") in ALL_PROPS else 0
     u_prop = r4_c2.selectbox("资金性质", ALL_PROPS, index=p_idx)
 
-    # 字段 8, 9, 10
     r3_c1, r3_c2 = st.columns(2)
     acc_options = get_dynamic_options(full_df, "结算账户")
     curr_acc = old.get("结算账户", "")
@@ -159,7 +156,6 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
     sel_hand = r3_c2.selectbox("经手人", options=hand_options, index=hand_options.index(curr_hand) if curr_hand in hand_options else 0)
     u_hand = r3_c2.text_input("✍️ 录入新姓名", placeholder="经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
 
-    # 字段 11 & 12
     proj_options = get_dynamic_options(full_df, "客户/项目信息")
     curr_proj = old.get("客户/项目信息", "")
     sel_proj = st.selectbox("客户/项目信息", options=proj_options, index=proj_options.index(curr_proj) if curr_proj in proj_options else 0)
@@ -178,6 +174,9 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
             new_df.at[idx, "资金性质"], new_df.at[idx, "实际金额"] = u_prop, u_ori_amt
             new_df.at[idx, "实际币种"], new_df.at[idx, "经手人"] = u_curr, u_hand
             new_df.at[idx, "备注"] = u_note
+            
+            # ✨ 关键点：修正保存时，写入当前时间到【修改时间】列
+            new_df.at[idx, "修改时间"] = datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M:%S')
             
             is_income = (u_prop in CORE_BIZ[:5] or u_prop in INC_OTHER)
             new_df.at[idx, "收入(USD)"] = u_usd_val if is_income else 0

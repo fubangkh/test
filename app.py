@@ -139,7 +139,7 @@ def get_dynamic_options(df, column_name):
         pass
     return ["-- 请选择 --", "➕ 新增..."]
     
-   # --- 4. 录入模块 (回归稳定版) ---
+   # --- 4. 录入模块 ---
 @st.dialog("📝 新增录入", width="large")
 def entry_dialog():
     # --- A. 内部常量定义 ---
@@ -175,7 +175,7 @@ def entry_dialog():
     # 3. 性质与发票
     r4_c1, r4_c2 = st.columns(2)
     val_inv = r4_c1.text_input("📑 审批/发票单号 (必填)")
-    val_prop = r4_c2.selectbox("资金性质", ALL_PROPS)
+    val_prop = r4_c2.selectbox("资金性质 :red[*]", ALL_PROPS)
     
     is_transfer = (val_prop == "资金结转")
     is_req = val_prop in CORE_BIZ
@@ -854,6 +854,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

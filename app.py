@@ -814,9 +814,10 @@ if not df_display.empty:
     def get_val(row):
         curr = str(row['实际币种']).strip().upper()
         amt = row['实际金额']
-        symbols = {'CNY': '¥', 'USD': '$', 'IDR': 'Rp', 'VND': '₫', 'KHR': '៛','HKD': 'HK$'}
-        s = symbols.get(curr, '')
-        return f"{s}{amt:,.0f}" if curr in ['IDR', 'VND', 'KHR'] else f"{s}{amt:,.2f}"
+        if curr in ['IDR', 'VND', 'KHR']:
+            return f"{amt:,.0f}"  # 大额币种不要小数
+        else:
+            return f"{amt:,.2f}"  # 其他保留两位小数
 
     # 直接修改原本的列（转为字符串展示）
     df_display['实际金额'] = df_display.apply(get_val, axis=1)
@@ -845,7 +846,7 @@ if not df_display.empty:
             "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
             "结算账户": st.column_config.TextColumn("结算账户", width="small"),
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-            "实际金额": st.column_config.TextColumn("原币金额", width="small"),
+            "实际金额": st.column_config.NumberColumn("原币金额", width="small", help="纯数字显示，自动右对齐"),
             "实际币种": st.column_config.TextColumn("原币种", width="small"),
             "收入": st.column_config.NumberColumn("收入(USD)", width="small"),
             "支出": st.column_config.NumberColumn("支出(USD)", width="small"),
@@ -873,6 +874,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

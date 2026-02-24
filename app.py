@@ -723,8 +723,8 @@ with col_l:
             }
         )
         
-    except Exception as e:
-        st.error(f"余额计算异常: {e}")
+        except Exception as e:
+            st.error(f"余额计算异常: {e}")
 
 with col_r:
     st.write(f"🏷️ **{sel_month}月支出排行**")
@@ -903,6 +903,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

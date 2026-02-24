@@ -816,9 +816,9 @@ if not df_display.empty:
     def get_val(row):
         curr = str(row['实际币种']).strip().upper()
         amt = row['实际金额']
-        symbols = {'CNY': '¥', 'USD': '$', 'IDR': 'Rp', 'VND': '₫', 'HKD': 'HK$'}
+        symbols = {'CNY': '¥', 'USD': '$', 'IDR': 'Rp', 'VND': '₫', 'KHR': '៛','HKD': 'HK$'}
         s = symbols.get(curr, '')
-        return f"{s}{amt:,.0f}" if curr in ['IDR', 'VND'] else f"{s}{amt:,.2f}"
+        return f"{s}{amt:,.0f}" if curr in ['IDR', 'VND', 'KHR'] else f"{s}{amt:,.2f}"
 
     # 直接修改原本的列（转为字符串展示）
     df_display['实际金额'] = df_display.apply(get_val, axis=1)
@@ -874,6 +874,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

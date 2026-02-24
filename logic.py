@@ -29,10 +29,12 @@ def prepare_new_data(current_df, v, LOCAL_TZ):
     today_records = current_df[today_mask]
     start_num = (int(str(today_records['录入编号'].iloc[-1])[-3:]) + 1) if not today_records.empty else 1
 
-    # --- B. 内部函数：创建行模板 (完全保留自原 app.py) ---
+    # --- B. 内部函数：创建行模板 (关键修正点) ---
     def create_row(offset, s, p, a, i, pr, raw_v, raw_c, inc, exp, h, n):
         sn = f"R{today_str}{(start_num + offset):03d}"
-        return [sn, now_ts, now_ts, s, p, a, i, pr, round(float(raw_v), 2), raw_c, 
+        # ✨ 修正点：第二个参数是提交时间(now_ts)，第三个参数是修改时间。
+        # 这里将其改为 "" (空字符串)，确保新录入时修改时间为空。
+        return [sn, now_ts, "", s, p, a, i, pr, round(float(raw_v), 2), raw_c, 
                 round(float(inc), 2), round(float(exp), 2), 0, h, n]
 
     new_rows = []
@@ -60,13 +62,15 @@ def calculate_full_balance(df):
     
     # 1. 清理数值列，确保没有逗号且为数字类型
     for col in ['收入(USD)', '支出(USD)']:
-        temp_df[col] = pd.to_numeric(temp_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+        if col in temp_df.columns:
+            temp_df[col] = pd.to_numeric(temp_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
     
     # 2. 关键：全量 Cumsum 重新生成余额链
     temp_df['余额(USD)'] = temp_df['收入(USD)'].cumsum() - temp_df['支出(USD)'].cumsum()
 
     # 3. 最终格式化为 2 位小数的字符串，确保写入数据库的一致性
     for col in ['收入(USD)', '支出(USD)', '余额(USD)']:
-        temp_df[col] = temp_df[col].apply(lambda x: "{:.2f}".format(float(x)))
+        if col in temp_df.columns:
+            temp_df[col] = temp_df[col].apply(lambda x: "{:.2f}".format(float(x)))
         
     return temp_df

@@ -37,95 +37,105 @@ def load_data(version=0):
         st.error(f"数据加载失败: {e}")
         return pd.DataFrame()
 
-# 获取实时汇率 (可根据需要对接API)
 def get_live_rates():
+    # 汇率定义
     return {"USD": 1.0, "CNY": 7.21, "KHR": 4050.0, "THB": 35.8}
 
-# 获取动态下拉选项
 def get_dynamic_options(df, column_name):
     if df.empty or column_name not in df.columns:
         return ["-- 请选择 --", "➕ 新增..."]
     options = df[column_name].dropna().unique().tolist()
-    # 过滤无效选项
     options = [opt for opt in options if opt and str(opt).strip() != "" and opt != "资金结转"]
     return ["-- 请选择 --"] + sorted(options) + ["➕ 新增..."]
 
-# --- 3. 侧边栏 (带回所有消失的组件) ---
+# --- 3. 侧边栏渲染 (全功能) ---
 df = load_data(version=st.session_state.table_version)
 
 with st.sidebar:
     st.title("💰 财务管理系统")
-    st.markdown(f"**当前时间:** {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M')}")
+    st.markdown(f"**📅 报表日期:** {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d')}")
     st.divider()
     
-    # 🔙 消失的新增录入按钮回归
+    # 🔙 功能点 1：新增录入按钮回归
     if st.button("➕ 新增流水录入", type="primary", use_container_width=True):
         entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     
     st.divider()
-    # 🔙 消失的账户余额看板回归
+    
+    # 🔙 功能点 2：账户余额明细回归 (含语法修复)
     if not df.empty:
         st.subheader("🏦 账户余额明细")
-        acc_group = df.groupby("结算账户")["收入(USD)", "支出(USD)"].sum()
+        # 修复 Pandas 3.13 兼容性：使用双中括号选择多列进行聚合
+        acc_group = df.groupby("结算账户")[["收入(USD)", "支出(USD)"]].sum()
         acc_group["当前结余"] = acc_group["收入(USD)"] - acc_group["支出(USD)"]
+        
         for acc, row in acc_group.iterrows():
             if acc != "资金结转":
-                st.metric(f"{acc}", f"$ {row['当前结余']:,.2f}")
+                st.metric(label=f"{acc}", value=f"$ {row['当前结余']:,.2f}")
+                st.markdown("---")
 
 # --- 4. 主页统计看板 ---
 if not df.empty:
+    latest_balance = df['余额(USD)'].iloc[-1] if '余额(USD)' in df.columns else 0
     m1, m2, m3 = st.columns(3)
     m1.metric("累计总收入", f"$ {df['收入(USD)'].sum():,.2f}")
     m2.metric("累计总支出", f"$ {df['支出(USD)'].sum():,.2f}")
-    m3.metric("当前总结余", f"$ {df['余额(USD)'].iloc[-1]:,.2f}")
+    m3.metric("当前总结余", f"$ {latest_balance:,.2f}")
 
     st.divider()
 
-    # 🔙 消失的支出排行图表回归
-    c1, c2 = st.columns([1, 1])
+    # 🔙 功能点 3：支出排行与占比图表回归
+    c1, c2 = st.columns(2)
+    exp_df = df[df["支出(USD)"] > 0]
+    
     with c1:
         st.subheader("📊 支出性质排行")
-        exp_df = df[df["支出(USD)"] > 0]
         if not exp_df.empty:
             prop_exp = exp_df.groupby("资金性质")["支出(USD)"].sum().sort_values(ascending=True)
-            st.bar_chart(prop_exp, horizontal=True)
+            st.bar_chart(prop_exp, horizontal=True) # 使用条形图
         else:
             st.info("暂无支出数据")
             
     with c2:
-        st.subheader("📈 项目支出占比")
+        st.subheader("📈 项目支出分布")
         if not exp_df.empty:
             proj_exp = exp_df.groupby("客户/项目信息")["支出(USD)"].sum()
-            st.area_chart(proj_exp)
+            st.area_chart(proj_exp) # 使用面积图展示分布
         else:
             st.info("暂无项目数据")
 
 st.divider()
 
-# --- 5. 数据明细表与调度逻辑 ---
+# --- 5. 数据明细表 ---
 st.subheader("📑 财务流水账目明细")
 
 if not df.empty:
-    # 倒序显示，最新的在上面
+    # 倒序显示：最新记录置顶
     view_df = df.copy().iloc[::-1]
     
-    # 【修复关键】动态 Key 刷新，清空选中状态
+    # 🔙 功能点 4：动态 Key 机制，确保弹窗关闭后清除选中状态
     table_key = f"main_table_v_{st.session_state.table_version}"
     
     event = st.dataframe(
         view_df,
         use_container_width=True,
         hide_index=True,
+        column_config={
+            "收入(USD)": st.column_config.NumberColumn(format="$ %.2f"),
+            "支出(USD)": st.column_config.NumberColumn(format="$ %.2f"),
+            "余额(USD)": st.column_config.NumberColumn(format="$ %.2f"),
+        },
         on_select="rerun", 
         selection_mode="single-row",
         key=table_key
     )
 
-    # 弹窗调度逻辑
+    # 弹窗调度逻辑 (修正与删除)
     if st.session_state.show_edit_modal:
         edit_dialog(st.session_state.edit_target_id, df, conn, get_live_rates, get_dynamic_options, LOCAL_TZ)
     elif event.selection.rows:
         selected_row_idx = event.selection.rows[0]
+        # 注意：由于 view_df 是倒序，这里的 index 对应 row_action_dialog 里的逻辑
         row_action_dialog(view_df.iloc[selected_row_idx], df, conn)
 else:
-    st.warning("数据库为空，请点击左侧按钮开始录入。")
+    st.warning("📭 数据库目前为空。请点击侧边栏按钮录入第一笔流水。")

@@ -65,7 +65,7 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     # 7. 底部提交按钮
     col_sub, col_can = st.columns(2)
 
-    if col_sub.button("🚀 确认提交", type="primary", use_container_width=True):
+    if col_sub.button("🚀 确认提交", use_container_width=True):
         # --- 校验逻辑 ---
         if not val_sum.strip(): st.error("⚠️ 请填写摘要内容！"); return
         if val_amt <= 0: st.error("⚠️ 原币金额必须大于 0！"); return

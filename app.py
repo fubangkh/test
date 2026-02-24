@@ -73,7 +73,14 @@ st.markdown("""
 # --- 2. 核心功能：实时汇率 ---
 @st.cache_data(ttl=3600)
 def get_live_rates():
-    default_rates = {"USD": 1.0, "CNY": 6.91, "VND": 26000.0, "HKD": 7.82, "IDR": 16848.0}
+    default_rates = {
+        "USD": 1.0, 
+        "CNY": 6.91, 
+        "KHR": 4010,
+        "VND": 26000, 
+        "HKD": 7.82, 
+        "IDR": 16848
+    }
     try:
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
@@ -658,7 +665,7 @@ with col_l:
                 iso_map = {
                     "人民币": "CNY", "CNY": "CNY", "港币": "HKD", "HKD": "HKD", 
                     "印尼盾": "IDR", "IDR": "IDR", "越南盾": "VND", "VND": "VND", 
-                    "美元": "USD", "USD": "USD"
+                    "瑞尔": "KHR", "KHR": "KHR", "美元": "USD", "USD": "USD"
                 }
                 acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x).rjust(10))
                 
@@ -867,6 +874,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

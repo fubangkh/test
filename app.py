@@ -304,7 +304,7 @@ def entry_dialog():
             return False
 
     # --- 7. 底部提交按钮 ---
-    st.divider()
+    # st.divider()
     col_sub, col_can = st.columns(2)
 
     if col_sub.button("🚀 确认提交", type="primary", use_container_width=True):
@@ -880,6 +880,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

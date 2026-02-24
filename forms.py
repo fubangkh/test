@@ -5,7 +5,7 @@ from datetime import datetime
 from logic import ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER, prepare_new_data, calculate_full_balance
 
 # --- 4. 录入模块 ---
-@st.dialog("📝 新增录入", width="large")
+@st.dialog("➕ 新增流水录入", width="large")
 def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options):
     # 注入全局紧凑样式
     st.markdown("""<style>hr{margin-top:-5px!important;margin-bottom:10px!important;}.stTextArea textarea{height:68px!important;}</style>""", unsafe_allow_html=True)

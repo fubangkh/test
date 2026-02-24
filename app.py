@@ -395,7 +395,7 @@ def edit_dialog(target_id, full_df, conn):
     else:
         u_proj = sel_proj
 
-    u_note = st.text_area("备注", value=str(old.get("备注", "")))
+    u_note = st.text_area("备注", height=68, value=str(old.get("备注", "")))
 
     # --- 提交保存逻辑 ---
     # st.divider()
@@ -882,6 +882,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

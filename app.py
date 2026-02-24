@@ -157,7 +157,7 @@ def entry_dialog():
     
     # 1. 摘要与时间
     c1, c2 = st.columns(2)
-    val_sum = c1.text_input("摘要内容", placeholder="请输入流水说明")
+    val_sum = c1.text_input("摘要内容 :red[*]", placeholder="请输入流水说明")
     val_time = c2.date_input("业务时间", value=datetime.now(LOCAL_TZ)) # 建议用 date_input 更稳
     
     # 2. 金额、币种、汇率
@@ -854,6 +854,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

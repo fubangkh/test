@@ -355,7 +355,9 @@ def edit_dialog(target_id, full_df, conn):
     u_usd_val = round(u_ori_amt / u_rate, 2) if u_rate != 0 else 0
     st.info(f"💰 折算后金额：$ {u_usd_val:,.2f} USD")
 
-    st.divider()
+    #st.divider()
+    # 这里的 margin-top: -15px 会把分割线往上“提”，margin-bottom 控制下方间距
+    st.markdown('<hr style="margin-top: -5px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
 
     # --- 第三部分：性质与发票 ---
     r4_c1, r4_c2 = st.columns(2)
@@ -880,6 +882,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

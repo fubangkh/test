@@ -319,7 +319,7 @@ def entry_dialog():
     if col_can.button("🗑️ 取消返回", use_container_width=True):
         st.rerun()
 
-# --- 5. 数据修正模块 (升级版：直接根据点击的 ID 填表) ---
+# --- 5. 数据修正模块 ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(target_id, full_df, conn):
     # 1. 准备常量与原始数据 (同步录入模块逻辑)
@@ -396,7 +396,7 @@ def edit_dialog(target_id, full_df, conn):
     u_note = st.text_area("备注", value=str(old.get("备注", "")))
 
     # --- 提交保存逻辑 ---
-    st.divider()
+    # st.divider()
     sv, ex = st.columns(2)
     
     if sv.button("💾 确认保存", type="primary", use_container_width=True):
@@ -880,6 +880,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

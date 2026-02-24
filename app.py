@@ -667,7 +667,7 @@ with col_l:
                     "印尼盾": "IDR", "IDR": "IDR", "越南盾": "VND", "VND": "VND", 
                     "瑞尔": "KHR", "KHR": "KHR", "美元": "USD", "USD": "USD"
                 }
-                acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x).rjust(10))
+                acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x))
                 
                 # 整理显示列
                 display_acc = acc_stats[['结算账户', 'RAW', '原币种', 'USD']].copy()
@@ -873,6 +873,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

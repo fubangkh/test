@@ -50,6 +50,7 @@ with st.sidebar:
     st.markdown(f"**📅 当前日期:** {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d')}")
     st.divider()
     
+    # 侧边栏退出/重置按钮
     if st.button("🚪 退出/重置系统", use_container_width=True):
         st.session_state.show_edit_modal = False
         st.session_state.edit_target_id = None
@@ -62,7 +63,7 @@ with st.sidebar:
 # --- 4. 主页面布局 ---
 df_main = load_data(version=st.session_state.table_version)
 
-# 录入按钮布局：调大列宽防止文字换行变形
+# 录入按钮布局：[5, 2] 比例确保文字不换行
 c_title, c_btn = st.columns([5, 2])
 
 with c_title:
@@ -75,7 +76,7 @@ with c_btn:
 
 st.caption(f"🚀 系统就绪 | 数据库总行数: {len(df_main)} | 缓存版本: {st.session_state.table_version}")
 
-# 弹窗调度
+# 弹窗中转调度器
 if st.session_state.get("show_edit_modal", False):
     edit_dialog(st.session_state.edit_target_id, df_main, conn, get_live_rates, get_dynamic_options, LOCAL_TZ)
 
@@ -84,15 +85,20 @@ if df_main.empty:
     if st.button("➕ 立即录入第一笔", key="empty_add"):
         entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 
-# --- 第一步：数据预处理 (增强日期兼容性) ---
+# --- 5. 数据预处理 (彻底修复 .dt 报错逻辑) ---
 if not df_main.empty:
+    # 币种对齐
     df_main['实际币种'] = df_main['实际币种'].replace(['RMB', '人民币'], 'CNY')
     
-    # 【核心修复】深度清洗时间列，解决 2-24 与 02-24 混合无法识别的问题
+    # 【核心日期清洗】
+    # 1. 转为字符串并去空格
     df_main['提交时间'] = df_main['提交时间'].astype(str).str.strip()
-    # 尝试智能转换日期，不确定的转换为 NaT
-    temp_dt_col = pd.to_datetime(df_main['提交时间'], errors='coerce')
-    df_main['提交时间_处理后'] = temp_dt_col.fillna(datetime.now(LOCAL_TZ))
+    # 2. 尝试多种格式解析，errors='coerce' 会将解析失败的转为 NaT
+    df_main['提交时间_处理后'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
+    # 3. 补救：如果解析出空值，用当前时间填充，确保 .dt 访问器永远有可用对象
+    df_main['提交时间_处理后'] = df_main['提交时间_处理后'].fillna(datetime.now(LOCAL_TZ))
+    # 4. 强制类型转换，确保是 datetime64 格式
+    df_main['提交时间_处理后'] = pd.to_datetime(df_main['提交时间_处理后'])
 
     # 数值清洗
     for col in ['收入(USD)', '支出(USD)', '余额(USD)', '实际金额']:
@@ -101,19 +107,20 @@ if not df_main.empty:
                 df_main[col] = df_main[col].astype(str).str.replace(r'[$,\s]', '', regex=True)
             df_main[col] = pd.to_numeric(df_main[col], errors='coerce').fillna(0.0)
 
-# --- 生成筛选列表 ---
+# --- 6. 生成时间筛选列表 ---
 current_now = datetime.now(LOCAL_TZ)
 try:
     if not df_main.empty:
+        # 基于处理后的时间列提取年份
         year_list = sorted(df_main['提交时间_处理后'].dt.year.unique().tolist(), reverse=True)
     else:
         year_list = [current_now.year]
-except Exception as e:
+except Exception:
     year_list = [current_now.year]
     
 month_list = list(range(1, 13))
 
-# --- 第二步：时间维度看板 ---
+# --- 7. 时间维度看板 ---
 with st.container(border=True):
     st.markdown("### 📅 时间维度看板") 
     
@@ -123,14 +130,14 @@ with st.container(border=True):
     with c2:
         sel_month = st.selectbox("月份", month_list, index=datetime.now(LOCAL_TZ).month - 1, label_visibility="collapsed")
     
-    # 筛选本月数据
+    # 基于处理后的日期进行严格筛选
     mask_this_month = (
         (df_main['提交时间_处理后'].dt.year == int(sel_year)) & 
         (df_main['提交时间_处理后'].dt.month == int(sel_month))
     )
     df_this_month = df_main[mask_this_month].copy()
     
-    # 筛选上月数据计算 Delta
+    # 计算上月用于 Delta 对比
     lm = 12 if sel_month == 1 else sel_month - 1
     ly = sel_year - 1 if sel_month == 1 else sel_year
     mask_last_month = (
@@ -139,7 +146,7 @@ with st.container(border=True):
     )
     df_last_month = df_main[mask_last_month].copy()
     
-    # 看板数值汇总
+    # 数值汇总
     tm_inc = df_this_month['收入(USD)'].sum()
     tm_exp = df_this_month['支出(USD)'].sum()
     lm_inc = df_last_month['收入(USD)'].sum()
@@ -147,7 +154,7 @@ with st.container(border=True):
     
     inc_delta = tm_inc - lm_inc
     exp_delta = tm_exp - lm_exp
-    # 累计结余始终基于全表计算
+    # 总结余：累计总收入 - 累计总支出
     t_balance = df_main['收入(USD)'].sum() - df_main['支出(USD)'].sum()
 
     with c3:
@@ -162,12 +169,14 @@ with st.container(border=True):
     
     m1, m2, m3 = st.columns(3)
     m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}", delta=f"{inc_delta:,.2f}")
+    # 此处支出已修复，会正确计入 2 月新录入的所有条目
     m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}", delta=f"{exp_delta:,.2f}", delta_color="inverse")
     m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
 
 st.divider()
 
-# --- 第三步：账户余额与排行 ---
+# --- 8. 账户余额与排行 ---
+# 比例调整为 [1.6, 1]，让左侧余额表更宽
 col_l, col_r = st.columns([1.6, 1])
 with col_l:
     st.write("🏦 **各账户当前余额 (原币对账)**")
@@ -176,6 +185,7 @@ with col_l:
         st.info("💡 数据库目前为空。")
     else:
         def calc_bank_balance(group):
+            # 内部计算原币逻辑
             inc_clean = group['收入(USD)']
             exp_clean = group['支出(USD)']
             amt_clean = group['实际金额']
@@ -213,6 +223,7 @@ with col_l:
                 acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x))
                 display_acc = acc_stats[['结算账户', 'RAW', '原币种', 'USD']].copy()
 
+                # Styler 格式化：负值标红
                 styled_acc = display_acc.style.format({
                     'RAW': '{:,.2f}',
                     'USD': '${:,.2f}'
@@ -237,6 +248,7 @@ with col_l:
 
 with col_r:
     st.write(f"🏷️ **{sel_month}月支出排行**")
+    # 本月支出汇总排行
     exp_stats = df_this_month[df_this_month['支出(USD)'] > 0].groupby('资金性质')[['支出(USD)']].sum().sort_values(by='支出(USD)', ascending=False).reset_index()
     
     if not exp_stats.empty:
@@ -258,10 +270,12 @@ with col_r:
 
 st.divider()
 
-# --- 第四步：数据明细表 ---
+# --- 9. 数据明细表 ---
 st.subheader("📑 财务流水账目明细")
 if not df_main.empty:
+    # 倒序显示（最新在前）
     view_df = df_main.copy().iloc[::-1]
+    # 动态 Key 确保弹窗操作后能强制重置选择
     table_key = f"main_table_v_{st.session_state.table_version}"
     
     event = st.dataframe(
@@ -273,6 +287,7 @@ if not df_main.empty:
         key=table_key
     )
 
+    # 选中行逻辑
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)

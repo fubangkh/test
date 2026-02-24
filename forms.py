@@ -31,9 +31,8 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     # 实时换算显示
     converted_usd = round(val_amt / val_rate, 2) if val_rate != 0 else 0
     st.success(f"💰 换算后金额：$ {converted_usd:,.2f} USD")
-    
-    st.markdown('<hr>', unsafe_allow_html=True)
 
+    
     # 3. 性质与发票
     r4_c1, r4_c2 = st.columns(2)
     val_inv = r4_c1.text_input("📑 审批/发票单号 :red[*]")

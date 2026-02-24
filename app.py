@@ -786,7 +786,7 @@ if not df_display.empty:
     # --- 2. 应用 Styler (处理颜色逻辑) ---
     # 我们只在这里处理颜色（比如余额为负显示红色），格式化交给下一步的 column_config
     styled_display = df_display.style.map(
-        lambda x: 'color: #d32f2f;' if isinstance(x, (int, float)) and x < 0 else '',
+        lambda x: 'color: #d32f2f;' if isinstance(x, (int, float)) and x < -0.01 else 'color: #31333F;',
         subset=['收入', '支出', '余额', '实际金额']
     )
     # --- 4. 渲染表格 ---
@@ -806,11 +806,11 @@ if not df_display.empty:
             "客户/项目信息": st.column_config.TextColumn("客户/项目信息", width="medium"),
             "结算账户": st.column_config.TextColumn("结算账户", width="small"),
             "资金性质": st.column_config.TextColumn("资金性质", width="small"),
-            "实际金额": st.column_config.NumberColumn("原币金额", width="small"),
+            "实际金额": st.column_config.NumberColumn("原币金额", format="%,.2f", width="small"),
             "实际币种": st.column_config.TextColumn("原币种", width="small"),
-            "收入": st.column_config.NumberColumn("收入(USD)", format="$%,.2f", width="small"),
-            "支出": st.column_config.NumberColumn("支出(USD)", format="%,..2f", width="small"),
-            "余额": st.column_config.NumberColumn("余额(USD)", format="%,..2f", width="small"),
+            "收入": st.column_config.NumberColumn("收入(USD)", format="%,.2f", width="small"),
+            "支出": st.column_config.NumberColumn("支出(USD)", format="%,.2f", width="small"),
+            "余额": st.column_config.NumberColumn("余额(USD)", format="%,.2f", width="small"),
             "经手人": st.column_config.TextColumn("经手人", width="small"),
             "备注": st.column_config.TextColumn("备注", width="small"),
         }
@@ -834,6 +834,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

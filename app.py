@@ -183,14 +183,14 @@ def entry_dialog():
     # 4. 账户与经手人
     r3_c1, r3_c2 = st.columns(2)
     if is_transfer:
-        val_acc_from = r3_c1.selectbox("➡️ 转出账户", options=get_dynamic_options(df, "结算账户"))
-        val_acc_to = r3_c2.selectbox("⬅️ 转入账户", options=get_dynamic_options(df, "结算账户"))
+        val_acc_from = r3_c1.selectbox("➡️ 转出账户 :red[*]", options=get_dynamic_options(df, "结算账户"))
+        val_acc_to = r3_c2.selectbox("⬅️ 转入账户 :red[*]", options=get_dynamic_options(df, "结算账户"))
         val_hand = "系统自动结转"
         val_acc = "资金结转" # 预设值避免变量缺失
     else:
-        sel_acc = r3_c1.selectbox("结算账户", options=get_dynamic_options(df, "结算账户"))
+        sel_acc = r3_c1.selectbox("结算账户 :red[*]", options=get_dynamic_options(df, "结算账户"))
         val_acc = r3_c1.text_input("✍️ 录入新账户") if sel_acc == "➕ 新增..." else sel_acc
-        sel_hand = r3_c2.selectbox("经手人", options=get_dynamic_options(df, "经手人"))
+        sel_hand = r3_c2.selectbox("经手人 :red[*]", options=get_dynamic_options(df, "经手人"))
         val_hand = r3_c2.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
 
     # --- 5. 客户或项目信息 (回归稳定逻辑) ---
@@ -199,7 +199,7 @@ def entry_dialog():
 
     # 如果选了新增，或者还没选，显示输入框。
     # 提交时 val_proj 将获取输入框中的最终文字。
-    if sel_proj == "➕ 新增..." or sel_proj == "-- 请选择 --":
+    if sel_proj == "➕ 新增...":
         val_proj = st.text_input("✍️ 录入新客户/项目", key="k_new_proj_input", placeholder="请输入项目名称...")
     else:
         val_proj = sel_proj
@@ -854,6 +854,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

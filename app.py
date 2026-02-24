@@ -152,7 +152,7 @@ def entry_dialog():
     live_rates = get_live_rates()
     
     # 顶部结余显示
-    current_balance = df['余额'].iloc[-1] if not df.empty else 0
+    current_balance = df['余额(USD)'].iloc[-1] if not df.empty else 0
     st.write(f"💡 当前总结余: **${current_balance:,.2f}**")
     
     # 1. 摘要与时间
@@ -854,6 +854,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

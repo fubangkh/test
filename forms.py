@@ -216,7 +216,7 @@ def row_action_dialog(row_data, full_df, conn):
             st.session_state[f"del_confirm_{rec_id}"] = True
             st.rerun()
     else:
-        st.error("⚠️ 确定要彻底删除此记录吗？操作不可恢复！")
+        st.error("⚠️ 确定删除此记录吗？操作不可恢复！")
         cc1, cc2 = st.columns(2)
         if cc1.button("✅ 确定删除", use_container_width=True):
             try:

@@ -204,7 +204,7 @@ def entry_dialog():
     else:
         val_proj = sel_proj
 
-    val_note = st.text_area("备注"，height=80")
+    val_note = st.text_area("备注"，height=68, placeholder="如有额外说明请在此输入...")
 
     # --- 6. 核心提交逻辑函数 ---
     def validate_and_submit():
@@ -878,6 +878,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

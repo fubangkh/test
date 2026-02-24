@@ -779,11 +779,12 @@ if st.session_state.get("show_edit_modal", False):
 # =========================================================
 
 if not df_display.empty:
+    
     # --- 1. 数据预清洗：确保数值列是干净的 float 类型 ---
     for col in ['收入', '支出', '余额', '实际金额']:
         df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0)
-    )
-    # --- 4. 渲染表格 ---
+   
+    # --- 2. 渲染表格 ---
     event = st.dataframe(
         df_display,
         use_container_width=True,
@@ -828,6 +829,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

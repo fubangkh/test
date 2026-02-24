@@ -51,20 +51,32 @@ with st.sidebar:
     if st.button("➕ 新增流水录入", type="primary", use_container_width=True):
         entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 
-# --- 6. 主页面 (完全按照你的布局还原) ---
+# --- 6. 主页面 (调整布局：录入按钮移至标题右侧) ---
 df_main = load_data(version=st.session_state.table_version)
-st.header("📊 汇总统计")
+
+# 使用 columns 布局，c_title 占位较大，c_btn 占位较小并靠右
+c_title, c_btn = st.columns([7, 1.2])
+
+with c_title:
+    st.header("📊 汇总统计")
+
+with c_btn:
+    # 注入一段 CSS 让按钮与标题对齐并垂直居中
+    st.markdown("""<style>div[data-testid="stVerticalBlock"] > div:has(button.st-emotion-cache-19rxjzo) { margin-top: 5px; }</style>""", unsafe_allow_html=True)
+    if st.button("➕ 新增录入", type="primary", use_container_width=True):
+        entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 
 # 💡 调试信息
 st.caption(f"🚀 系统就绪 | 数据库总行数: {len(df_main)} | 缓存版本: {st.session_state.table_version}")
 
-# 💡 弹窗中转调度器 (保持原有逻辑)
+# --- 弹窗中转调度器 ---
 if st.session_state.get("show_edit_modal", False):
     edit_dialog(st.session_state.edit_target_id, df_main, conn, get_live_rates, get_dynamic_options, LOCAL_TZ)
 
+# 如果没有数据时的显示
 if df_main.empty:
-    st.warning("⚠️ 数据库目前没有数据，请点击下方按钮开始录入第一笔账单。")
-    if st.button("➕ 立即录入", key="empty_add"):
+    st.warning("⚠️ 数据库目前没有数据。")
+    if st.button("➕ 立即录入第一笔", key="empty_add"):
         entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 
 # --- 第一步：数据预处理 (增强兼容版) ---
@@ -263,3 +275,4 @@ if not df_main.empty:
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+

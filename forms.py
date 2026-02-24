@@ -7,7 +7,7 @@ from logic import ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER, prepare_new_data, c
 # --- 4. 录入模块 ---
 @st.dialog("📝 新增录入", width="large")
 def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options):
-    # 注入全局紧凑样式 (保留你 app.py 里的 margin 调整)
+    # 注入全局紧凑样式
     st.markdown("""<style>hr{margin-top:-5px!important;margin-bottom:10px!important;}.stTextArea textarea{height:68px!important;}</style>""", unsafe_allow_html=True)
 
     df = load_data()
@@ -70,7 +70,6 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     col_sub, col_can = st.columns(2)
 
     if col_sub.button("🚀 确认提交", type="primary", use_container_width=True):
-        # --- 校验逻辑 ---
         if not val_sum.strip(): st.error("⚠️ 请填写摘要内容！"); return
         if val_amt <= 0: st.error("⚠️ 原币金额必须大于 0！"); return
         if not val_inv or val_inv.strip() == "": st.error("⚠️ 请输入【审批/发票单号】！"); return
@@ -89,12 +88,10 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
         if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --", "➕ 新增..."]):
             st.error(f"⚠️ 【{val_prop}】必须关联有效项目！"); return
 
-        # --- 提交逻辑 ---
         with st.spinner("正在同步至云端..."):
             try:
                 current_df = load_data(version=st.session_state.table_version + 1)
                 
-                # 打包数据
                 entry_data = {
                     'sum': val_sum, 'amt': val_amt, 'curr': val_curr, 'inv': val_inv,
                     'prop': val_prop, 'note': val_note, 'hand': val_hand, 'conv_usd': converted_usd,
@@ -104,15 +101,12 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
                     'acc_to': val_acc_to if is_transfer else None,
                     'inc_val': converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0,
                     'exp_val': converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0,
-                    'converted_usd': converted_usd # 兼容 logic.py 里的调用名
+                    'converted_usd': converted_usd
                 }
 
-                # 调用 logic.py 进行计算
                 full_df, new_ids = prepare_new_data(current_df, entry_data, LOCAL_TZ)
-                
                 conn.update(worksheet="Summary", data=full_df)
                 
-                # 轮询确认
                 ok = False
                 for _ in range(6):
                     verify = conn.read(worksheet="Summary", ttl=0)
@@ -135,7 +129,16 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 # --- 5. 数据修正模块 ---
 @st.dialog("🛠️ 数据修正", width="large")
 def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, LOCAL_TZ):
-    old = full_df[full_df["录入编号"] == target_id].iloc[0]
+    # 这里的逻辑确保 target_id 存在
+    try:
+        old = full_df[full_df["录入编号"] == target_id].iloc[0]
+    except IndexError:
+        st.error("找不到该条记录，可能已被删除或更新。")
+        if st.button("关闭"): 
+            st.session_state.show_edit_modal = False
+            st.rerun()
+        return
+
     live_rates = get_live_rates()
     st.info(f"正在修正记录：`{target_id}`")
     
@@ -193,30 +196,30 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
             new_df.at[idx, "收入(USD)"] = u_usd_val if is_income else 0
             new_df.at[idx, "支出(USD)"] = u_usd_val if not is_income else 0
             
-            # 调用 logic.py 重算全表余额
             new_df = calculate_full_balance(new_df)
-
             conn.update(worksheet="Summary", data=new_df)
-            st.success("✅ 修正并重算成功！")
-            st.cache_data.clear()
-            time.sleep(1)
+            
+            # 清理状态并重启
             st.session_state.show_edit_modal = False
-            st.session_state.last_processed_id = None
+            st.session_state.edit_target_id = None
             st.session_state.table_version += 1
+            st.cache_data.clear()
+            st.success("✅ 修正成功！")
+            time.sleep(0.8)
             st.rerun()
         except Exception as e: st.error(f"保存错误: {e}")
 
     if ex.button("放弃", use_container_width=True):
         st.session_state.show_edit_modal = False
-        st.session_state.last_processed_id = None
-        st.session_state.table_version += 1
+        st.session_state.edit_target_id = None
         st.rerun()
 
 # --- 🎯 账目操作 (删除确认逻辑) ---
 @st.dialog("🎯 账目操作", width="small")
 def row_action_dialog(row_data, full_df, conn):
     rec_id = row_data["录入编号"]
-    if f"del_confirm_{rec_id}" not in st.session_state: st.session_state[f"del_confirm_{rec_id}"] = False
+    if f"del_confirm_{rec_id}" not in st.session_state: 
+        st.session_state[f"del_confirm_{rec_id}"] = False
 
     st.write(f"**记录编号：** `{rec_id}`")
     st.write(f"**摘要详情：** {row_data.get('摘要','')}")
@@ -226,36 +229,31 @@ def row_action_dialog(row_data, full_df, conn):
     if not st.session_state[f"del_confirm_{rec_id}"]:
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("🛠️ 修正", use_container_width=True, key=f"edit_{rec_id}"):
-                st.session_state.show_action_menu = False
+            if st.button("🛠️ 修正", use_container_width=True, key=f"edit_btn_{rec_id}"):
+                # 🛠️ 关键修复：设置状态并立即 rerun，关闭当前弹窗触发 app.py 的调度
                 st.session_state.edit_target_id = rec_id
                 st.session_state.show_edit_modal = True
                 st.rerun()
         with c2:
-            if st.button("🗑️ 删除", type="primary", use_container_width=True, key=f"pre_del_{rec_id}"):
+            if st.button("🗑️ 删除", type="primary", use_container_width=True, key=f"del_btn_{rec_id}"):
                 st.session_state[f"del_confirm_{rec_id}"] = True
                 st.rerun()
     else:
         st.error("⚠️ 确定要彻底删除此记录吗？操作不可恢复！")
         cc1, cc2 = st.columns(2)
         with cc1:
-            if st.button("✅ 确定删除", type="primary", use_container_width=True, key=f"real_del_{rec_id}"):
+            if st.button("✅ 确定删除", type="primary", use_container_width=True):
                 try:
                     updated_df = full_df[full_df["录入编号"] != rec_id].copy()
-                    # 调用 logic.py 重算余额
                     updated_df = calculate_full_balance(updated_df)
                     conn.update(worksheet="Summary", data=updated_df)
-                    st.session_state.show_action_menu = False
                     st.cache_data.clear()
                     st.success("✅ 删除成功！")
-                    time.sleep(0.8)
-                    st.session_state.last_processed_id = None
                     st.session_state.table_version += 1
+                    time.sleep(0.8)
                     st.rerun()
                 except Exception as e: st.error(f"失败: {e}")
         with cc2:
-            if st.button("取消", use_container_width=True, key=f"cancel_del_{rec_id}"):
-                st.session_state.show_action_menu = False
-                st.session_state.last_processed_id = None
-                st.session_state.table_version += 1
+            if st.button("取消", use_container_width=True):
+                st.session_state[f"del_confirm_{rec_id}"] = False
                 st.rerun()

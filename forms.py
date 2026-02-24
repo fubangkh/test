@@ -198,7 +198,7 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
         st.session_state.table_version += 1 
         st.rerun()
 
-# --- 🎯 账目操作模块 ---
+# --- 🎯 表格行操作模块 ---
 @st.dialog("🎯 账目操作", width="small")
 def row_action_dialog(row_data, full_df, conn):
     rec_id = row_data["录入编号"]
@@ -216,9 +216,9 @@ def row_action_dialog(row_data, full_df, conn):
             st.session_state[f"del_confirm_{rec_id}"] = True
             st.rerun()
     else:
-        st.error("确定彻底删除此记录吗？")
+        st.error("⚠️ 确定要彻底删除此记录吗？操作不可恢复！")
         cc1, cc2 = st.columns(2)
-        if cc1.button("⚠️ 确定要彻底删除此记录吗？操作不可恢复！", use_container_width=True):
+        if cc1.button("✅ 确定删除", use_container_width=True):
             try:
                 updated_df = full_df[full_df["录入编号"] != rec_id].copy()
                 updated_df = calculate_full_balance(updated_df)

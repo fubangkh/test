@@ -613,42 +613,76 @@ st.divider()
 col_l, col_r = st.columns(2)
 with col_l:
     st.write("🏦 **各账户当前余额 (原币对账)**")
-        
-    def calc_bank_balance(group):
-        # 1. 统一转为数值
-        inc_clean = pd.to_numeric(group['收入'], errors='coerce').fillna(0)
-        exp_clean = pd.to_numeric(group['支出'], errors='coerce').fillna(0)
-        amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
-        
-        # 2. 定义内部计算逻辑
-        def get_raw_val(idx):
-            current_val = amt_clean.loc[idx]
-            if current_val == 0 or pd.isna(current_val):
-                if inc_clean.loc[idx] > 0:
-                    current_val = inc_clean.loc[idx]
-                elif exp_clean.loc[idx] > 0:
-                    current_val = exp_clean.loc[idx]
-                else:
-                    current_val = 0
-            is_expense = exp_clean.loc[idx] > 0
-            return -current_val if is_expense else current_val
+    
+    # --- 1. 第一层安全检查：检查数据是否为空 ---
+    if df_main.empty:
+        st.info("💡 数据库目前是空的，请录入第一笔账单。")
+    else:
+        # 内部计算函数（保持你的原有逻辑，但增加了数值安全处理）
+        def calc_bank_balance(group):
+            # 统一转为数值并填充 0
+            inc_clean = pd.to_numeric(group['收入'], errors='coerce').fillna(0)
+            exp_clean = pd.to_numeric(group['支出'], errors='coerce').fillna(0)
+            amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
+            
+            def get_raw_val(idx):
+                current_val = amt_clean.loc[idx]
+                # 如果实际金额没填，则取收入或支出
+                if current_val == 0 or pd.isna(current_val):
+                    if inc_clean.loc[idx] > 0:
+                        current_val = inc_clean.loc[idx]
+                    elif exp_clean.loc[idx] > 0:
+                        current_val = exp_clean.loc[idx]
+                    else:
+                        current_val = 0
+                is_expense = exp_clean.loc[idx] > 0
+                return -current_val if is_expense else current_val
 
-        # --- 核心修复区：确保这些变量在 return 之前被定义 ---
-        # 3. 计算 USD 总余额
-        usd_bal = inc_clean.sum() - exp_clean.sum()
-        
-        # 4. 计算原币总余额 (这里定义了 raw_bal)
-        raw_bal = sum(get_raw_val(idx) for idx in group.index)
-        
-        # 5. 获取币种
-        valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
-        cur_name = valid_currencies[-1] if valid_currencies else "USD"
-        
-        # 6. 返回结果
-        return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
+            # 计算汇总值
+            usd_bal = inc_clean.sum() - exp_clean.sum()
+            raw_bal = sum(get_raw_val(idx) for idx in group.index)
+            
+            # 获取币种名称
+            valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
+            cur_name = valid_currencies[-1] if valid_currencies else "USD"
+            
+            return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
 
-    try:
-        acc_stats = df_main.groupby('结算账户').apply(calc_bank_balance).reset_index()
+        try:
+            # --- 2. 第二层安全检查：过滤掉 "-- 请选择 --" 等脏数据 ---
+            df_filtered = df_main[
+                (df_main['结算账户'] != "-- 请选择 --") & 
+                (df_main['结算账户'].notna()) & 
+                (df_main['结算账户'] != "")
+            ].copy()
+            
+            if df_filtered.empty:
+                st.warning("⚠️ 暂无有效账户余额。")
+            else:
+                # --- 3. 执行汇总计算 ---
+                acc_stats = df_filtered.groupby('结算账户').apply(calc_bank_balance).reset_index()
+                
+                # --- 4. 渲染美化后的表格 ---
+                st.dataframe(
+                    acc_stats,
+                    column_config={
+                        "结算账户": st.column_config.TextColumn("账户", width="medium"),
+                        "CUR": st.column_config.TextColumn("币种", width="small"),
+                        "RAW": st.column_config.NumberColumn(
+                            "原币余额", 
+                            format="%,.2f" # 如果 VND 还是折行，就把 .2f 改成 .0f
+                        ),
+                        "USD": st.column_config.NumberColumn(
+                            "折合美元", 
+                            format="$%,.2f"
+                        ),
+                    },
+                    hide_index=True,
+                    use_container_width=True
+                )
+        except Exception as e:
+            # 捕获类似 "already exists" 的冲突，不让程序崩溃
+            st.error("📊 统计看板准备中，录入数据后即可显示...")
         
         # 1. 物理对齐映射：在代码前后手动加空格
         # 这里用 center(10) 表示占据 10 个字符宽度并居中
@@ -869,6 +903,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

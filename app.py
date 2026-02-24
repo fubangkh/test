@@ -616,7 +616,7 @@ with col_l:
     
     # --- 1. 安全检查：如果表是空的 ---
     if df_main.empty:
-        st.info("💡 数据库目前是空的，请录入第一笔账单。")
+        st.info("💡 数据库目前为空。")
     else:
         # 内部计算函数
         def calc_bank_balance(group):
@@ -867,6 +867,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

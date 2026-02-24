@@ -85,7 +85,7 @@ def get_live_rates():
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
             rates = response.json().get("rates", {})
-            return {"USD": 1.0, "CNY": rates.get("CNY", 6.91), "VND": rates.get("VND", 26000), "HKD": rates.get("HKD", 7.82), "IDR": rates.get("IDR", 16848.0)}
+            return {"USD": 1.0, "CNY": rates.get("CNY", 6.91), "KHR": rates.get("KHR", 4010),"VND": rates.get("VND", 26000), "HKD": rates.get("HKD", 7.82), "IDR": rates.get("IDR", 16848)}
     except: pass
     return default_rates
 
@@ -874,6 +874,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

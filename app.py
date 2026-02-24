@@ -795,10 +795,10 @@ if not df_display.empty:
     def smart_original_format(val, row_idx):
         # 通过行索引找到对应的币种
         curr = str(df_display.loc[row_idx, '实际币种']).strip().upper()
-        symbols = {'CNY': '¥', 'USD': '$', 'IDR': 'Rp', 'VND': '₫', 'HKD': 'HK$'}
+        symbols = {'CNY': '¥', 'USD': '$', 'KHR': '៛','IDR': 'Rp', 'VND': '₫', 'HKD': 'HK$'}
         s = symbols.get(curr, '')
         
-        if curr in ['IDR', 'VND']:
+        if curr in ['IDR', 'VND', 'KHR']:
             return f"{s}{val:,.0f}"
         else:
             return f"{s}{val:,.2f}"
@@ -874,6 +874,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

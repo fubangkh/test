@@ -176,7 +176,7 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
             new_df.at[idx, "备注"] = u_note
             
             # ✨ 关键点：修正保存时，写入当前时间到【修改时间】列
-            new_df.at[idx, "修改时间"] = datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M:%S')
+            new_df.at[idx, "修改时间"] = datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M')
             
             is_income = (u_prop in CORE_BIZ[:5] or u_prop in INC_OTHER)
             new_df.at[idx, "收入(USD)"] = u_usd_val if is_income else 0

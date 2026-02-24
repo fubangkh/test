@@ -174,7 +174,7 @@ def entry_dialog():
 
     # 3. 性质与发票
     r4_c1, r4_c2 = st.columns(2)
-    val_inv = r4_c1.text_input("📑 审批/发票单号 (必填)")
+    val_inv = r4_c1.text_input("📑 审批/发票单号 :red[*]")
     val_prop = r4_c2.selectbox("资金性质 :red[*]", ALL_PROPS)
     
     is_transfer = (val_prop == "资金结转")
@@ -854,6 +854,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

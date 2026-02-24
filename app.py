@@ -172,7 +172,7 @@ def entry_dialog():
     
     #st.divider()
     # 这里的 margin-top: -15px 会把分割线往上“提”，margin-bottom 控制下方间距
-    st.markdown('<hr style="margin-top: -15px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
+    st.markdown('<hr style="margin-top: -10px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
 
     # 3. 性质与发票
     r4_c1, r4_c2 = st.columns(2)
@@ -880,6 +880,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

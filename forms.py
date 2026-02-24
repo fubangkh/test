@@ -218,7 +218,7 @@ def row_action_dialog(row_data, full_df, conn):
     else:
         st.error("确定彻底删除此记录吗？")
         cc1, cc2 = st.columns(2)
-        if cc1.button("✅ 确定", type="primary", use_container_width=True):
+        if cc1.button("⚠️ 确定要彻底删除此记录吗？操作不可恢复！", use_container_width=True):
             try:
                 updated_df = full_df[full_df["录入编号"] != rec_id].copy()
                 updated_df = calculate_full_balance(updated_df)

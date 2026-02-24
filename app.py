@@ -700,16 +700,16 @@ with col_l:
 with col_r:
     st.write(f"🏷️ **{sel_month}月支出排行**")
     # 1. 筛选本月支出数据并按性质分组
-    exp_stats = df_this_month[df_this_month['支出'] > 0].groupby('资金性质')['支出'].sum().sort_values(ascending=False).reset_index()
+    exp_stats = df_this_month[df_this_month['支出(USD)'] > 0].groupby('资金性质')['支出(USD)'].sum().sort_values(ascending=False).reset_index()
     
     if not exp_stats.empty:
         # 2. 应用 Styler：控制千分位 + 颜色（支出通常统一为红色或默认黑色）+ 右对齐
         styled_exp = exp_stats.style.format({
-            "支出": "${:,.2f}"
+            "支出(USD)": "${:,.2f}"
         }).map(
             # 统一支出颜色为红色，并注入右对齐 CSS
             lambda x: 'color: #d32f2f; text-align: right;', 
-            subset=['支出']
+            subset=['支出(USD)']
         )
         
         # 3. 渲染表格
@@ -854,6 +854,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

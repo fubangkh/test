@@ -27,6 +27,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 @st.cache_data(ttl=300)
 def load_data(version=0):
     try:
+        # 强制不使用缓存读取，确保 version 变化时数据绝对最新
         df = conn.read(worksheet="Summary", ttl=0)
         return df
     except Exception as e:
@@ -49,57 +50,51 @@ with st.sidebar:
     st.markdown(f"**📅 当前日期:** {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d')}")
     st.divider()
     
-    # 这里是加回来的退出/重置按钮
     if st.button("🚪 退出/重置系统", use_container_width=True):
-        # 清除所有临时状态
         st.session_state.show_edit_modal = False
         st.session_state.edit_target_id = None
         st.session_state.table_version += 1
-        # 清除缓存强制重新加载
         st.cache_data.clear()
         st.rerun()
     
     st.info("💡 提示：点击退出将刷新数据缓存并重置所有选择。")
 
-# --- 6. 主页面布局优化 ---
+# --- 4. 主页面布局 ---
 df_main = load_data(version=st.session_state.table_version)
 
-# 调大右侧列的比例（5:2），确保按钮文字不换行
+# 录入按钮布局：调大列宽防止文字换行变形
 c_title, c_btn = st.columns([5, 2])
 
 with c_title:
     st.header("📊 汇总统计")
 
 with c_btn:
-    # 增加一点顶部间距，使其与大标题视觉对齐
     st.write("##") 
-    # 这里的按钮会自动适应 2 份宽度的列
     if st.button("➕ 新增流水录入", type="primary", use_container_width=True):
         entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 
-# 💡 调试信息
 st.caption(f"🚀 系统就绪 | 数据库总行数: {len(df_main)} | 缓存版本: {st.session_state.table_version}")
 
-# --- 弹窗中转调度器 ---
+# 弹窗调度
 if st.session_state.get("show_edit_modal", False):
     edit_dialog(st.session_state.edit_target_id, df_main, conn, get_live_rates, get_dynamic_options, LOCAL_TZ)
 
-# 如果没有数据时的显示
 if df_main.empty:
     st.warning("⚠️ 数据库目前没有数据。")
     if st.button("➕ 立即录入第一笔", key="empty_add"):
         entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 
-# --- 第一步：数据预处理 (增强兼容版) ---
+# --- 第一步：数据预处理 (增强日期兼容性) ---
 if not df_main.empty:
     df_main['实际币种'] = df_main['实际币种'].replace(['RMB', '人民币'], 'CNY')
-    df_main['提交时间'] = pd.to_datetime(df_main['提交时间'], errors='coerce')
     
-    if not pd.api.types.is_datetime64_any_dtype(df_main['提交时间']):
-        df_main['提交时间'] = pd.to_datetime(df_main['提交时间'])
+    # 【核心修复】深度清洗时间列，解决 2-24 与 02-24 混合无法识别的问题
+    df_main['提交时间'] = df_main['提交时间'].astype(str).str.strip()
+    # 尝试智能转换日期，不确定的转换为 NaT
+    temp_dt_col = pd.to_datetime(df_main['提交时间'], errors='coerce')
+    df_main['提交时间_处理后'] = temp_dt_col.fillna(datetime.now(LOCAL_TZ))
 
-    df_main['提交时间'] = df_main['提交时间'].fillna(datetime.now(LOCAL_TZ))
-
+    # 数值清洗
     for col in ['收入(USD)', '支出(USD)', '余额(USD)', '实际金额']:
         if col in df_main.columns:
             if df_main[col].dtype == 'object':
@@ -110,7 +105,7 @@ if not df_main.empty:
 current_now = datetime.now(LOCAL_TZ)
 try:
     if not df_main.empty:
-        year_list = sorted(df_main['提交时间'].dt.year.unique().tolist(), reverse=True)
+        year_list = sorted(df_main['提交时间_处理后'].dt.year.unique().tolist(), reverse=True)
     else:
         year_list = [current_now.year]
 except Exception as e:
@@ -128,28 +123,31 @@ with st.container(border=True):
     with c2:
         sel_month = st.selectbox("月份", month_list, index=datetime.now(LOCAL_TZ).month - 1, label_visibility="collapsed")
     
-    temp_datetime = pd.to_datetime(df_main['提交时间'], errors='coerce')
-
+    # 筛选本月数据
     mask_this_month = (
-        (temp_datetime.dt.year.fillna(0).astype(int) == int(sel_year)) & 
-        (temp_datetime.dt.month.fillna(0).astype(int) == int(sel_month))
+        (df_main['提交时间_处理后'].dt.year == int(sel_year)) & 
+        (df_main['提交时间_处理后'].dt.month == int(sel_month))
     )
     df_this_month = df_main[mask_this_month].copy()
     
+    # 筛选上月数据计算 Delta
     lm = 12 if sel_month == 1 else sel_month - 1
     ly = sel_year - 1 if sel_month == 1 else sel_year
     mask_last_month = (
-        (temp_datetime.dt.year.fillna(0).astype(int) == int(ly)) & 
-        (temp_datetime.dt.month.fillna(0).astype(int) == int(lm))
+        (df_main['提交时间_处理后'].dt.year == int(ly)) & 
+        (df_main['提交时间_处理后'].dt.month == int(lm))
     )
     df_last_month = df_main[mask_last_month].copy()
     
-    tm_inc = pd.to_numeric(df_this_month['收入(USD)'], errors='coerce').sum()
-    tm_exp = pd.to_numeric(df_this_month['支出(USD)'], errors='coerce').sum()
-    lm_inc = pd.to_numeric(df_last_month['收入(USD)'], errors='coerce').sum()
-    lm_exp = pd.to_numeric(df_last_month['支出(USD)'], errors='coerce').sum()
+    # 看板数值汇总
+    tm_inc = df_this_month['收入(USD)'].sum()
+    tm_exp = df_this_month['支出(USD)'].sum()
+    lm_inc = df_last_month['收入(USD)'].sum()
+    lm_exp = df_last_month['支出(USD)'].sum()
+    
     inc_delta = tm_inc - lm_inc
     exp_delta = tm_exp - lm_exp
+    # 累计结余始终基于全表计算
     t_balance = df_main['收入(USD)'].sum() - df_main['支出(USD)'].sum()
 
     with c3:
@@ -169,7 +167,7 @@ with st.container(border=True):
 
 st.divider()
 
-# --- 账户余额与排行 ---
+# --- 第三步：账户余额与排行 ---
 col_l, col_r = st.columns([1.6, 1])
 with col_l:
     st.write("🏦 **各账户当前余额 (原币对账)**")
@@ -178,9 +176,9 @@ with col_l:
         st.info("💡 数据库目前为空。")
     else:
         def calc_bank_balance(group):
-            inc_clean = pd.to_numeric(group['收入(USD)'], errors='coerce').fillna(0)
-            exp_clean = pd.to_numeric(group['支出(USD)'], errors='coerce').fillna(0)
-            amt_clean = pd.to_numeric(group['实际金额'], errors='coerce').fillna(0)
+            inc_clean = group['收入(USD)']
+            exp_clean = group['支出(USD)']
+            amt_clean = group['实际金额']
             
             def get_raw_val(idx):
                 current_val = amt_clean.loc[idx]
@@ -195,7 +193,6 @@ with col_l:
             raw_bal = sum(get_raw_val(idx) for idx in group.index)
             valid_currencies = group['实际币种'][group['实际币种'] != ""].tolist()
             cur_name = valid_currencies[-1] if valid_currencies else "USD"
-            
             return pd.Series([usd_bal, raw_bal, cur_name], index=['USD', 'RAW', 'CUR'])
 
         try:
@@ -205,10 +202,7 @@ with col_l:
                 (df_main['结算账户'] != "")
             ].copy()
             
-            if df_filtered.empty:
-                st.warning("⚠️ 暂无有效账户余额。")
-            else:
-                # 修复兼容性：Pandas 3.13 聚合写法的严谨处理
+            if not df_filtered.empty:
                 acc_stats = df_filtered.groupby('结算账户', group_keys=False).apply(calc_bank_balance).reset_index()
                 
                 iso_map = {
@@ -246,13 +240,10 @@ with col_r:
     exp_stats = df_this_month[df_this_month['支出(USD)'] > 0].groupby('资金性质')[['支出(USD)']].sum().sort_values(by='支出(USD)', ascending=False).reset_index()
     
     if not exp_stats.empty:
-        styled_exp = exp_stats.style.format({
-            "支出(USD)": "${:,.2f}"
-        }).map(
+        styled_exp = exp_stats.style.format({"支出(USD)": "${:,.2f}"}).map(
             lambda x: 'color: #d32f2f; text-align: right;', 
             subset=['支出(USD)']
         )
-        
         st.dataframe(
             styled_exp, 
             use_container_width=True, 
@@ -267,11 +258,10 @@ with col_r:
 
 st.divider()
 
-# --- 数据明细表 ---
+# --- 第四步：数据明细表 ---
 st.subheader("📑 财务流水账目明细")
 if not df_main.empty:
     view_df = df_main.copy().iloc[::-1]
-    # 动态 Key 确保取消后刷新
     table_key = f"main_table_v_{st.session_state.table_version}"
     
     event = st.dataframe(
@@ -286,6 +276,3 @@ if not df_main.empty:
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
-
-
-

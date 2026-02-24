@@ -162,8 +162,8 @@ def entry_dialog():
     
     # 2. 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
-    val_amt = r2_c1.number_input("原币金额", min_value=0.0, step=100.0)
-    val_curr = r2_c2.selectbox("原币币种", list(live_rates.keys()))
+    val_amt = r2_c1.number_input("原币金额 :red[*]", min_value=0.0, step=100.0)
+    val_curr = r2_c2.selectbox("原币币种 :red[*]", list(live_rates.keys()))
     val_rate = r2_c3.number_input("实时汇率", value=float(live_rates[val_curr]), format="%.4f")
     
     # 实时换算显示
@@ -854,6 +854,7 @@ if not df_display.empty:
         st.session_state.is_deleting = False
 else:
     st.info("💡 暂无数据。")
+
 
 
 

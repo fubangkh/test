@@ -164,7 +164,7 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
     u_note = st.text_area("备注", height=68, value=str(old.get("备注", "")))
 
     sv, ex = st.columns(2)
-    if sv.button("💾 确认保存", type="primary", use_container_width=True):
+    if sv.button("💾 确认保存", use_container_width=True):
         if not u_sum.strip(): st.error("摘要不能为空"); return
         try:
             new_df = full_df.copy()

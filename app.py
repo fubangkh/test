@@ -9,7 +9,7 @@ from logic import ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER
 from forms import entry_dialog, edit_dialog, row_action_dialog
 
 # --- 1. 基础页面配置 ---
-st.set_page_config(page_title="财务流水管理系统", layout="wide", page_icon="📊")
+st.set_page_config(page_title="富邦日记账", layout="wide", page_icon="📊")
 
 # ✅ 锁定金边时区 (全局唯一定义)
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
@@ -71,7 +71,7 @@ with c_title:
     st.header("📊 汇总统计")
 with c_btn:
     st.write("##") 
-    if st.button("➕ 新增流水录入", type="primary", use_container_width=True):
+    if st.button("➕ 新增流水录入", use_container_width=True):
         # 传递 LOCAL_TZ 确保录入时间正确
         entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 
@@ -232,3 +232,4 @@ if not df_main.empty:
         selected_row_idx = event.selection.rows[0]
         # 传入 view_df.iloc[...] 包含的原始编号进行修正
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+

@@ -135,10 +135,11 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
         old = full_df[full_df["录入编号"] == target_id].iloc[0]
     except:
         st.session_state.show_edit_modal = False
-        st.rerun(); return
+        st.rerun()
+        return
 
     live_rates = get_live_rates()
-    opts = get_dynamic_options() # ✨ 新增：获取动态选项
+    opts = get_dynamic_options() 
     curr_list = opts.get("currencies", ["USD"])
     prop_list = opts.get("properties", ALL_PROPS)
     
@@ -146,7 +147,8 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
     
     # 补上摘要录入，保持和 entry_dialog 结构一致
     c1, c2 = st.columns(2)
-    with c1: st.text_input("录入时间 (锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
+    with c1: 
+        st.text_input("录入时间 (锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
     r2_c1, r2_c2, r2_c3 = st.columns(3)

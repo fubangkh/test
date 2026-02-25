@@ -3,8 +3,7 @@ import pandas as pd
 from datetime import datetime
 import pytz
 from streamlit_gsheets import GSheetsConnection
-
-# 导入自定义模块
+from logic import get_live_rates, get_dynamic_options
 from logic import ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER
 from forms import entry_dialog, edit_dialog, row_action_dialog
 
@@ -49,7 +48,7 @@ def get_dynamic_options(df, column_name):
 
 # --- 3. 侧边栏 ---
 with st.sidebar:
-    st.title("💰 财务管理系统")
+    st.title("💰 富邦日记账")
     # 显示实时金边时间，增强感知
     st.markdown(f"**📅 当前日期 (金边):** {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M')}")
     st.divider()
@@ -166,7 +165,7 @@ with st.container(border=True):
 
 st.divider()
 
-# --- 8. 余额对账与排行 ---
+# --- 8. 各账户余额与支出排行 ---
 col_l, col_r = st.columns([1.6, 1])
 with col_l:
     st.write("🏦 **各账户当前余额 (原币对账)**")
@@ -188,9 +187,21 @@ with col_l:
             df_filtered = df_main[(df_main['结算账户'].notna()) & (df_main['结算账户'] != "") & (df_main['结算账户'] != "-- 请选择 --")].copy()
             if not df_filtered.empty:
                 acc_stats = df_filtered.groupby('结算账户', group_keys=False).apply(calc_bank_balance).reset_index()
-                iso_map = {"人民币": "CNY", "CNY": "CNY", "瑞尔": "KHR", "KHR": "KHR", "美元": "USD", "USD": "USD"}
-                acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: iso_map.get(x, x))
-                st.dataframe(acc_stats[['结算账户', 'RAW', '原币种', 'USD']], use_container_width=True, hide_index=True)
+                
+                # ✨ 修改点：从 logic 导入统一的 ISO_MAP
+                from logic import ISO_MAP 
+                acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: ISO_MAP.get(x, x))
+                
+                # 优化：给表格列换个更好看的中文名
+                st.dataframe(
+                    acc_stats[['结算账户', 'RAW', '原币种', 'USD']], 
+                    use_container_width=True, 
+                    hide_index=True,
+                    column_config={
+                        "RAW": "原币余额",
+                        "USD": "折合美元(USD)"
+                    }
+                )
         except Exception as e:
             st.error(f"📊 余额计算异常: {e}")
 
@@ -204,8 +215,8 @@ with col_r:
 
 st.divider()
 
-# --- 9. 数据明细表 (0省略逻辑：如实反映原始数据) ---
-st.subheader("📑 财务流水账目明细")
+# --- 9. 流水明细表 ---
+st.subheader("📑 流水明细表")
 if not df_main.empty:
     # 💡 排除所有以 "_" 开头的辅助列
     display_cols = [c for c in df_main.columns if not str(c).startswith('_')] 
@@ -232,4 +243,5 @@ if not df_main.empty:
         selected_row_idx = event.selection.rows[0]
         # 传入 view_df.iloc[...] 包含的原始编号进行修正
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
 

@@ -217,7 +217,6 @@ with col_r:
 st.divider()
 
 # --- 9. 流水明细表 ---
-st.subheader("📑 流水明细表")
 if not df_main.empty:
     # 💡 排除所有以 "_" 开头的辅助列（比如 _calc_date）
     display_cols = [c for c in df_main.columns if not str(c).startswith('_')] 
@@ -225,8 +224,7 @@ if not df_main.empty:
     # 倒序展示
     view_df = df_main[display_cols].copy().iloc[::-1]
     
-    # ✨ 核心修正：使用你喜欢的 .style.format 写法
-    # 这样可以确保：千分符、2位小数、且数字会自动右对齐
+    # 使用 .style.format 确保网页显示效果（千分符、右对齐）
     styled_df = view_df.style.format({
         "实际金额": "{:,.2f}",
         "收入(USD)": "{:,.2f}",
@@ -236,7 +234,7 @@ if not df_main.empty:
 
     table_key = f"main_table_v_{st.session_state.table_version}"
     
-    # --- 10. 一键导出美化版 Excel ---
+    # --- 10. 一键导出Excel ---
     # 使用两列布局，第一列放标题，第二列放按钮
     title_col, btn_col = st.columns([3, 1])
 
@@ -248,7 +246,6 @@ if not df_main.empty:
         excel_data = io.BytesIO()
         
         # 2. 使用 xlsxwriter 引擎创建 Excel 写入器
-        # 注意：下面这一行 with 后面要有代码块缩进
         with pd.ExcelWriter(excel_data, engine='xlsxwriter') as writer:
             view_df.to_excel(writer, index=False, sheet_name='流水明细')
             workbook  = writer.book
@@ -261,7 +258,7 @@ if not df_main.empty:
             center_fmt = workbook.add_format({**base_style, 'align': 'center'})
             right_money_fmt = workbook.add_format({**base_style, 'align': 'right', 'num_format': '#,##0.00'})
 
-            # 4. 遍历列并应用格式
+            # 4. 遍历设置格式
             for col_idx, col_name in enumerate(view_df.columns):
                 # 写入表头
                 worksheet.write(0, col_idx, col_name, header_fmt)
@@ -292,7 +289,7 @@ if not df_main.empty:
             # D. 设置自动缩放：将所有列调整在一页宽内打印
             worksheet.fit_to_pages(1, 0)
             
-            # E. 添加防伪标记 (页眉) 
+            # E. 页眉防伪
             # &[L]: 左侧内容, &[C]: 中间内容, &[R]: 右侧内容
             now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
             header_text = f'&R&"宋体"&9打印于 {now_str}'
@@ -309,7 +306,7 @@ if not df_main.empty:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-    # ⚠️ 注意：使用 styled_df 后，不再需要 column_config 里的 format 参数
+    # --- 11. 渲染表格 ---
     event = st.dataframe(
         styled_df,
         use_container_width=True,
@@ -322,3 +319,4 @@ if not df_main.empty:
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+

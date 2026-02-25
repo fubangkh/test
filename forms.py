@@ -309,12 +309,10 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
 # --- 🎯 表格行操作模块 ---
 @st.dialog("🎯 账目操作", width="small")
 def row_action_dialog(row_data, full_df, conn):
-    # 1. 基础信息提取
     rec_id = row_data["录入编号"]
     st.write(f"**记录编号：** `{rec_id}`")
     st.write(f"**内容预览：** {row_data.get('摘要','')}")
     
-    # 金额渲染保护
     try:
         raw_amt = float(row_data.get('实际金额', 0))
     except:
@@ -325,12 +323,9 @@ def row_action_dialog(row_data, full_df, conn):
     st.write(f"**经 手 人 ：** {row_data.get('经手人', '')}")
     st.divider()
 
-    # 2. 定义状态 Key
     del_confirm_key = f"del_confirm_{rec_id}"
 
-    # 3. 逻辑分发：普通状态 vs 确定删除状态
     if not st.session_state.get(del_confirm_key, False):
-        # --- 普通模式：显示 修正 和 删除 按钮 ---
         c1, c2 = st.columns(2)
         if c1.button("🛠️ 修正", use_container_width=True):
             st.session_state.edit_target_id = rec_id
@@ -342,34 +337,30 @@ def row_action_dialog(row_data, full_df, conn):
             st.rerun()
             
     else:
-        # --- 二次确认模式：显示 确定删除 和 取消 ---
         st.error("⚠️ 确定删除此记录吗？操作不可恢复！")
         cc1, cc2 = st.columns(2)
         
         if cc1.button("✅ 确定删除", use_container_width=True):
             try:
-                # A. 从本地 DataFrame 剔除
                 updated_df = full_df[full_df["录入编号"] != rec_id].copy()
-                
-                # B. 重新计算余额（确保余额链条不断）
                 from logic import calculate_full_balance
                 updated_df = calculate_full_balance(updated_df)
-                
-                # C. 同步到云端数据表
                 conn.update(worksheet="Summary", data=updated_df)
                 
-                # D. 清理确认状态，并强制刷新表格
                 if del_confirm_key in st.session_state:
                     del st.session_state[del_confirm_key]
                 
-                st.session_state.table_version += 1 # 🌟 核心：强制触发表格 key 变更
-                st.cache_data.clear()              # 清除缓存
-                st.rerun()                         # 重新运行
-                
+                st.session_state.table_version += 1
+                st.cache_data.clear()
+                st.rerun()
             except Exception as e:
                 st.error(f"❌ 删除失败，请检查网络: {e}")
         
         if cc2.button("取消", use_container_width=True):
-            # 仅仅关闭确认框，不改变 table_version，因为数据没变
             st.session_state[del_confirm_key] = False
+            # 强制清空表格选中项，防止弹窗“阴魂不散”
+            table_key = f"main_table_v_{st.session_state.table_version}"
+            if table_key in st.session_state:
+                # 重置选择状态
+                st.session_state[table_key] = {"selection": {"rows": [], "columns": []}}
             st.rerun()

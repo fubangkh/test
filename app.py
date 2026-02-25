@@ -218,36 +218,36 @@ st.divider()
 # --- 9. 流水明细表 ---
 st.subheader("📑 流水明细表")
 if not df_main.empty:
-    # 💡 排除所有以 "_" 开头的辅助列
+    # 💡 排除所有以 "_" 开头的辅助列（比如 _calc_date）
     display_cols = [c for c in df_main.columns if not str(c).startswith('_')] 
     
     # 倒序展示
     view_df = df_main[display_cols].copy().iloc[::-1]
     
-    # ✨ 核心优化：确保 DataFrame 中的空值在 Streamlit 表格中显示为空白字符串，而不是 NaN
-    # 这会解决“录入后显示修改时间”的视觉残留问题
-    view_df = view_df.astype(object).where(pd.notnull(view_df), "")
-    
+    # ✨ 核心优化：确保数据类型正确，并配置前端显示样式
+    # 注意：不要使用 view_df.astype(object)，那会把数字变成对象导致格式化失效
     table_key = f"main_table_v_{st.session_state.table_version}"
+    
     event = st.dataframe(
         view_df,
         use_container_width=True,
         hide_index=True,
         on_select="rerun", 
         selection_mode="single-row",
-        key=table_key
+        key=table_key,
+        # ✨ 核心渲染配置：实现千分符、2位小数、右对齐
+        column_config={
+            "实际金额": st.column_config.NumberColumn("实际金额", format="#,##0.00"),
+            "收入(USD)": st.column_config.NumberColumn("收入(USD)", format="#,##0.00"),
+            "支出(USD)": st.column_config.NumberColumn("支出(USD)", format="#,##0.00"),
+            "余额(USD)": st.column_config.NumberColumn("余额(USD)", format="#,##0.00"),
+            # 如果还有其他需要格式化的列，可以在此继续添加
+        }
     )
 
     # 选中行逻辑
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         # 传入 view_df.iloc[...] 包含的原始编号进行修正
+        # 注意：这里我们传给 dialog 的依然是 view_df 里的原始数据
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
-
-
-
-
-
-
-
-

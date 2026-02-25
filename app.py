@@ -334,23 +334,14 @@ if not df_this_month.empty:
 
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
-        # 注意：传给弹窗的数据也要基于 view_df
+        # 确保只有在编辑弹窗没打开时，才打开操作弹窗，防止 API 冲突报错
         if not st.session_state.get('show_edit_modal', False):
+            # 获取选中行的真实数据
             selected_row_data = view_df.iloc[selected_row_idx]
-            row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+            # 弹出操作窗口
+            row_action_dialog(selected_row_data, df_main, conn)
 else:
+    # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
-
-
-
-
-
-
-
-
-
-
-
-
 
 

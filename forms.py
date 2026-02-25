@@ -97,6 +97,7 @@ def entry_dialog(conn, load_data, LOCAL_TZ):
     col_sub, col_can = st.columns(2)
 
     if col_sub.button("🚀 确认提交", use_container_width=True):
+        # --- A. 基础校验 ---
         if not val_sum.strip(): st.error("⚠️ 请填写摘要内容！"); return
         if val_amt <= 0: st.error("⚠️ 原币金额必须大于 0！"); return
         if not val_inv or val_inv.strip() == "": st.error("⚠️ 请输入【审批/发票单号】！"); return
@@ -115,18 +116,30 @@ def entry_dialog(conn, load_data, LOCAL_TZ):
         if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --", "➕ 新增..."]):
             st.error(f"⚠️ 【{val_prop}】必须关联有效项目！"); return
 
-        final_proj = "" if val_proj == "-- 请选择 --" else val_proj
-        final_acc = "" if (not is_transfer and val_acc == "-- 请选择 --") else val_acc
-        final_hand = "" if (not is_transfer and val_hand == "-- 请选择 --") else val_hand
+        # --- B. 数据脱水清洗 (核心修复点) ---
+        # 确保 "-- 请选择 --" 或 "➕ 新增..." 不会进入数据库
+        final_proj = "" if val_proj in ["-- 请选择 --", "➕ 新增..."] else val_proj
+        final_acc = "" if (not is_transfer and val_acc in ["-- 请选择 --", "➕ 新增..."]) else val_acc
+        final_hand = "" if (not is_transfer and val_hand in ["-- 请选择 --", "➕ 新acidad..."]) else val_hand
         
         with st.spinner("正在同步至云端..."):
             try:
+                # 重新加载最新数据（带版本控制）
                 current_df = load_data(version=st.session_state.table_version + 1)
+                
+                # --- C. 构建入库字典 (全部改用 final_ 变量) ---
                 entry_data = {
-                    'sum': val_sum, 'amt': val_amt, 'curr': val_curr, 'inv': val_inv,
-                    'prop': val_prop, 'note': val_note, 'hand': val_hand, 'conv_usd': converted_usd,
-                    'is_transfer': is_transfer, 'proj': val_proj,
-                    'acc': val_acc if not is_transfer else None,
+                    'sum': val_sum, 
+                    'amt': val_amt, 
+                    'curr': val_curr, 
+                    'inv': val_inv,
+                    'prop': val_prop, 
+                    'note': val_note, 
+                    'hand': final_hand,       # ✨ 已修复
+                    'conv_usd': converted_usd,
+                    'is_transfer': is_transfer, 
+                    'proj': final_proj,       # ✨ 已修复
+                    'acc': final_acc if not is_transfer else "资金结转", # 转账时备注账户性质
                     'acc_from': val_acc_from if is_transfer else None,
                     'acc_to': val_acc_to if is_transfer else None,
                     'inc_val': converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0,
@@ -134,13 +147,18 @@ def entry_dialog(conn, load_data, LOCAL_TZ):
                     'converted_usd': converted_usd,
                     'modified_time': ""
                 }
+
+                # 调用处理函数（逻辑锁会在 calculate_full_balance 中剔除 _calc_date）
                 full_df, new_ids = prepare_new_data(current_df, entry_data, LOCAL_TZ)
+                
+                # 执行更新
                 conn.update(worksheet="Summary", data=full_df)
                 
                 st.toast("记账成功！数据已实时同步", icon="💰")
                 st.cache_data.clear()
                 st.session_state.table_version += 1
                 st.rerun()
+                
             except Exception as e:
                 st.error(f"❌ 写入失败: {e}")
 

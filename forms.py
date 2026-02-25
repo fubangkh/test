@@ -358,6 +358,7 @@ def row_action_dialog(row_data, full_df, conn):
         
         if cc2.button("取消", use_container_width=True):
             st.session_state[del_confirm_key] = False
+            st.session_state.table_version += 1
             # 强制清空表格选中项，防止弹窗“阴魂不散”
             table_key = f"main_table_v_{st.session_state.table_version}"
             if table_key in st.session_state:

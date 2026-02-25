@@ -33,9 +33,10 @@ def get_dynamic_options():
         "properties": ALL_PROPS
     }
 
-# --- 实时汇率 ---
+# --- 实时汇率 (已修复版) ---
 @st.cache_data(ttl=3600)
 def get_live_rates():
+    # 1. 预设完整的币种模板和默认汇率
     final_rates = {
         "USD": 1.0, 
         "CNY": 6.88, 
@@ -45,21 +46,30 @@ def get_live_rates():
         "IDR": 15600,
         "THB": 31.14
     }
+    
     try:
-        # 使用 er-api 抓取最新数据
+        # 2. 尝试获取 API 实时数据
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
             api_data = response.json().get("rates", {})
+            
+            # 3. 核心修复：只更新模板中存在的币种，确保字典不缺位
             for curr in final_rates.keys():
                 if curr in api_data:
-                    # 只有获取到正数才更新
                     val = api_data[curr]
+                    # 确保是有效的正数数字
                     if isinstance(val, (int, float)) and val > 0:
                         final_rates[curr] = float(val)
+            
+            # API 成功获取并更新后返回
             return final_rates
-        
+            
     except Exception as e:
+        # 如果请求超时或报错，打印错误并继续走下面的默认值返回
         print(f"API请求失败，使用默认汇率: {e}")
+    
+    # 4. 关键：无论如何都要返回 final_rates，确保 forms.py 永远能拿到 7 个币种
+    return final_rates
     
 # =========================================================
 # 2. 数据处理核心函数

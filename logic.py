@@ -18,19 +18,27 @@ ISO_MAP = {
     "美元": "USD", "USD": "USD"
 }
 
-# 定义全局列表
-    ALL_CURRENCIES = ["USD", "CNY", "KHR", "HKD", "VND", "IDR", "THB"]
-    def get_dynamic_options():
+# --- 必须完全顶格 ---
+ALL_CURRENCIES = ["USD", "CNY", "KHR", "HKD", "VND", "IDR", "THB"]
+
+CORE_BIZ = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本", "产品销售支出"]
+INC_OTHER = ["期初调整", "网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
+EXP_OTHER = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
+ALL_PROPS = CORE_BIZ[:5] + INC_OTHER + CORE_BIZ[5:] + EXP_OTHER + ["资金结转"]
+
+def get_dynamic_options():
+    # --- 必须向右缩进 ---
     return {
         "currencies": ALL_CURRENCIES,
         "properties": ALL_PROPS
     }
+
 # --- 实时汇率 ---
 @st.cache_data(ttl=3600)
 def get_live_rates():
     default_rates = {
         "USD": 1.0, 
-        "CNY": 6.88, # 顺手帮你更新了较新的汇率基准
+        "CNY": 6.88, 
         "KHR": 4013,
         "VND": 25780, 
         "HKD": 7.82, 
@@ -55,11 +63,6 @@ def get_live_rates():
     
     return default_rates
 
-CORE_BIZ = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本", "产品销售支出"]
-INC_OTHER = ["期初调整", "网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
-EXP_OTHER = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
-ALL_PROPS = CORE_BIZ[:5] + INC_OTHER + CORE_BIZ[5:] + EXP_OTHER + ["资金结转"]
-
 # =========================================================
 # 2. 数据处理核心函数
 # =========================================================
@@ -78,11 +81,9 @@ def prepare_new_data(current_df, v, LOCAL_TZ):
     today_records = current_df[today_mask]
     start_num = (int(str(today_records['录入编号'].iloc[-1])[-3:]) + 1) if not today_records.empty else 1
 
-    # --- B. 内部函数：创建行模板 (关键修正点) ---
+    # --- B. 内部函数：创建行模板 ---
     def create_row(offset, s, p, a, i, pr, raw_v, raw_c, inc, exp, h, n):
         sn = f"R{today_str}{(start_num + offset):03d}"
-        # ✨ 重点修正：提交时间填入 now_ts，修改时间填入 "" (空字符串)
-        # 这样新录入的账单在表格中该项就是空白的
         return [sn, now_ts, "", s, p, a, i, pr, round(float(raw_v), 2), raw_c, 
                 round(float(inc), 2), round(float(exp), 2), 0, h, n]
 
@@ -91,7 +92,7 @@ def prepare_new_data(current_df, v, LOCAL_TZ):
     # --- C. 构造新行 (双分录逻辑) ---
     if v['is_transfer']:
         new_rows.append(create_row(0, f"【转出】{v['sum']}", "内部调拨", v['acc_from'], v['inv'], v['prop'], v['amt'], v['curr'], 0, v['conv_usd'], v['hand'], v['note']))
-        new_rows.append(create_row(1, f"【转入】{v['sum']}", "内部调拨", v['acc_to'], v['inv'], v['prop'], v['amt'], v['curr'], v['conv_usd'], 0, v['hand'], v['note']))
+        new_rows.append(create_row(1, f"【转入】{v['sum']}", "内部調拨", v['acc_to'], v['inv'], v['prop'], v['amt'], v['curr'], v['conv_usd'], 0, v['hand'], v['note']))
     else:
         new_rows.append(create_row(0, v['sum'], v['proj'], v['acc'], v['inv'], v['prop'], v['amt'], v['curr'], v['inc_val'], v['exp_val'], v['hand'], v['note']))
 

@@ -291,15 +291,28 @@ if not df_main.empty:
                 worksheet.set_column(col_idx, col_idx, max_len, target_fmt)
                 
             # ✨ --- 5. 打印与页面设置 --- ✨
-            # 设置纸张方向为横向 (1 = 纵向, 0 = 横向，xlsxwriter 默认为纵向)
+            # A. 设置为 A4 纸 (9 代表 A4)
+            worksheet.set_paper(9)
+            
+            # B. 设置纸张方向为横向 (1 = 纵向, 0 = 横向，xlsxwriter 默认为纵向)
             worksheet.set_landscape()
                 
-            # 设置页边距 (单位是英寸，1 英寸 ≈ 2.54 厘米)
+            # C. 设置页边距 (单位是英寸，1 英寸 ≈ 2.54 厘米)
             # 左右上下分别设为 0.5 英寸（约 1.27 厘米），这是一个比较平衡的留白
             worksheet.set_margins(left=0.5, right=0.5, top=0.5, bottom=0.5)
                 
-            # (可选) 设置自动缩放：将所有列调整在一页宽内打印
+            # D. 设置自动缩放：将所有列调整在一页宽内打印
             worksheet.fit_to_pages(1, 0)
+            
+            # E. 添加防伪标记 (页脚) 
+            # &[L]: 左侧内容, &[C]: 中间内容, &[R]: 右侧内容
+            # 在右下角打印：打印时间: YYYY-MM-DD HH:MM
+            now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
+            footer_text = f'&R&"宋体"&9防伪标记：打印于 {now_str}'
+            worksheet.set_footer(footer_text)
+        
+            # F. 每一页都打印表头
+            worksheet.repeat_rows(0)
 
         # 5. 渲染按钮
         st.download_button(
@@ -308,6 +321,7 @@ if not df_main.empty:
             file_name=f"财务流水_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 

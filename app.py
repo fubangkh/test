@@ -34,7 +34,6 @@ def load_data(version=0):
         st.error(f"数据加载失败: {e}")
         return pd.DataFrame()
 
-def get_dynamic_options(df, column_name):
     if df.empty or column_name not in df.columns:
         return ["-- 请选择 --", "➕ 新增..."]
     options = df[column_name].dropna().unique().tolist()
@@ -244,6 +243,7 @@ if not df_main.empty:
         selected_row_idx = event.selection.rows[0]
         # 传入 view_df.iloc[...] 包含的原始编号进行修正
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
 
 
 

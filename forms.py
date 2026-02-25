@@ -17,6 +17,10 @@ def get_historical_options(df, col):
 
 @st.dialog("➕ 新增流水录入", width="large")
 def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates):
+    live_rates = get_live_rates() # 确保先运行这行拿数据
+    st.write("--- 调试信息 ---")
+    st.write(f"当前 live_rates 内容: {live_rates}") 
+    st.write(f"类型: {type(live_rates)}")
     # 注入全局紧凑样式
     st.markdown("""<style>hr{margin-top:-5px!important;margin-bottom:10px!important;}.stTextArea textarea{height:68px!important;}</style>""", unsafe_allow_html=True)
 

@@ -304,12 +304,11 @@ if not df_main.empty:
             # D. 设置自动缩放：将所有列调整在一页宽内打印
             worksheet.fit_to_pages(1, 0)
             
-            # E. 添加防伪标记 (页脚) 
+            # E. 添加防伪标记 (页眉) 
             # &[L]: 左侧内容, &[C]: 中间内容, &[R]: 右侧内容
-            # 在右下角打印：打印时间: YYYY-MM-DD HH:MM
             now_str = datetime.now().strftime('%Y-%m-%d %H:%M')
-            footer_text = f'&R&"宋体"&9防伪标记：打印于 {now_str}'
-            worksheet.set_footer(footer_text)
+            header_text = f'&R&"宋体"&9打印于 {now_str}'
+            worksheet.set_header(header_text)
         
             # F. 每一页都打印表头
             worksheet.repeat_rows(0)
@@ -321,6 +320,7 @@ if not df_main.empty:
             file_name=f"财务流水_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 

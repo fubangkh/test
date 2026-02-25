@@ -39,27 +39,34 @@ def get_live_rates():
     default_rates = {
         "USD": 1.0, 
         "CNY": 6.88, 
-        "KHR": 4013,
-        "VND": 25780, 
+        "KHR": 4015,
+        "VND": 25750, 
         "HKD": 7.82, 
-        "IDR": 15606,
+        "IDR": 15600,
         "THB": 31.14
     }
     try:
+        # 使用 er-api 抓取最新数据
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
-            api_rates = response.json().get("rates", {})
-            return {
-                "USD": 1.0,
-                "CNY": api_rates.get("CNY", default_rates["CNY"]),
-                "KHR": api_rates.get("KHR", default_rates["KHR"]),
-                "VND": api_rates.get("VND", default_rates["VND"]),
-                "HKD": api_rates.get("HKD", default_rates["HKD"]),
-                "IDR": api_rates.get("IDR", default_rates["IDR"]),
-                "THB": api_rates.get("THB", default_rates["THB"])
-            }
+            data = response.json()
+            if data.get("result") == "success":
+                api_rates = data.get("rates", {})
+                
+                # 2. 构造最终汇率字典
+                final_rates = {}
+                for curr in default_rates.keys():
+                    # 关键逻辑：只有当 API 传回的值 > 0 时才使用，否则回退到默认值
+                    val = api_rates.get(curr, 0)
+                    if isinstance(val, (int, float)) and val > 0:
+                        final_rates[curr] = float(val)
+                    else:
+                        final_rates[curr] = default_rates[curr]
+                
+                return final_rates
     except Exception as e:
-        print(f"汇率接口请求失败: {e}")
+        # 仅在后台打印错误，不中断用户操作
+        print(f"汇率接口请求失败，使用离线数据: {e}")
     
     return default_rates
 

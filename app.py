@@ -164,7 +164,7 @@ with st.container(border=True):
     m2.metric(f"📉 {sel_month}月支出", f"${tm_exp:,.2f}")
     m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
 
-st.divider()
+# st.divider()
 
 # --- 8. 各账户余额与支出排行 ---
 col_l, col_r = st.columns([2, 1])
@@ -333,6 +333,7 @@ if not df_main.empty:
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
 
 
 

@@ -45,7 +45,6 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     
     # 实时换算显示
     converted_usd = round(val_amt / val_rate, 2) if val_rate != 0 else 0
-    # st.success(f"💰 换算后金额：$ {converted_usd:,.2f} USD")
     st.info(f"💰 换算后金额：$ {converted_usd:,.2f} USD")
     
     # 3. 资金性质与审批/发票单号
@@ -80,7 +79,6 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     col_sub, col_can = st.columns(2)
 
     if col_sub.button("🚀 确认提交", use_container_width=True):
-        # --- 校验逻辑 ---
         if not val_sum.strip(): st.error("⚠️ 请填写摘要内容！"); return
         if val_amt <= 0: st.error("⚠️ 原币金额必须大于 0！"); return
         if not val_inv or val_inv.strip() == "": st.error("⚠️ 请输入【审批/发票单号】！"); return
@@ -99,7 +97,6 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
         if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --", "➕ 新增..."]):
             st.error(f"⚠️ 【{val_prop}】必须关联有效项目！"); return
 
-        # --- 提交逻辑 ---
         with st.spinner("正在同步至云端..."):
             try:
                 current_df = load_data(version=st.session_state.table_version + 1)
@@ -113,7 +110,7 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
                     'inc_val': converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0,
                     'exp_val': converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0,
                     'converted_usd': converted_usd,
-                    'modified_time': ""  # ✨ 关键点：新增时修改时间留空
+                    'modified_time': ""
                 }
                 full_df, new_ids = prepare_new_data(current_df, entry_data, LOCAL_TZ)
                 conn.update(worksheet="Summary", data=full_df)
@@ -145,13 +142,11 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
     
     st.info(f"正在修正记录：`{target_id}`")
     
-    # 1. 摘要与时间显示
     c1, c2 = st.columns(2)
     with c1:
         st.text_input("录入时间 (锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
-    # 2. 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     u_ori_amt = r2_c1.number_input("原币金额", value=float(old.get("实际金额", 0.0)), step=100.0)
     
@@ -167,7 +162,6 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
     st.success(f"💰 折算后金额：$ {u_usd_val:,.2f} USD")
     st.markdown('<hr>', unsafe_allow_html=True)
 
-    # 3. 性质与单号
     r4_c1, r4_c2 = st.columns(2)
     u_inv = r4_c1.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
     try:
@@ -176,7 +170,6 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
         p_idx = 0
     u_prop = r4_c2.selectbox("资金性质", prop_list, index=p_idx)
     
-    # 4. 账户、经手人与项目
     r3_c1, r3_c2 = st.columns(2)
     acc_options = get_historical_options(full_df, "结算账户")
     curr_acc = old.get("结算账户", "")
@@ -207,7 +200,6 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
 
     u_note = st.text_area("备注", height=68, value=str(old.get("备注", "")))
 
-    # 5. 底部按钮
     sv, ex = st.columns(2)
     if sv.button("💾 确认保存", use_container_width=True):
         if not u_sum.strip():
@@ -247,7 +239,7 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
         st.session_state.show_edit_modal = False
         st.session_state.table_version += 1 
         st.rerun()
-        
+
 # --- 🎯 表格行操作模块 ---
 @st.dialog("🎯 账目操作", width="small")
 def row_action_dialog(row_data, full_df, conn):

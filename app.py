@@ -1,4 +1,5 @@
 import streamlit as st
+from login import show_login_page  # 引入登录逻辑
 import pandas as pd
 import io
 from datetime import datetime
@@ -10,8 +11,16 @@ from forms import entry_dialog, edit_dialog, row_action_dialog
 
 # --- 1. 基础页面配置 ---
 st.set_page_config(page_title="富邦日记账", layout="wide", page_icon="📊")
+# 登录状态控制
+# 初始化登录状态
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-# ✅ 锁定金边时区 (全局唯一定义)
+# 如果没登录，直接运行登录页并停止向下执行
+if not st.session_state.logged_in:
+    show_login_page()
+    st.stop()  # 🌟 关键：未登录时拦截后续所有代码运行
+
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
 # 初始化全局状态
@@ -40,18 +49,10 @@ def load_data(version=0):
 # --- 3. 侧边栏 ---
 with st.sidebar:
     st.title("💰 富邦日记账")
-    # 显示实时金边时间，增强感知
-    st.markdown(f"**📅 当前日期 (金边):** {datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M')}")
-    st.divider()
-    
-    if st.button("🚪 退出/重置系统", use_container_width=True):
-        st.session_state.show_edit_modal = False
-        st.session_state.edit_target_id = None
-        st.session_state.table_version += 1
-        st.cache_data.clear()
+    if st.button("🚪 退出登录"):
+        st.session_state.logged_in = False
         st.rerun()
-    
-    st.info("💡 提示：此操作将清除本地缓存并重新从云端同步数据。")
+    st.divider()
 
 # --- 4. 主页面数据加载 ---
 df_main = load_data(version=st.session_state.table_version)
@@ -341,6 +342,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

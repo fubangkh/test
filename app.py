@@ -236,25 +236,14 @@ if not df_main.empty:
 
     table_key = f"main_table_v_{st.session_state.table_version}"
     
-    # ⚠️ 注意：使用 styled_df 后，不再需要 column_config 里的 format 参数
-    event = st.dataframe(
-        styled_df,
-        use_container_width=True,
-        hide_index=True,
-        on_select="rerun", 
-        selection_mode="single-row",
-        key=table_key
-    )
-
-    if event.selection.rows:
-        selected_row_idx = event.selection.rows[0]
-        row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
-
     # --- 10. 一键导出美化版 Excel ---
-    st.markdown("---")
-    col_down1, _ = st.columns([1, 4])
+    # 使用两列布局，第一列放标题，第二列放按钮
+    title_col, btn_col = st.columns([3, 1])
 
-    with col_down1:
+    with title_col:
+        st.subheader("📑 流水明细表")
+
+    with btn_col:
         # 1. 初始化内存缓冲区
         excel_data = io.BytesIO()
         
@@ -262,7 +251,6 @@ if not df_main.empty:
         # 注意：下面这一行 with 后面要有代码块缩进
         with pd.ExcelWriter(excel_data, engine='xlsxwriter') as writer:
             view_df.to_excel(writer, index=False, sheet_name='流水明细')
-            
             workbook  = writer.book
             worksheet = writer.sheets['流水明细']
 
@@ -321,10 +309,16 @@ if not df_main.empty:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
+    # ⚠️ 注意：使用 styled_df 后，不再需要 column_config 里的 format 参数
+    event = st.dataframe(
+        styled_df,
+        use_container_width=True,
+        hide_index=True,
+        on_select="rerun", 
+        selection_mode="single-row",
+        key=table_key
+    )
 
-
-
-
-
-
-
+    if event.selection.rows:
+        selected_row_idx = event.selection.rows[0]
+        row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)

@@ -261,30 +261,48 @@ if not df_main.empty:
         # 2. 使用 xlsxwriter 引擎
         # 这里的 view_df 对应 image_23275f.png 中传给 st.dataframe 的数据源
         with pd.ExcelWriter(excel_data, engine='xlsxwriter') as writer:
-            view_df.to_excel(writer, index=False, sheet_name='流水明细')
-            
-            workbook  = writer.book
-            worksheet = writer.sheets['流水明细']
-            
-            # 🎨 定义表头格式 (深蓝背景, 白字, 加粗, 边框)
-            header_fmt = workbook.add_format({
-                'bold': True, 'text_wrap': True, 'valign': 'vcenter',
-                'align': 'center', 'fg_color': '#1F4E78', 'font_color': 'white', 'border': 1
-            })
-            
-            # 🎨 定义金额格式 (千分符, 2位小数, 右对齐, 边框)
-            money_fmt = workbook.add_format({'num_format': '#,##0.00', 'align': 'right', 'border': 1})
-            
-            # 🎨 定义普通文本格式 (边框)
-            text_fmt = workbook.add_format({'border': 1})
+        view_df.to_excel(writer, index=False, sheet_name='流水明细')
+        workbook  = writer.book
+        worksheet = writer.sheets['流水明细']
 
-            # 3. 自动调整格式与列宽
-            for col_idx, col_name in enumerate(view_df.columns):
-                worksheet.write(0, col_idx, col_name, header_fmt)
-                if col_name in ["实际金额", "收入(USD)", "支出(USD)", "余额(USD)"]:
-                    worksheet.set_column(col_idx, col_idx, 15, money_fmt)
-                else:
-                    worksheet.set_column(col_idx, col_idx, 18, text_fmt)
+        # 1. 定义基础格式 (全部基于 宋体, 10号, 带边框)
+        base_style = {'font_name': '宋体', 'font_size': 10, 'border': 1, 'valign': 'vcenter'}
+        
+        # 表头格式 (深蓝背景, 白字, 加粗, 居中)
+        header_fmt = workbook.add_format({**base_style, 'bold': True, 'align': 'center', 'fg_color': '#1F4E78', 'font_color': 'white'})
+        
+        # 左对齐格式
+        left_fmt = workbook.add_format({**base_style, 'align': 'left'})
+        
+        # 居中对齐格式
+        center_fmt = workbook.add_format({**base_style, 'align': 'center'})
+        
+        # 右对齐格式 (金额专用：千分符 + 2位小数)
+        right_money_fmt = workbook.add_format({**base_style, 'align': 'right', 'num_format': '#,##0.00'})
+
+        # 2. 遍历列并精准定义
+        for col_idx, col_name in enumerate(view_df.columns):
+            # --- A. 确定对齐方式 ---
+            if col_name in ["资金性质", "经手人"]:
+                target_fmt = center_fmt
+            elif col_name in ["实际金额", "收入(USD)", "支出(USD)", "金额(USD)", "余额(USD)"]:
+                target_fmt = right_money_fmt
+            else:
+                # 包含：录入编号、提交时间、修改时间、摘要、客户/项目信息、结算账户、审批/发票单号、备注
+                target_fmt = left_fmt
+
+            # --- B. 写入表头 ---
+            worksheet.write(0, col_idx, col_name, header_fmt)
+
+            # --- C. 实现“自动调整列宽”逻辑 ---
+            # 获取该列数据的最大长度 (对比表头长度和内容长度)
+            max_len = max(
+                view_df[col_name].astype(str).map(len).max(), # 内容最长的一行
+                len(str(col_name)) # 表头长度
+            ) + 4  # 额外增加4个字符的冗余空间，防止中文字符显示不全
+            
+            # 设置列宽和对应的格式
+            worksheet.set_column(col_idx, col_idx, max_len, target_fmt)
 
         # 4. 渲染按钮
         st.download_button(
@@ -293,5 +311,6 @@ if not df_main.empty:
             file_name=f"财务流水_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 

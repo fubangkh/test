@@ -16,8 +16,9 @@ def get_historical_options(df, col):
     return ["-- 请选择 --"] + existing + ["➕ 新增..."]
 
 @st.dialog("➕ 新增流水录入", width="large")
-def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates):
-    # 1. 统一获取数据，只获取一次！
+def entry_dialog(conn, load_data, LOCAL_TZ):
+    from logic import get_live_rates
+    # 运行函数获取字典
     try:
         live_rates = get_live_rates()
         if not live_rates or not isinstance(live_rates, dict):
@@ -34,11 +35,6 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates):
     df = load_data()
     opts = get_dynamic_options()
     curr_list = opts.get("currencies", ["USD", "CNY", "HKD", "KHR", "VND", "IDR", "THB"])
-    
-    # --- 调试面板 ---
-    with st.expander("🔍 汇率系统检测 (点开查看)"):
-        st.write(f"当前选择列表: {curr_list}")
-        st.write(f"实时汇率字典: {live_rates}")
     
     # 顶部结余显示
     current_balance = df['余额(USD)'].iloc[-1] if not df.empty else 0
@@ -155,7 +151,7 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates):
 
 # --- 5. 数据修正模块 ---
 @st.dialog("🛠️ 数据修正", width="large")
-def edit_dialog(target_id, full_df, conn, get_live_rates, LOCAL_TZ):
+def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
     try:
         old = full_df[full_df["录入编号"] == target_id].iloc[0]
     except Exception:
@@ -163,6 +159,7 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, LOCAL_TZ):
         st.rerun()
         return
 
+    from logic import get_live_rates, get_dynamic_options 
     live_rates = get_live_rates()
     opts = get_dynamic_options()
     curr_list = opts.get("currencies", ["USD"])
@@ -185,9 +182,10 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, LOCAL_TZ):
         
     u_curr = r2_c2.selectbox("原币币种", curr_list, index=curr_idx)
     u_rate = r2_c3.number_input(
-    "汇率", 
-    value=float(live_rates.get(u_curr.strip().upper(), 1.0)) if u_curr else 1.0, 
-    format="%.4f"
+        "汇率", 
+        value=float(live_rates.get(u_curr.strip().upper(), 1.0)) if u_curr else 1.0, 
+        format="%.4f",
+        key=f"edit_rate_{u_curr}_{target_id}"
     )
     
     u_usd_val = round(u_ori_amt / u_rate, 2) if u_rate != 0 else 0

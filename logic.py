@@ -1,14 +1,59 @@
 import pandas as pd
 from datetime import datetime
+import requests  # ✨ 必须加上这个，否则 get_live_rates 会报错
+import streamlit as st # ✨ 必须加上这个，否则 @st.cache_data 会报错
 
 # =========================================================
-# 1. 核心业务常量 (严格保留原版顺序与切片逻辑)
+# 1. 核心业务常量 (新增币种定义)
 # =========================================================
+
+# 统一币种转换字典
+ISO_MAP = {
+    "人民币": "CNY", "CNY": "CNY", 
+    "港币": "HKD", "HKD": "HKD", 
+    "印尼盾": "IDR", "IDR": "IDR", 
+    "越南盾": "VND", "VND": "VND", 
+    "瑞尔": "KHR", "KHR": "KHR", 
+    "泰铢": "THB", "THB": "THB", 
+    "美元": "USD", "USD": "USD"
+}
+
+# 供下拉列表使用的简洁列表
+ALL_CURRENCIES = ["USD", "CNY", "KHR", "HKD", "VND", "IDR", "THB"]
+
+# --- 实时汇率 ---
+@st.cache_data(ttl=3600)
+def get_live_rates():
+    default_rates = {
+        "USD": 1.0, 
+        "CNY": 6.88, # 顺手帮你更新了较新的汇率基准
+        "KHR": 4013,
+        "VND": 25780, 
+        "HKD": 7.82, 
+        "IDR": 15606,
+        "THB": 31.14
+    }
+    try:
+        response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
+        if response.status_code == 200:
+            api_rates = response.json().get("rates", {})
+            return {
+                "USD": 1.0,
+                "CNY": api_rates.get("CNY", default_rates["CNY"]),
+                "KHR": api_rates.get("KHR", default_rates["KHR"]),
+                "VND": api_rates.get("VND", default_rates["VND"]),
+                "HKD": api_rates.get("HKD", default_rates["HKD"]),
+                "IDR": api_rates.get("IDR", default_rates["IDR"]),
+                "THB": api_rates.get("THB", default_rates["THB"])
+            }
+    except Exception as e:
+        print(f"汇率接口请求失败: {e}")
+    
+    return default_rates
+
 CORE_BIZ = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本", "产品销售支出"]
 INC_OTHER = ["期初调整", "网络收入", "其他收入", "借款", "往来款收回", "押金收回"]
 EXP_OTHER = ["网络成本", "管理费用", "差旅费", "工资福利", "往来款支付", "押金支付", "归还借款"]
-
-# 这一行是下拉菜单的排序核心，绝对不能删减
 ALL_PROPS = CORE_BIZ[:5] + INC_OTHER + CORE_BIZ[5:] + EXP_OTHER + ["资金结转"]
 
 # =========================================================

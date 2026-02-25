@@ -33,7 +33,7 @@ def get_dynamic_options():
         "properties": ALL_PROPS
     }
 
-# --- 实时汇率 ---
+# --- 实时汇率 (恢复至最稳版本) ---
 @st.cache_data(ttl=3600)
 def get_live_rates():
     default_rates = {
@@ -49,25 +49,18 @@ def get_live_rates():
         # 使用 er-api 抓取最新数据
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
-            data = response.json()
-            if data.get("result") == "success":
-                api_rates = data.get("rates", {})
-                
-                # 2. 构造最终汇率字典
-                final_rates = {}
-                for curr in default_rates.keys():
-                    # 关键逻辑：只有当 API 传回的值 > 0 时才使用，否则回退到默认值
-                    val = api_rates.get(curr, 0)
-                    if isinstance(val, (int, float)) and val > 0:
-                        final_rates[curr] = float(val)
-                    else:
-                        final_rates[curr] = default_rates[curr]
-                
-                return final_rates
-    except Exception as e:
-        # 仅在后台打印错误，不中断用户操作
-        print(f"汇率接口请求失败，使用离线数据: {e}")
-    
+            rates = response.json().get("rates", {})
+            return {
+                "USD": 1.0, 
+                "CNY": rates.get("CNY", 6.88), 
+                "KHR": rates.get("KHR", 4015),
+                "VND": rates.get("VND", 25750), 
+                "HKD": rates.get("HKD", 7.82), 
+                "IDR": rates.get("IDR", 15600), 
+                "THB": rates.get("THB", 31.14)
+            }
+    except: 
+        pass
     return default_rates
 
 # =========================================================

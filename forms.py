@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import time
 from datetime import datetime
-from logic import ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER, prepare_new_data, calculate_full_balance
+from logic import ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER, prepare_new_data, calculate_full_balance, get_dynamic_options
 
 # --- 4. 录入模块 ---
 def get_historical_options(df, col):

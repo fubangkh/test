@@ -32,7 +32,7 @@ MAIN_LANG = {
         "table_title": "📊 财务流水明细",
         "stat_total_in": "总收入",
         "stat_total_out": "总支出",
-        "stat_balance": "当前结余"
+        "stat_balance": "当前结余",
         "table_title": "📊 汇总统计",
         "btn_add": "➕ 新增流水录入",
     },
@@ -409,6 +409,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

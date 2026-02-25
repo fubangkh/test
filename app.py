@@ -21,6 +21,65 @@ if not st.session_state.logged_in:
     show_login_page()
     st.stop()  # 🌟 关键：未登录时拦截后续所有代码运行
 
+# 主界面多语言字典
+MAIN_LANG = {
+    "zh": {
+        "title_main": "富邦日记账",
+        "sidebar_title": "⚙️ 侧边栏",
+        "month_sel": "选择月份",
+        "btn_add": "➕ 新增流水",
+        "btn_export": "📥 导出 Excel",
+        "table_title": "📊 财务流水明细",
+        "stat_total_in": "总收入",
+        "stat_total_out": "总支出",
+        "stat_balance": "当前结余"
+        "table_title": "📊 汇总统计",
+        "btn_add": "➕ 新增流水录入",
+    },
+    "en": {
+        "title_main": "Fubang Journal",
+        "sidebar_title": "Fubang Journal",
+        "month_sel": "Select Month",
+        "btn_add": "➕ Add Record",
+        "btn_export": "📥 Export Excel",
+        "table_title": "📊 Financial Transactions",
+        "stat_total_in": "Total Income",
+        "stat_total_out": "Total Expense",
+        "stat_balance": "Current Balance"
+        "table_title": "📊 Statistics Summary",
+        "btn_add": "➕ Add New Transaction",
+    },
+    "km": {
+        "title_main": "ហ្វូបង់ សៀវភៅគណនេយ្យោះ",
+        "sidebar_title": "ហ្វូបង់ សៀវភៅគណនេយ្យោះ",
+        "month_sel": "ជ្រើសរើសខែ",
+        "btn_add": "➕ បញ្ចូលទិន្នន័យ",
+        "btn_export": "📥 ទាញយក Excel",
+        "table_title": "📊 ព័ត៌មានលម្អិតអំពីហិរញ្ញវត្ថុ",
+        "stat_total_in": "ចំណូលសរុប",
+        "stat_total_out": "ចំណាយសរុប",
+        "stat_balance": "សមតុល្យបច្ចុប្បន្ន"
+        "table_title": "📊 សេចក្តីសង្ខេបស្ថិតិ",
+        "btn_add": "➕ បញ្ចូលទិន្នន័យថ្មី",
+    },
+    "vi": {
+        "title_main": "Sổ Kế Toán Fubang",
+        "sidebar_title": "Sổ Kế Toán Fubang",
+        "month_sel": "Chọn tháng",
+        "btn_add": "➕ Thêm giao dịch",
+        "btn_export": "📥 Xuất Excel",
+        "table_title": "📊 Chi tiết giao dịch tài chính",
+        "stat_total_in": "Tổng thu",
+        "stat_total_out": "Tổng chi",
+        "stat_balance": "Số dư hiện tại"
+        "table_title": "📊 Thống kê tổng hợp",
+        "btn_add": "➕ Thêm giao dịch mới",
+    }
+}
+
+# 自动获取当前语言包
+L_MAIN = MAIN_LANG.get(st.session_state.lang, MAIN_LANG["zh"])
+
 LOCAL_TZ = pytz.timezone('Asia/Phnom_Penh')
 
 # 初始化全局状态
@@ -48,10 +107,18 @@ def load_data(version=0):
 
 # --- 3. 侧边栏 ---
 with st.sidebar:
-    st.title("💰 富邦日记账")
-    if st.button("🚪 退出登录"):
+    st.title(f"💰 {L_MAIN['title_main']}")
+    logout_text = {
+        "zh": "🚪 退出登录",
+        "en": "🚪 Logout",
+        "km": "🚪 ចាកចេញ",
+        "vi": "🚪 Đăng xuất"
+    }.get(st.session_state.lang, "🚪 退出登录")
+    
+    if st.button(logout_text):
         st.session_state.logged_in = False
         st.rerun()
+        
     st.divider()
 
 # --- 4. 主页面数据加载 ---
@@ -59,10 +126,10 @@ df_main = load_data(version=st.session_state.table_version)
 
 c_title, c_btn = st.columns([5, 2])
 with c_title:
-    st.header("📊 汇总统计")
+    st.header(L_MAIN["table_title"])
 with c_btn:
     st.write("##") 
-    if st.button("➕ 新增流水录入", use_container_width=True):
+    if st.button(L_MAIN["btn_add"], use_container_width=True):
         # 传递 LOCAL_TZ 确保录入时间正确
         entry_dialog(conn, load_data, LOCAL_TZ)
 
@@ -342,6 +409,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

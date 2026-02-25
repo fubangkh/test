@@ -45,7 +45,7 @@ MAIN_LANG = {
         "table_title": "📊 Financial Transactions",
         "stat_total_in": "Total Income",
         "stat_total_out": "Total Expense",
-        "stat_balance": "Current Balance"
+        "stat_balance": "Current Balance",
         "table_title": "📊 Statistics Summary",
         "btn_add": "➕ Add New Transaction",
     },
@@ -409,6 +409,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

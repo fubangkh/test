@@ -68,13 +68,13 @@ with c_btn:
     st.write("##") 
     if st.button("➕ 新增流水录入", use_container_width=True):
         # 传递 LOCAL_TZ 确保录入时间正确
-        entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates)
+        entry_dialog(conn, load_data, LOCAL_TZ)
 
 st.caption(f"🚀 系统就绪 | 数据库总行数: {len(df_main)} | 缓存版本: {st.session_state.table_version}")
 
 # 处理弹窗调度
 if st.session_state.get("show_edit_modal", False):
-    edit_dialog(st.session_state.edit_target_id, df_main, conn, get_live_rates, get_dynamic_options, LOCAL_TZ)
+    edit_dialog(st.session_state.edit_target_id, df_main, conn, get_dynamic_options, LOCAL_TZ)
 
 # --- 5. 数据预处理 (严谨处理：空值不回填) ---
 if not df_main.empty:
@@ -239,6 +239,7 @@ if not df_main.empty:
         selected_row_idx = event.selection.rows[0]
         # 传入 view_df.iloc[...] 包含的原始编号进行修正
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
 
 
 

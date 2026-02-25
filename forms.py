@@ -17,15 +17,28 @@ def get_historical_options(df, col):
 
 @st.dialog("➕ 新增流水录入", width="large")
 def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates):
-    live_rates = get_live_rates() # 确保先运行这行拿数据
-    st.write("--- 调试信息 ---")
-    st.write(f"当前 live_rates 内容: {live_rates}") 
-    st.write(f"类型: {type(live_rates)}")
+    # 1. 统一获取数据，只获取一次！
+    try:
+        live_rates = get_live_rates()
+        if not live_rates or not isinstance(live_rates, dict):
+            st.error("❌ 无法获取汇率字典，请检查 logic.py")
+            live_rates = {"USD": 1.0, "CNY": 6.88} # 强制保底
+    except Exception as e:
+        st.error(f"❌ 获取汇率函数执行出错: {e}")
+        live_rates = {"USD": 1.0, "CNY": 6.88}
+    
     # 注入全局紧凑样式
     st.markdown("""<style>hr{margin-top:-5px!important;margin-bottom:10px!important;}.stTextArea textarea{height:68px!important;}</style>""", unsafe_allow_html=True)
 
+    # 3. 获取选项
     df = load_data()
-    live_rates = get_live_rates()
+    opts = get_dynamic_options()
+    curr_list = opts.get("currencies", ["USD", "CNY", "HKD", "KHR", "VND", "IDR", "THB"])
+    
+    # --- 调试面板 ---
+    with st.expander("🔍 汇率系统检测 (点开查看)"):
+        st.write(f"当前选择列表: {curr_list}")
+        st.write(f"实时汇率字典: {live_rates}")
     
     # 顶部结余显示
     current_balance = df['余额(USD)'].iloc[-1] if not df.empty else 0
@@ -45,10 +58,16 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates):
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     val_amt = r2_c1.number_input("原币金额 :red[*]", min_value=0.0, step=100.0)
     val_curr = r2_c2.selectbox("原币币种 :red[*]", curr_list) 
+    
+    # 核心修正：增加对 val_curr 的严苛检查
+    target_key = str(val_curr).strip().upper()
+    current_rate = live_rates.get(target_key, 1.0)
+    
     val_rate = r2_c3.number_input(
     "实时汇率", 
     value=float(live_rates.get(val_curr.strip().upper(), 1.0)) if val_curr else 1.0, 
-    format="%.4f"
+    format="%.4f",
+    key="rate_input_field" # 增加唯一 key 防止组件重叠
     )
     
     # 实时换算显示

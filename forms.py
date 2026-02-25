@@ -5,6 +5,16 @@ from datetime import datetime
 from logic import ALL_PROPS, CORE_BIZ, INC_OTHER, EXP_OTHER, prepare_new_data, calculate_full_balance
 
 # --- 4. 录入模块 ---
+def get_historical_options(df, col):
+    """
+    专门从 DataFrame 中提取已有的选项（如结算账户、经手人）
+    """
+    if col not in df.columns: 
+        return ["-- 请选择 --", "➕ 新增..."]
+    # 提取去重、排序、排除空值
+    existing = sorted([str(v) for v in df[col].unique() if v and str(v).strip() != "" and v not in ["-- 请选择 --", "➕ 新增..."]])
+    return ["-- 请选择 --"] + existing + ["➕ 新增..."]
+
 @st.dialog("➕ 新增流水录入", width="large")
 def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options):
     # 注入全局紧凑样式
@@ -22,21 +32,26 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     val_sum = c1.text_input("摘要内容 :red[*]", placeholder="请输入流水说明")
     val_time = c2.date_input("业务时间", value=datetime.now(LOCAL_TZ))
     
+    # 获取统一选项
+    opts = get_dynamic_options()
+    curr_list = opts.get("currencies", ["USD"])
+    prop_list = opts.get("properties", ALL_PROPS)
+
     # 2. 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     val_amt = r2_c1.number_input("原币金额 :red[*]", min_value=0.0, step=100.0)
-    val_curr = r2_c2.selectbox("原币币种 :red[*]", list(live_rates.keys()))
-    val_rate = r2_c3.number_input("实时汇率", value=float(live_rates[val_curr]), format="%.4f")
+    val_curr = r2_c2.selectbox("原币币种 :red[*]", curr_list) 
+    val_rate = r2_c3.number_input("实时汇率", value=float(live_rates.get(val_curr, 1.0)), format="%.4f")
     
     # 实时换算显示
     converted_usd = round(val_amt / val_rate, 2) if val_rate != 0 else 0
     # st.success(f"💰 换算后金额：$ {converted_usd:,.2f} USD")
     st.info(f"💰 换算后金额：$ {converted_usd:,.2f} USD")
     
-    # 3. 性质与发票
+    # 3. 资金性质与审批/发票单号
     r4_c1, r4_c2 = st.columns(2)
     val_inv = r4_c1.text_input("📑 审批/发票单号 :red[*]")
-    val_prop = r4_c2.selectbox("资金性质 :red[*]", ALL_PROPS)
+    val_prop = r4_c2.selectbox("资金性质 :red[*]", prop_list)
     
     is_transfer = (val_prop == "资金结转")
     is_req = val_prop in CORE_BIZ
@@ -44,19 +59,19 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
     # 4. 账户与经手人
     r3_c1, r3_c2 = st.columns(2)
     if is_transfer:
-        val_acc_from = r3_c1.selectbox("➡️ 转出账户 :red[*]", options=get_dynamic_options(df, "结算账户"))
-        val_acc_to = r3_c2.selectbox("⬅️ 转入账户 :red[*]", options=get_dynamic_options(df, "结算账户"))
+        val_acc_from = r3_c1.selectbox("➡️ 转出账户 :red[*]", options=get_historical_options(df, "结算账户"))
+        val_acc_to = r3_c2.selectbox("⬅️ 转入账户 :red[*]", options=get_historical_options(df, "结算账户"))
         val_hand = "系统自动结转"
         val_acc = "资金结转" 
     else:
-        sel_acc = r3_c1.selectbox("结算账户 :red[*]", options=get_dynamic_options(df, "结算账户"))
+        sel_acc = r3_c1.selectbox("结算账户 :red[*]", options=get_historical_options(df, "结算账户"))
         val_acc = r3_c1.text_input("✍️ 录入新账户") if sel_acc == "➕ 新增..." else sel_acc
-        sel_hand = r3_c2.selectbox("经手人 :red[*]", options=get_dynamic_options(df, "经手人"))
+        sel_hand = r3_c2.selectbox("经手人 :red[*]", options=get_historical_options(df, "经手人"))
         val_hand = r3_c2.text_input("✍️ 录入新姓名") if sel_hand == "➕ 新增..." else sel_hand
 
     # 5. 客户或项目信息
     proj_label = "📍 客户/项目信息 (必填)" if is_req else "客户/项目信息 (选填)"
-    sel_proj = st.selectbox(proj_label, options=get_dynamic_options(df, "客户/项目信息"))
+    sel_proj = st.selectbox(proj_label, options=get_historical_options(df, "客户/项目信息"))
     val_proj = st.text_input("✍️ 录入新客户/项目", placeholder="项目名称...") if sel_proj == "➕ 新增..." else sel_proj
 
     val_note = st.text_area("备注", height=68)
@@ -123,16 +138,27 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
         st.rerun(); return
 
     live_rates = get_live_rates()
+    opts = get_dynamic_options() # ✨ 新增：获取动态选项
+    curr_list = opts.get("currencies", ["USD"])
+    prop_list = opts.get("properties", ALL_PROPS)
+    
     st.info(f"正在修正记录：`{target_id}`")
     
+    # 补上摘要录入，保持和 entry_dialog 结构一致
     c1, c2 = st.columns(2)
     with c1: st.text_input("录入时间 (锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
+    # 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     u_ori_amt = r2_c1.number_input("原币金额", value=float(old.get("实际金额", 0.0)), step=100.0)
-    curr_list = list(live_rates.keys())
-    u_curr = r2_c2.selectbox("原币币种", curr_list, index=curr_list.index(old.get("实际币种", "USD")) if old.get("实际币种") in curr_list else 0)
+    
+    u_curr = r2_c2.selectbox(
+        "原币币种", 
+        curr_list, 
+        index=curr_list.index(old.get("实际币种", "USD")) if old.get("实际币种") in curr_list else 0
+    )
+    
     u_rate = r2_c3.number_input("汇率", value=float(live_rates.get(u_curr, 1.0)), format="%.4f")
     
     u_usd_val = round(u_ori_amt / u_rate, 2) if u_rate != 0 else 0
@@ -141,21 +167,21 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
 
     r4_c1, r4_c2 = st.columns(2)
     u_inv = r4_c1.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
-    p_idx = ALL_PROPS.index(old.get("资金性质")) if old.get("资金性质") in ALL_PROPS else 0
-    u_prop = r4_c2.selectbox("资金性质", ALL_PROPS, index=p_idx)
-
+    p_idx = prop_list.index(old.get("资金性质")) if old.get("资金性质") in prop_list else 0
+    u_prop = r4_c2.selectbox("资金性质", prop_list, index=p_idx)
+    
     r3_c1, r3_c2 = st.columns(2)
-    acc_options = get_dynamic_options(full_df, "结算账户")
+    acc_options = get_historical_options(full_df, "结算账户")
     curr_acc = old.get("结算账户", "")
     sel_acc = r3_c1.selectbox("结算账户", options=acc_options, index=acc_options.index(curr_acc) if curr_acc in acc_options else 0)
     u_acc = r3_c1.text_input("✍️ 录入新账户", placeholder="新账户名称") if sel_acc == "➕ 新增..." else sel_acc
 
-    hand_options = get_dynamic_options(full_df, "经手人")
+    hand_options = get_historical_options(full_df, "经手人")
     curr_hand = old.get("经手人", "")
     sel_hand = r3_c2.selectbox("经手人", options=hand_options, index=hand_options.index(curr_hand) if curr_hand in hand_options else 0)
     u_hand = r3_c2.text_input("✍️ 录入新姓名", placeholder="经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
 
-    proj_options = get_dynamic_options(full_df, "客户/项目信息")
+    proj_options = get_historical_options(full_df, "客户/项目信息")
     curr_proj = old.get("客户/项目信息", "")
     sel_proj = st.selectbox("客户/项目信息", options=proj_options, index=proj_options.index(curr_proj) if curr_proj in proj_options else 0)
     u_proj = st.text_input("✍️ 录入新项目", placeholder="项目名称...") if sel_proj == "➕ 新增..." else sel_proj

@@ -312,6 +312,13 @@ def row_action_dialog(row_data, full_df, conn):
     rec_id = row_data["录入编号"]
     st.write(f"**记录编号：** `{rec_id}`")
     st.write(f"**内容预览：** {row_data.get('摘要','')}")
+    
+    # 格式化显示金额：千分符 + 2位小数
+    raw_amt = row_data.get('实际金额', 0)
+    curr_type = row_data.get('实际币种', 'USD')
+    st.write(f"**原币金额：** {raw_amt:,.2f} ({curr_type})")
+    
+    st.write(f"**经 手 人 ：** {row_data.get('经手人', '')}")
     st.divider()
 
     if not st.session_state.get(f"del_confirm_{rec_id}", False):

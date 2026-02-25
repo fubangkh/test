@@ -41,7 +41,11 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates):
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     val_amt = r2_c1.number_input("原币金额 :red[*]", min_value=0.0, step=100.0)
     val_curr = r2_c2.selectbox("原币币种 :red[*]", curr_list) 
-    val_rate = r2_c3.number_input("实时汇率", value=float(live_rates.get(val_curr, 1.0)), format="%.4f")
+    val_rate = r2_c3.number_input(
+    "实时汇率", 
+    value=float(live_rates.get(val_curr.strip().upper(), 1.0)) if val_curr else 1.0, 
+    format="%.4f"
+    )
     
     # 实时换算显示
     converted_usd = round(val_amt / val_rate, 2) if val_rate != 0 else 0
@@ -156,7 +160,11 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, LOCAL_TZ):
         curr_idx = 0
         
     u_curr = r2_c2.selectbox("原币币种", curr_list, index=curr_idx)
-    u_rate = r2_c3.number_input("汇率", value=float(live_rates.get(u_curr, 1.0)), format="%.4f")
+    u_rate = r2_c3.number_input(
+    "汇率", 
+    value=float(live_rates.get(u_curr.strip().upper(), 1.0)) if u_curr else 1.0, 
+    format="%.4f"
+    )
     
     u_usd_val = round(u_ori_amt / u_rate, 2) if u_rate != 0 else 0
     st.success(f"💰 折算后金额：$ {u_usd_val:,.2f} USD")

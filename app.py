@@ -232,7 +232,7 @@ with col_r:
 st.markdown('<hr style="margin-top: 0px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
 
 # --- 9. 流水明细表 ---
-if not df_main.empty:
+if not df_this_month.empty:
     # 💡 排除所有以 "_" 开头的辅助列（比如 _calc_date）
     display_cols = [c for c in df_main.columns if not str(c).startswith('_')] 
     
@@ -254,7 +254,8 @@ if not df_main.empty:
     title_col, btn_col = st.columns([3, 1])
 
     with title_col:
-        st.subheader("📑 流水明细表")
+        # 动态标题：显示当前筛选的月份
+        st.subheader(f"📑 {sel_month}月流水明细")
 
     with btn_col:
         # 1. 初始化内存缓冲区
@@ -333,7 +334,11 @@ if not df_main.empty:
 
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
+        # 注意：传给弹窗的数据也要基于 view_df
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+else:
+    st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

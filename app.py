@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import io
 from datetime import datetime
 import pytz
 from streamlit_gsheets import GSheetsConnection
@@ -248,5 +249,49 @@ if not df_main.empty:
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
+    # --- 10. 一键导出美化版 Excel ---
+    st.markdown("---")
+    col_down1, _ = st.columns([1, 4])
+
+    with col_down1:
+        # 1. 准备缓冲区
+        excel_data = io.BytesIO()
+        
+        # 2. 使用 xlsxwriter 引擎
+        # 这里的 view_df 对应 image_23275f.png 中传给 st.dataframe 的数据源
+        with pd.ExcelWriter(excel_data, engine='xlsxwriter') as writer:
+            view_df.to_excel(writer, index=False, sheet_name='流水明细')
+            
+            workbook  = writer.book
+            worksheet = writer.sheets['流水明细']
+            
+            # 🎨 定义表头格式 (深蓝背景, 白字, 加粗, 边框)
+            header_fmt = workbook.add_format({
+                'bold': True, 'text_wrap': True, 'valign': 'vcenter',
+                'align': 'center', 'fg_color': '#1F4E78', 'font_color': 'white', 'border': 1
+            })
+            
+            # 🎨 定义金额格式 (千分符, 2位小数, 右对齐, 边框)
+            money_fmt = workbook.add_format({'num_format': '#,##0.00', 'align': 'right', 'border': 1})
+            
+            # 🎨 定义普通文本格式 (边框)
+            text_fmt = workbook.add_format({'border': 1})
+
+            # 3. 自动调整格式与列宽
+            for col_idx, col_name in enumerate(view_df.columns):
+                worksheet.write(0, col_idx, col_name, header_fmt)
+                if col_name in ["实际金额", "收入(USD)", "支出(USD)", "余额(USD)"]:
+                    worksheet.set_column(col_idx, col_idx, 15, money_fmt)
+                else:
+                    worksheet.set_column(col_idx, col_idx, 18, text_fmt)
+
+        # 4. 渲染按钮
+        st.download_button(
+            label="📥 导出美化版 Excel",
+            data=excel_data.getvalue(),
+            file_name=f"财务流水_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 

@@ -149,7 +149,6 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
     with c1: st.text_input("录入时间 (锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
-    # 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     u_ori_amt = r2_c1.number_input("原币金额", value=float(old.get("实际金额", 0.0)), step=100.0)
     

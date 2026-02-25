@@ -229,7 +229,7 @@ with col_r:
 
 # st.divider()
 # 这里的 margin-top: -15px 会把分割线往上“提”，margin-bottom 控制下方间距
-st.markdown('<hr style="margin-top: -5px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
+st.markdown('<hr style="margin-top: 0px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
 
 # --- 9. 流水明细表 ---
 if not df_main.empty:
@@ -334,6 +334,7 @@ if not df_main.empty:
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
 
 
 

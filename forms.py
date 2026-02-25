@@ -115,6 +115,10 @@ def entry_dialog(conn, load_data, LOCAL_TZ):
         if is_req and (not val_proj or val_proj.strip() in ["", "-- 请选择 --", "➕ 新增..."]):
             st.error(f"⚠️ 【{val_prop}】必须关联有效项目！"); return
 
+        final_proj = "" if val_proj == "-- 请选择 --" else val_proj
+        final_acc = "" if (not is_transfer and val_acc == "-- 请选择 --") else val_acc
+        final_hand = "" if (not is_transfer and val_hand == "-- 请选择 --") else val_hand
+        
         with st.spinner("正在同步至云端..."):
             try:
                 current_df = load_data(version=st.session_state.table_version + 1)

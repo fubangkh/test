@@ -224,31 +224,29 @@ if not df_main.empty:
     # 倒序展示
     view_df = df_main[display_cols].copy().iloc[::-1]
     
-    # ✨ 核心优化：确保数据类型正确，并配置前端显示样式
-    # 注意：不要使用 view_df.astype(object)，那会把数字变成对象导致格式化失效
+    # ✨ 核心修正：使用你喜欢的 .style.format 写法
+    # 这样可以确保：千分符、2位小数、且数字会自动右对齐
+    styled_df = view_df.style.format({
+        "实际金额": "{:,.2f}",
+        "收入(USD)": "{:,.2f}",
+        "支出(USD)": "{:,.2f}",
+        "余额(USD)": "{:,.2f}"
+    })
+
     table_key = f"main_table_v_{st.session_state.table_version}"
     
+    # ⚠️ 注意：使用 styled_df 后，不再需要 column_config 里的 format 参数
     event = st.dataframe(
-        view_df,
+        styled_df,
         use_container_width=True,
         hide_index=True,
         on_select="rerun", 
         selection_mode="single-row",
-        key=table_key,
-        # ✨ 核心渲染配置：实现千分符、2位小数、右对齐
-        column_config={
-            "实际金额": st.column_config.NumberColumn("实际金额", format="%,.2f"),
-            "收入(USD)": st.column_config.NumberColumn("收入(USD)", format="%,.2f"),
-            "支出(USD)": st.column_config.NumberColumn("支出(USD)", format="%,.2f"),
-            "余额(USD)": st.column_config.NumberColumn("余额(USD)", format="%,.2f"),
-            # 如果还有其他需要格式化的列，可以在此继续添加
-        }
+        key=table_key
     )
 
-    # 选中行逻辑
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
-        # 传入 view_df.iloc[...] 包含的原始编号进行修正
-        # 注意：这里我们传给 dialog 的依然是 view_df 里的原始数据
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
 

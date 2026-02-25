@@ -60,14 +60,15 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates):
     val_curr = r2_c2.selectbox("原币币种 :red[*]", curr_list) 
     
     # 核心修正：增加对 val_curr 的严苛检查
-    target_key = str(val_curr).strip().upper()
-    current_rate = live_rates.get(target_key, 1.0)
+    target_key = str(val_curr).strip().upper() if val_curr else "USD"
+    current_rate = float(live_rates.get(target_key, 1.0))
     
     val_rate = r2_c3.number_input(
-    "实时汇率", 
-    value=float(live_rates.get(val_curr.strip().upper(), 1.0)) if val_curr else 1.0, 
-    format="%.4f",
-    key="rate_input_field" # 增加唯一 key 防止组件重叠
+        "实时汇率", 
+        value=current_rate,  # 直接用上面算好的变量
+        format="%.4f",
+        # 关键：加上币种作为 key 的一部分，这样切换币种时，输入框会被强制刷新！
+        key=f"rate_input_{target_key}" 
     )
     
     # 实时换算显示

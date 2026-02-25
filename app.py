@@ -336,10 +336,11 @@ if not df_this_month.empty:
         selected_row_idx = event.selection.rows[0]
         # 注意：传给弹窗的数据也要基于 view_df
         if not st.session_state.get('show_edit_modal', False):
-        selected_row_data = view_df.iloc[selected_row_idx]
-        row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+            selected_row_data = view_df.iloc[selected_row_idx]
+            row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
 else:
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

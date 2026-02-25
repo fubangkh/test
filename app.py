@@ -21,6 +21,8 @@ if "show_edit_modal" not in st.session_state:
     st.session_state.show_edit_modal = False
 if "edit_target_id" not in st.session_state:
     st.session_state.edit_target_id = None
+if "current_active_id" not in st.session_state:
+    st.session_state.current_active_id = None
 
 # --- 2. 数据加载函数 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -329,13 +331,17 @@ if not df_this_month.empty:
         selected_row_idx = event.selection.rows[0]
         # 确保只有在编辑弹窗没打开时，才打开操作弹窗，防止 API 冲突报错
         if not st.session_state.get('show_edit_modal', False):
-            # 获取选中行的真实数据
             selected_row_data = view_df.iloc[selected_row_idx]
+            st.session_state.current_active_id = selected_row_data.get("录入编号")
             # 弹出操作窗口
             row_action_dialog(selected_row_data, df_main, conn)
+    else:
+        # 如果没有任何行被选中，确保清理掉残留的 ID
+        st.session_state.current_active_id = None
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

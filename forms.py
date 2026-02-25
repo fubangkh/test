@@ -16,7 +16,7 @@ def get_historical_options(df, col):
     return ["-- 请选择 --"] + existing + ["➕ 新增..."]
 
 @st.dialog("➕ 新增流水录入", width="large")
-def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options):
+def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates):
     # 注入全局紧凑样式
     st.markdown("""<style>hr{margin-top:-5px!important;margin-bottom:10px!important;}.stTextArea textarea{height:68px!important;}</style>""", unsafe_allow_html=True)
 
@@ -127,7 +127,7 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 
 # --- 5. 数据修正模块 ---
 @st.dialog("🛠️ 数据修正", width="large")
-def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, LOCAL_TZ):
+def edit_dialog(target_id, full_df, conn, get_live_rates, LOCAL_TZ):
     try:
         old = full_df[full_df["录入编号"] == target_id].iloc[0]
     except Exception:

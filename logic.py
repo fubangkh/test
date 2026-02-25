@@ -48,27 +48,25 @@ def get_live_rates():
     }
     
     try:
-        # 2. 尝试获取 API 实时数据
+        # 尝试从 API 获取实时数据
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
             api_data = response.json().get("rates", {})
             
-            # 3. 核心修复：只更新模板中存在的币种，确保字典不缺位
+            # 只有当 API 返回的数据包含我们需要的币种时，才局部覆盖默认值
             for curr in final_rates.keys():
                 if curr in api_data:
                     val = api_data[curr]
-                    # 确保是有效的正数数字
                     if isinstance(val, (int, float)) and val > 0:
-                        final_rates[curr] = float(val)
+                        final_rates[curr] = round(float(val), 4)
             
-            # API 成功获取并更新后返回
             return final_rates
             
     except Exception as e:
-        # 如果请求超时或报错，打印错误并继续走下面的默认值返回
-        print(f"API请求失败，使用默认汇率: {e}")
+        # API 请求失败时，在后台控制台打印报错，但界面不报错
+        print(f"汇率 API 同步失败，已启用内置兜底数据: {e}")
     
-    # 4. 关键：无论如何都要返回 final_rates，确保 forms.py 永远能拿到 7 个币种
+    # 无论 try 块是否成功，最终都会返回一个完整的字典
     return final_rates
     
 # =========================================================

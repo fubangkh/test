@@ -70,8 +70,6 @@ with c_btn:
         # 传递 LOCAL_TZ 确保录入时间正确
         entry_dialog(conn, load_data, LOCAL_TZ)
 
-st.caption(f"🚀 系统就绪 | 数据库总行数: {len(df_main)} | 缓存版本: {st.session_state.table_version}")
-
 # 处理弹窗调度
 if st.session_state.get("show_edit_modal", False):
     edit_dialog(
@@ -157,7 +155,8 @@ with st.container(border=True):
                 </span>
             </div>
             """, unsafe_allow_html=True)
-    st.markdown("---")
+    # st.markdown("---")
+    st.write("")
     
     m1, m2, m3 = st.columns(3)
     m1.metric(f"💰 {sel_month}月收入", f"${tm_inc:,.2f}")
@@ -165,7 +164,7 @@ with st.container(border=True):
     m3.metric("🏦 累计总结余", f"${t_balance:,.2f}")
 
 # st.divider()
-# 这里的 margin-top: -15px 会把分割线往上“提”，margin-bottom 控制下方间距
+# 这里的 margin-top: -10px 会把分割线往上“提”，margin-bottom 控制下方间距
 st.markdown('<hr style="margin-top: -5px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
 
 # --- 8. 各账户余额与支出排行 ---
@@ -335,6 +334,7 @@ if not df_main.empty:
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
 
 
 

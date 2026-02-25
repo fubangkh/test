@@ -35,13 +35,6 @@ def load_data(version=0):
         st.error(f"数据加载失败: {e}")
         return pd.DataFrame()
 
-    if df.empty or column_name not in df.columns:
-        return ["-- 请选择 --", "➕ 新增..."]
-    options = df[column_name].dropna().unique().tolist()
-    # 过滤空值及特定排除项
-    options = [opt for opt in options if opt and str(opt).strip() != "" and opt != "资金结转"]
-    return ["-- 请选择 --"] + sorted(options) + ["➕ 新增..."]
-
 # --- 3. 侧边栏 ---
 with st.sidebar:
     st.title("💰 富邦日记账")
@@ -237,7 +230,7 @@ if not df_this_month.empty:
     display_cols = [c for c in df_main.columns if not str(c).startswith('_')] 
     
     # 倒序展示
-    view_df = df_main[display_cols].copy().iloc[::-1]
+    view_df = df_this_month[display_cols].copy().iloc[::-1]
     
     # 使用 .style.format 确保网页显示效果（千分符、右对齐）
     styled_df = view_df.style.format({
@@ -343,6 +336,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

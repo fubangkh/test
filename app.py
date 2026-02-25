@@ -58,7 +58,7 @@ MAIN_LANG = {
         "table_title": "📊 ព័ត៌មានលម្អិតអំពីហិរញ្ញវត្ថុ",
         "stat_total_in": "ចំណូលសរុប",
         "stat_total_out": "ចំណាយសរុប",
-        "stat_balance": "សមតុល្យបច្ចុប្បន្ន"
+        "stat_balance": "សមតុល្យបច្ចុប្បន្ន",
         "table_title": "📊 សេចក្តីសង្ខេបស្ថិតិ",
         "btn_add": "➕ បញ្ចូលទិន្នន័យថ្មី",
     },
@@ -409,6 +409,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

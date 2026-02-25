@@ -189,19 +189,26 @@ with col_l:
             if not df_filtered.empty:
                 acc_stats = df_filtered.groupby('结算账户', group_keys=False).apply(calc_bank_balance).reset_index()
                 
-                # ✨ 修改点：从 logic 导入统一的 ISO_MAP
+                # ✨ 从 logic 导入统一的 ISO_MAP
                 from logic import ISO_MAP 
                 acc_stats['原币种'] = acc_stats['CUR'].map(lambda x: ISO_MAP.get(x, x))
                 
-                # 优化：给表格列换个更好看的中文名
+                # 重命名列名以便应用样式
+                acc_display = acc_stats[['结算账户', 'RAW', '原币种', 'USD']].rename(columns={
+                    "RAW": "原币余额",
+                    "USD": "折合美元(USD)"
+                })
+                
+                # ✨ 应用财务美化样式：千分符 + 2位小数 + 右对齐
+                styled_acc = acc_display.style.format({
+                    "原币余额": "{:,.2f}",
+                    "折合美元(USD)": "{:,.2f}"
+                })
+                
                 st.dataframe(
-                    acc_stats[['结算账户', 'RAW', '原币种', 'USD']], 
+                    styled_acc, 
                     use_container_width=True, 
-                    hide_index=True,
-                    column_config={
-                        "RAW": "原币余额",
-                        "USD": "折合美元(USD)"
-                    }
+                    hide_index=True
                 )
         except Exception as e:
             st.error(f"📊 余额计算异常: {e}")
@@ -210,9 +217,16 @@ with col_r:
     st.write(f"🏷️ **{sel_month}月支出排行**")
     exp_stats = df_this_month[df_this_month['支出(USD)'] > 0].groupby('资金性质')[['支出(USD)']].sum().sort_values(by='支出(USD)', ascending=False).reset_index()
     if not exp_stats.empty:
-        st.dataframe(exp_stats.style.format({"支出(USD)": "${:,.2f}"}), use_container_width=True, hide_index=True)
+        # ✨ 统一格式：千分符 + 2位小数 (去掉了之前可能的$符号，保持纯净右对齐)
+        st.dataframe(
+            exp_stats.style.format({"支出(USD)": "{:,.2f}"}), 
+            use_container_width=True, 
+            hide_index=True
+        )
     else:
         st.caption("该月暂无支出记录")
+
+st.divider()
 
 st.divider()
 
@@ -319,4 +333,5 @@ if not df_main.empty:
     if event.selection.rows:
         selected_row_idx = event.selection.rows[0]
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
 

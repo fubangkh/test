@@ -313,13 +313,14 @@ if not df_main.empty:
             # F. 每一页都打印表头
             worksheet.repeat_rows(0)
 
-        # 5. 渲染按钮
+        # 6. 渲染按钮
         st.download_button(
-            label="📥 导出美化版 Excel",
+            label="📥 导出 Excel",
             data=excel_data.getvalue(),
             file_name=f"财务流水_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 

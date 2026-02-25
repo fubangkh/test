@@ -133,75 +133,98 @@ def entry_dialog(conn, load_data, LOCAL_TZ, get_live_rates, get_dynamic_options)
 def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, LOCAL_TZ):
     try:
         old = full_df[full_df["录入编号"] == target_id].iloc[0]
-    except:
+    except Exception:
         st.session_state.show_edit_modal = False
         st.rerun()
         return
 
     live_rates = get_live_rates()
-    opts = get_dynamic_options() 
+    opts = get_dynamic_options()
     curr_list = opts.get("currencies", ["USD"])
     prop_list = opts.get("properties", ALL_PROPS)
     
     st.info(f"正在修正记录：`{target_id}`")
     
-    # 补上摘要录入，保持和 entry_dialog 结构一致
+    # 1. 摘要与时间显示
     c1, c2 = st.columns(2)
-    with c1: 
+    with c1:
         st.text_input("录入时间 (锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
+    # 2. 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     u_ori_amt = r2_c1.number_input("原币金额", value=float(old.get("实际金额", 0.0)), step=100.0)
     
-    u_curr = r2_c2.selectbox(
-        "原币币种", 
-        curr_list, 
-        index=curr_list.index(old.get("实际币种", "USD")) if old.get("实际币种") in curr_list else 0
-    )
-    
+    try:
+        curr_idx = curr_list.index(old.get("实际币种", "USD"))
+    except ValueError:
+        curr_idx = 0
+        
+    u_curr = r2_c2.selectbox("原币币种", curr_list, index=curr_idx)
     u_rate = r2_c3.number_input("汇率", value=float(live_rates.get(u_curr, 1.0)), format="%.4f")
     
     u_usd_val = round(u_ori_amt / u_rate, 2) if u_rate != 0 else 0
     st.success(f"💰 折算后金额：$ {u_usd_val:,.2f} USD")
     st.markdown('<hr>', unsafe_allow_html=True)
 
+    # 3. 性质与单号
     r4_c1, r4_c2 = st.columns(2)
     u_inv = r4_c1.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
-    p_idx = prop_list.index(old.get("资金性质")) if old.get("资金性质") in prop_list else 0
+    try:
+        p_idx = prop_list.index(old.get("资金性质"))
+    except ValueError:
+        p_idx = 0
     u_prop = r4_c2.selectbox("资金性质", prop_list, index=p_idx)
     
+    # 4. 账户、经手人与项目
     r3_c1, r3_c2 = st.columns(2)
     acc_options = get_historical_options(full_df, "结算账户")
     curr_acc = old.get("结算账户", "")
-    sel_acc = r3_c1.selectbox("结算账户", options=acc_options, index=acc_options.index(curr_acc) if curr_acc in acc_options else 0)
+    try:
+        a_idx = acc_options.index(curr_acc)
+    except ValueError:
+        a_idx = 0
+    sel_acc = r3_c1.selectbox("结算账户", options=acc_options, index=a_idx)
     u_acc = r3_c1.text_input("✍️ 录入新账户", placeholder="新账户名称") if sel_acc == "➕ 新增..." else sel_acc
 
     hand_options = get_historical_options(full_df, "经手人")
     curr_hand = old.get("经手人", "")
-    sel_hand = r3_c2.selectbox("经手人", options=hand_options, index=hand_options.index(curr_hand) if curr_hand in hand_options else 0)
+    try:
+        h_idx = hand_options.index(curr_hand)
+    except ValueError:
+        h_idx = 0
+    sel_hand = r3_c2.selectbox("经手人", options=hand_options, index=h_idx)
     u_hand = r3_c2.text_input("✍️ 录入新姓名", placeholder="经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
 
     proj_options = get_historical_options(full_df, "客户/项目信息")
     curr_proj = old.get("客户/项目信息", "")
-    sel_proj = st.selectbox("客户/项目信息", options=proj_options, index=proj_options.index(curr_proj) if curr_proj in proj_options else 0)
+    try:
+        pr_idx = proj_options.index(curr_proj)
+    except ValueError:
+        pr_idx = 0
+    sel_proj = st.selectbox("客户/项目信息", options=proj_options, index=pr_idx)
     u_proj = st.text_input("✍️ 录入新项目", placeholder="项目名称...") if sel_proj == "➕ 新增..." else sel_proj
 
     u_note = st.text_area("备注", height=68, value=str(old.get("备注", "")))
 
+    # 5. 底部按钮
     sv, ex = st.columns(2)
     if sv.button("💾 确认保存", use_container_width=True):
-        if not u_sum.strip(): st.error("摘要不能为空"); return
+        if not u_sum.strip():
+            st.error("摘要不能为空")
+            return
         try:
             new_df = full_df.copy()
             idx = new_df[new_df["录入编号"] == target_id].index[0]
-            new_df.at[idx, "摘要"], new_df.at[idx, "客户/项目信息"] = u_sum, u_proj
-            new_df.at[idx, "结算账户"], new_df.at[idx, "审批/发票单号"] = u_acc, u_inv
-            new_df.at[idx, "资金性质"], new_df.at[idx, "实际金额"] = u_prop, u_ori_amt
-            new_df.at[idx, "实际币种"], new_df.at[idx, "经手人"] = u_curr, u_hand
+            new_df.at[idx, "摘要"] = u_sum
+            new_df.at[idx, "客户/项目信息"] = u_proj
+            new_df.at[idx, "结算账户"] = u_acc
+            new_df.at[idx, "审批/发票单号"] = u_inv
+            new_df.at[idx, "资金性质"] = u_prop
+            new_df.at[idx, "实际金额"] = u_ori_amt
+            new_df.at[idx, "实际币种"] = u_curr
+            new_df.at[idx, "经手人"] = u_hand
             new_df.at[idx, "备注"] = u_note
-            
-            # ✨ 关键点：修正保存时，写入当前时间到【修改时间】列
             new_df.at[idx, "修改时间"] = datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M')
             
             is_income = (u_prop in CORE_BIZ[:5] or u_prop in INC_OTHER)
@@ -217,13 +240,14 @@ def edit_dialog(target_id, full_df, conn, get_live_rates, get_dynamic_options, L
             st.success("✅ 修正成功！")
             time.sleep(0.8)
             st.rerun()
-        except Exception as e: st.error(f"保存错误: {e}")
+        except Exception as e:
+            st.error(f"保存错误: {e}")
 
     if ex.button("放弃", use_container_width=True):
         st.session_state.show_edit_modal = False
         st.session_state.table_version += 1 
         st.rerun()
-
+        
 # --- 🎯 表格行操作模块 ---
 @st.dialog("🎯 账目操作", width="small")
 def row_action_dialog(row_data, full_df, conn):

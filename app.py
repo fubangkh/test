@@ -74,7 +74,12 @@ st.caption(f"🚀 系统就绪 | 数据库总行数: {len(df_main)} | 缓存版�
 
 # 处理弹窗调度
 if st.session_state.get("show_edit_modal", False):
-    edit_dialog(st.session_state.edit_target_id, df_main, conn, get_dynamic_options, LOCAL_TZ)
+    edit_dialog(
+        st.session_state.edit_target_id, 
+        df_main, 
+        conn, 
+        LOCAL_TZ
+    )
 
 # --- 5. 数据预处理 (严谨处理：空值不回填) ---
 if not df_main.empty:
@@ -239,6 +244,7 @@ if not df_main.empty:
         selected_row_idx = event.selection.rows[0]
         # 传入 view_df.iloc[...] 包含的原始编号进行修正
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+
 
 
 

@@ -261,7 +261,6 @@ if not df_main.empty:
         # 2. 使用 xlsxwriter 引擎创建 Excel 写入器
         # 注意：下面这一行 with 后面要有代码块缩进
         with pd.ExcelWriter(excel_data, engine='xlsxwriter') as writer:
-            # 💡 注意：从这一行开始，必须比上面的 with 再往右缩进 4 个空格
             view_df.to_excel(writer, index=False, sheet_name='流水明细')
             
             workbook  = writer.book
@@ -290,6 +289,17 @@ if not df_main.empty:
                 # 自动计算列宽 (取内容长度和标题长度的最大值)
                 max_len = max(view_df[col_name].astype(str).map(len).max(), len(str(col_name))) + 4
                 worksheet.set_column(col_idx, col_idx, max_len, target_fmt)
+                
+            # ✨ --- 5. 打印与页面设置 --- ✨
+            # 设置纸张方向为横向 (1 = 纵向, 0 = 横向，xlsxwriter 默认为纵向)
+            worksheet.set_landscape()
+                
+            # 设置页边距 (单位是英寸，1 英寸 ≈ 2.54 厘米)
+            # 左右上下分别设为 0.5 英寸（约 1.27 厘米），这是一个比较平衡的留白
+            worksheet.set_margins(left=0.5, right=0.5, top=0.5, bottom=0.5)
+                
+            # (可选) 设置自动缩放：将所有列调整在一页宽内打印
+            worksheet.fit_to_pages(1, 0)
 
         # 5. 渲染按钮
         st.download_button(
@@ -298,6 +308,7 @@ if not df_main.empty:
             file_name=f"财务流水_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 
 
 

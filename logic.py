@@ -18,9 +18,13 @@ ISO_MAP = {
     "美元": "USD", "USD": "USD"
 }
 
-# 供下拉列表使用的简洁列表
-ALL_CURRENCIES = ["USD", "CNY", "KHR", "HKD", "VND", "IDR", "THB"]
-
+# 定义全局列表
+    ALL_CURRENCIES = ["USD", "CNY", "KHR", "HKD", "VND", "IDR", "THB"]
+    def get_dynamic_options():
+    return {
+        "currencies": ALL_CURRENCIES,
+        "properties": ALL_PROPS
+    }
 # --- 实时汇率 ---
 @st.cache_data(ttl=3600)
 def get_live_rates():

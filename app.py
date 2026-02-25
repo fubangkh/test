@@ -237,10 +237,10 @@ if not df_main.empty:
         key=table_key,
         # ✨ 核心渲染配置：实现千分符、2位小数、右对齐
         column_config={
-            "实际金额": st.column_config.NumberColumn("实际金额", format="#,##0.00"),
-            "收入(USD)": st.column_config.NumberColumn("收入(USD)", format="#,##0.00"),
-            "支出(USD)": st.column_config.NumberColumn("支出(USD)", format="#,##0.00"),
-            "余额(USD)": st.column_config.NumberColumn("余额(USD)", format="#,##0.00"),
+            "实际金额": st.column_config.NumberColumn("实际金额", format="%,.2f"),
+            "收入(USD)": st.column_config.NumberColumn("收入(USD)", format="%,.2f"),
+            "支出(USD)": st.column_config.NumberColumn("支出(USD)", format="%,.2f"),
+            "余额(USD)": st.column_config.NumberColumn("余额(USD)", format="%,.2f"),
             # 如果还有其他需要格式化的列，可以在此继续添加
         }
     )
@@ -251,3 +251,4 @@ if not df_main.empty:
         # 传入 view_df.iloc[...] 包含的原始编号进行修正
         # 注意：这里我们传给 dialog 的依然是 view_df 里的原始数据
         row_action_dialog(view_df.iloc[selected_row_idx], df_main, conn)
+

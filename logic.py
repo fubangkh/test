@@ -111,31 +111,30 @@ def prepare_new_data(current_df, v, LOCAL_TZ):
     return calculate_full_balance(full_df), [r[0] for r in new_rows]
 
 def calculate_full_balance(df):
-    """
-    核心计算逻辑：重算整表的收支数值和累计余额
-    """
     temp_df = df.copy()
     
-    # 确保数值列干净
-    for col in ['收入(USD)', '支出(USD)']:
+    # 1. 强制数值列回归“纯数字”格式（float64）
+    cols_to_fix = ['实际金额', '收入(USD)', '支出(USD)', '余额(USD)']
+    for col in cols_to_fix:
         if col in temp_df.columns:
-            temp_df[col] = pd.to_numeric(temp_df[col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+            # 这一步非常关键：去掉逗号，转成浮点数
+            temp_df[col] = pd.to_numeric(
+                temp_df[col].astype(str).str.replace(r'[$,\s]', '', regex=True), 
+                errors='coerce'
+            ).fillna(0.0)
     
-    # 重新计算余额
+    # 2. 全量重算余额（数字运算）
     temp_df['余额(USD)'] = temp_df['收入(USD)'].cumsum() - temp_df['支出(USD)'].cumsum()
 
-    # 格式化输出为两位小数
-    for col in ['收入(USD)', '支出(USD)', '余额(USD)']:
-        if col in temp_df.columns:
-            temp_df[col] = temp_df[col].apply(lambda x: "{:.2f}".format(float(x)))
-        
-    # 函数锁：物理隔离多余列
+    # --- ⚠️ 关键：删除所有强制转字符串的格式化代码 ---
+    # 不要执行 temp_df[col].apply(lambda x: "%.2f" % x) 之类的操作！
+
+    # 3. 函数锁：保持 15 列标准表头
     standard_columns = [
         "录入编号", "提交时间", "修改时间", "摘要", "客户/项目信息", "结算账户", 
         "审批/发票单号", "资金性质", "实际金额", "实际币种", 
         "收入(USD)", "支出(USD)", "余额(USD)", "经手人", "备注"
     ]
-    # 过滤掉不在标准列表里的列（比如 _calc_date）
     temp_df = temp_df[[c for c in standard_columns if c in temp_df.columns]]
         
     return temp_df

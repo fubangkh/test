@@ -71,7 +71,7 @@ MAIN_LANG = {
         "table_title": "📊 Chi tiết giao dịch tài chính",
         "stat_total_in": "Tổng thu",
         "stat_total_out": "Tổng chi",
-        "stat_balance": "Số dư hiện tại"
+        "stat_balance": "Số dư hiện tại",
         "table_title": "📊 Thống kê tổng hợp",
         "btn_add": "➕ Thêm giao dịch mới",
     }
@@ -409,6 +409,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

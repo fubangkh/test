@@ -127,23 +127,23 @@ def entry_dialog(conn, load_data, LOCAL_TZ):
                 # 重新加载最新数据（带版本控制）
                 current_df = load_data(version=st.session_state.table_version + 1)
                 
-                # --- C. 构建入库字典 (全部改用 final_ 变量) ---
+                # --- C. 构建入库字典 ---
                 entry_data = {
                     'sum': val_sum, 
-                    'amt': val_amt, 
+                    'amt': float(val_amt), 
                     'curr': val_curr, 
                     'inv': val_inv,
                     'prop': val_prop, 
                     'note': val_note, 
-                    'hand': final_hand,       # ✨ 已修复
-                    'conv_usd': converted_usd,
+                    'hand': final_hand,
+                    'conv_usd': float(converted_usd),
                     'is_transfer': is_transfer, 
-                    'proj': final_proj,       # ✨ 已修复
+                    'proj': final_proj,
                     'acc': final_acc if not is_transfer else "资金结转", # 转账时备注账户性质
                     'acc_from': val_acc_from if is_transfer else None,
                     'acc_to': val_acc_to if is_transfer else None,
-                    'inc_val': converted_usd if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0,
-                    'exp_val': converted_usd if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0,
+                    'inc_val': float(converted_usd) if (val_prop in CORE_BIZ[:5] or val_prop in INC_OTHER) else 0.0,
+                    'exp_val': float(converted_usd) if (val_prop in CORE_BIZ[5:] or val_prop in EXP_OTHER) else 0.0,
                     'converted_usd': converted_usd,
                     'modified_time': ""
                 }
@@ -276,16 +276,16 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
             new_df.at[idx, "结算账户"] = u_acc
             new_df.at[idx, "审批/发票单号"] = u_inv
             new_df.at[idx, "资金性质"] = u_prop
-            new_df.at[idx, "实际金额"] = u_ori_amt
+            new_df.at[idx, "实际金额"] = float(u_ori_amt)
             new_df.at[idx, "实际币种"] = u_curr
-            new_df.at[idx, "汇率"] = u_rate # 存回汇率
+            new_df.at[idx, "汇率"] = float(u_rate) # 存回汇率
             new_df.at[idx, "经手人"] = u_hand
             new_df.at[idx, "备注"] = u_note
             new_df.at[idx, "修改时间"] = datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M')
             
             is_income = (u_prop in CORE_BIZ[:5] or u_prop in INC_OTHER)
-            new_df.at[idx, "收入(USD)"] = u_usd_val if is_income else 0
-            new_df.at[idx, "支出(USD)"] = u_usd_val if not is_income else 0
+            new_df.at[idx, "收入(USD)"] = float(u_usd_val) if is_income else 0.0
+            new_df.at[idx, "支出(USD)"] = float(u_usd_val) if not is_income else 0.0
             
             new_df = calculate_full_balance(new_df)
             conn.update(worksheet="Summary", data=new_df)

@@ -18,25 +18,24 @@ def get_historical_options(df, col):
 @st.dialog("➕ 新增流水录入", width="large")
 def entry_dialog(conn, load_data, LOCAL_TZ):
     from logic import get_live_rates
-    # 运行函数获取字典
+    # 1. 获取汇率
     try:
         live_rates = get_live_rates()
         if not live_rates or not isinstance(live_rates, dict):
-            st.error("❌ 无法获取汇率字典，请检查 logic.py")
-            live_rates = {"USD": 1.0, "CNY": 6.88} # 强制保底
+            live_rates = {"USD": 1.0, "CNY": 6.88}
     except Exception as e:
-        st.error(f"❌ 获取汇率函数执行出错: {e}")
         live_rates = {"USD": 1.0, "CNY": 6.88}
     
-    # 注入全局紧凑样式
-    st.markdown("""<style>hr{margin-top:-5px!important;margin-bottom:10px!important;}.stTextArea textarea{height:68px!important;}</style>""", unsafe_allow_html=True)
-
-    # 3. 获取选项
+    # 2. 统一获取选项，避免后续重复赋值覆盖
     df = load_data()
     opts = get_dynamic_options()
-    curr_list = opts.get("currencies", ["USD", "CNY", "HKD", "KHR", "VND", "IDR", "THB"])
+    curr_list = ["USD", "CNY", "HKD", "KHR", "VND", "IDR", "THB"] # 显式定义你需要的币种
+    prop_list = opts.get("properties", ALL_PROPS)
     
-    # 顶部结余显示
+    # 3. 注入全局紧凑样式
+    st.markdown("""<style>hr{margin-top:-5px!important;margin-bottom:10px!important;}.stTextArea textarea{height:68px!important;}</style>""", unsafe_allow_html=True)
+
+    # 4. 顶部结余显示
     current_balance = df['余额(USD)'].iloc[-1] if not df.empty else 0
     st.write(f"💡 当前总结余: **${current_balance:,.2f}**")
     
@@ -44,11 +43,6 @@ def entry_dialog(conn, load_data, LOCAL_TZ):
     c1, c2 = st.columns(2)
     val_sum = c1.text_input("摘要内容 :red[*]", placeholder="请输入流水说明")
     val_time = c2.date_input("业务时间", value=datetime.now(LOCAL_TZ))
-    
-    # 获取统一选项
-    opts = get_dynamic_options()
-    curr_list = opts.get("currencies", ["USD"])
-    prop_list = opts.get("properties", ALL_PROPS)
 
     # 2. 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
@@ -159,19 +153,22 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
         st.rerun()
         return
 
-    from logic import get_live_rates, get_dynamic_options 
+    # 1. 获取动态选项（这里仍需调用一下函数获取最新 live_rates 和 opts）
+    from logic import get_live_rates # 仅保留这一个必须动态获取的
     live_rates = get_live_rates()
     opts = get_dynamic_options()
-    curr_list = opts.get("currencies", ["USD"])
+    curr_list = ["USD", "CNY", "HKD", "KHR", "VND", "IDR", "THB"]
     prop_list = opts.get("properties", ALL_PROPS)
     
     st.info(f"正在修正记录：`{target_id}`")
     
+    # 摘要与时间
     c1, c2 = st.columns(2)
     with c1:
         st.text_input("录入时间 (锁定)", value=str(old.get("提交时间", old.get("日期", ""))), disabled=True)
     u_sum = c2.text_input("摘要内容", value=str(old.get("摘要", "")))
     
+    # 金额、币种、汇率
     r2_c1, r2_c2, r2_c3 = st.columns(3)
     u_ori_amt = r2_c1.number_input("原币金额", value=float(old.get("实际金额", 0.0)), step=100.0)
     
@@ -179,19 +176,30 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
         curr_idx = curr_list.index(old.get("实际币种", "USD"))
     except ValueError:
         curr_idx = 0
-        
     u_curr = r2_c2.selectbox("原币币种", curr_list, index=curr_idx)
+
+    # --- 汇率记忆与联动核心逻辑 ---
+    existing_rate = float(old.get("汇率", 0.0)) 
+    live_ref = float(live_rates.get(u_curr.strip().upper(), 1.0))
+    
+    if u_curr == old.get("实际币种"):
+        init_rate = existing_rate if existing_rate > 0 else live_ref
+    else:
+        init_rate = live_ref
+
     u_rate = r2_c3.number_input(
         "汇率", 
-        value=float(live_rates.get(u_curr.strip().upper(), 1.0)) if u_curr else 1.0, 
+        value=init_rate, 
         format="%.4f",
-        key=f"edit_rate_{u_curr}_{target_id}"
+        key=f"edit_rate_{u_curr}_{target_id}",
+        help=f"💡 当前实时参考汇率: {live_ref:.4f}"
     )
     
     u_usd_val = round(u_ori_amt / u_rate, 2) if u_rate != 0 else 0
     st.success(f"💰 折算后金额：$ {u_usd_val:,.2f} USD")
     st.markdown('<hr>', unsafe_allow_html=True)
 
+    # 审批单号与资金性质
     r4_c1, r4_c2 = st.columns(2)
     u_inv = r4_c1.text_input("审批/发票单号", value=str(old.get("审批/发票单号", "")))
     try:
@@ -200,6 +208,7 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
         p_idx = 0
     u_prop = r4_c2.selectbox("资金性质", prop_list, index=p_idx)
     
+    # 结算账户与经手人
     r3_c1, r3_c2 = st.columns(2)
     acc_options = get_historical_options(full_df, "结算账户")
     curr_acc = old.get("结算账户", "")
@@ -219,6 +228,7 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
     sel_hand = r3_c2.selectbox("经手人", options=hand_options, index=h_idx)
     u_hand = r3_c2.text_input("✍️ 录入新姓名", placeholder="经手人姓名") if sel_hand == "➕ 新增..." else sel_hand
 
+    # 客户/项目信息
     proj_options = get_historical_options(full_df, "客户/项目信息")
     curr_proj = old.get("客户/项目信息", "")
     try:
@@ -230,6 +240,7 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
 
     u_note = st.text_area("备注", height=68, value=str(old.get("备注", "")))
 
+    # 确认与放弃按钮
     sv, ex = st.columns(2)
     if sv.button("💾 确认保存", use_container_width=True):
         if not u_sum.strip():
@@ -245,6 +256,7 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
             new_df.at[idx, "资金性质"] = u_prop
             new_df.at[idx, "实际金额"] = u_ori_amt
             new_df.at[idx, "实际币种"] = u_curr
+            new_df.at[idx, "汇率"] = u_rate # 存回汇率
             new_df.at[idx, "经手人"] = u_hand
             new_df.at[idx, "备注"] = u_note
             new_df.at[idx, "修改时间"] = datetime.now(LOCAL_TZ).strftime('%Y-%m-%d %H:%M')

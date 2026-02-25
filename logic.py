@@ -33,10 +33,10 @@ def get_dynamic_options():
         "properties": ALL_PROPS
     }
 
-# --- 实时汇率 (恢复至最稳版本) ---
+# --- 实时汇率 ---
 @st.cache_data(ttl=3600)
 def get_live_rates():
-    default_rates = {
+    final_rates = {
         "USD": 1.0, 
         "CNY": 6.88, 
         "KHR": 4015,
@@ -49,20 +49,18 @@ def get_live_rates():
         # 使用 er-api 抓取最新数据
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
-            rates = response.json().get("rates", {})
-            return {
-                "USD": 1.0, 
-                "CNY": rates.get("CNY", 6.88), 
-                "KHR": rates.get("KHR", 4015),
-                "VND": rates.get("VND", 25750), 
-                "HKD": rates.get("HKD", 7.82), 
-                "IDR": rates.get("IDR", 15600), 
-                "THB": rates.get("THB", 31.14)
-            }
-    except: 
-        pass
-    return default_rates
-
+            api_data = response.json().get("rates", {})
+            for curr in final_rates.keys():
+                if curr in api_data:
+                    # 只有获取到正数才更新
+                    val = api_data[curr]
+                    if isinstance(val, (int, float)) and val > 0:
+                        final_rates[curr] = float(val)
+            return final_rates
+        
+    except Exception as e:
+        print(f"API请求失败，使用默认汇率: {e}")
+    
 # =========================================================
 # 2. 数据处理核心函数
 # =========================================================

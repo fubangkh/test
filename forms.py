@@ -219,7 +219,9 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
     
     u_usd_val = round(u_ori_amt / u_rate, 2) if u_rate != 0 else 0
     st.success(f"💰 折算后金额：$ {u_usd_val:,.2f} USD")
-    st.markdown('<hr>', unsafe_allow_html=True)
+    # st.markdown('<hr>', unsafe_allow_html=True)
+    # 这里的 margin-top: -10px 会把分割线往上“提”，margin-bottom 控制下方间距
+    st.markdown('<hr style="margin-top: -5px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
 
     # 审批单号与资金性质
     r4_c1, r4_c2 = st.columns(2)

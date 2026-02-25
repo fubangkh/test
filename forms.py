@@ -318,7 +318,7 @@ def row_action_dialog(row_data, full_df, conn):
     curr_type = row_data.get('实际币种', 'USD')
     st.write(f"**原币金额：** {raw_amt:,.2f} ({curr_type})")
     
-    st.write(f"**经 手 人 ：** {row_data.get('经手人', '')}")
+    st.write(f"**经 手 人 ：** {row_data.get('经手人', '未填写')}")
     st.divider()
 
     if not st.session_state.get(f"del_confirm_{rec_id}", False):

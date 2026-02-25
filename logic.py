@@ -48,26 +48,27 @@ def get_live_rates():
     }
     
     try:
-        # 尝试获取 API 实时数据
+        # 2. 尝试获取 API 实时数据
         response = requests.get("https://open.er-api.com/v6/latest/USD", timeout=5)
         if response.status_code == 200:
             api_data = response.json().get("rates", {})
             
-            # 只更新模板中存在的币种，API 没有的币种保留模板默认值
+            # 3. 只有当 API 返回的数据里有我们要的币种，才更新 final_rates
+            # API 里没有的币种（比如它漏给了 HKD），会保持上面 7.82 的默认值
             for curr in final_rates.keys():
                 if curr in api_data:
                     val = api_data[curr]
                     if isinstance(val, (int, float)) and val > 0:
-                        final_rates[curr] = round(float(val), 4)
+                        final_rates[curr] = float(val)
             
-            # API 更新成功，返回字典
+            # 4. 重点：更新完后直接返回这个完整的字典
             return final_rates
             
     except Exception as e:
-        # 在控制台打印报错，但保持程序不崩
-        print(f"API请求失败，使用默认汇率: {e}")
+        print(f"⚠️ API请求异常，已自动切换至本地保底汇率: {e}")
     
-    # 关键：无论如何都要返回这个包含 7 个币种的字典
+    # 5. 重点：如果 API 请求失败（网络不通），依然返回上面那组保底数据
+    # 这样 forms.py 拿到的 HKD 至少是 7.82，绝对不会是 1.0
     return final_rates
     
 # =========================================================

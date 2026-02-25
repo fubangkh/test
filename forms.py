@@ -309,12 +309,12 @@ def edit_dialog(target_id, full_df, conn, LOCAL_TZ):
 # --- 🎯 表格行操作模块 ---
 @st.dialog("🎯 账目操作", width="small")
 def row_action_dialog(row_data, full_df, conn):
+    # 1. 基础信息提取
     rec_id = row_data["录入编号"]
     st.write(f"**记录编号：** `{rec_id}`")
     st.write(f"**内容预览：** {row_data.get('摘要','')}")
     
-    # 格式化显示金额：千分符 + 2位小数
-    # ✨ 增加 float 转换保险，防止非数字类型导致渲染报错
+    # 金额渲染保护
     try:
         raw_amt = float(row_data.get('实际金额', 0))
     except:
@@ -322,47 +322,54 @@ def row_action_dialog(row_data, full_df, conn):
         
     curr_type = row_data.get('实际币种', 'USD')
     st.write(f"**原币金额：** {raw_amt:,.2f} ({curr_type})")
-    
     st.write(f"**经 手 人 ：** {row_data.get('经手人', '')}")
     st.divider()
 
-    # 定义删除状态的 key
+    # 2. 定义状态 Key
     del_confirm_key = f"del_confirm_{rec_id}"
 
+    # 3. 逻辑分发：普通状态 vs 确定删除状态
     if not st.session_state.get(del_confirm_key, False):
+        # --- 普通模式：显示 修正 和 删除 按钮 ---
         c1, c2 = st.columns(2)
         if c1.button("🛠️ 修正", use_container_width=True):
             st.session_state.edit_target_id = rec_id
             st.session_state.show_edit_modal = True
-            # ✨ 修正时确保清理删除确认状态，避免逻辑干扰
-            st.session_state[del_confirm_key] = False
             st.rerun()
+        
         if c2.button("🗑️ 删除", use_container_width=True):
             st.session_state[del_confirm_key] = True
             st.rerun()
+            
     else:
+        # --- 二次确认模式：显示 确定删除 和 取消 ---
         st.error("⚠️ 确定删除此记录吗？操作不可恢复！")
         cc1, cc2 = st.columns(2)
+        
         if cc1.button("✅ 确定删除", use_container_width=True):
             try:
+                # A. 从本地 DataFrame 剔除
                 updated_df = full_df[full_df["录入编号"] != rec_id].copy()
+                
+                # B. 重新计算余额（确保余额链条不断）
+                from logic import calculate_full_balance
                 updated_df = calculate_full_balance(updated_df)
+                
+                # C. 同步到云端数据表
                 conn.update(worksheet="Summary", data=updated_df)
                 
-                # ✨ 彻底清理：删除成功后移除该记录的确认状态
+                # D. 清理确认状态，并强制刷新表格
                 if del_confirm_key in st.session_state:
                     del st.session_state[del_confirm_key]
                 
-                st.session_state.table_version += 1
-                st.cache_data.clear()
-                st.rerun()
-            except Exception as e: st.error(f"失败: {e}")
+                st.session_state.table_version += 1 # 🌟 核心：强制触发表格 key 变更
+                st.cache_data.clear()              # 清除缓存
+                st.rerun()                         # 重新运行
+                
+            except Exception as e:
+                st.error(f"❌ 删除失败，请检查网络: {e}")
+        
         if cc2.button("取消", use_container_width=True):
+            # 仅仅关闭确认框，不改变 table_version，因为数据没变
             st.session_state[del_confirm_key] = False
-            st.session_state.table_version += 1
-            st.rerun()
-            except Exception as e: st.error(f"失败: {e}")
-        if cc2.button("取消", use_container_width=True):
-            st.session_state[f"del_confirm_{rec_id}"] = False
-            st.session_state.table_version += 1
             st.rerun()

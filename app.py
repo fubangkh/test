@@ -234,7 +234,7 @@ with st.container(border=True):
 col_l, col_r = st.columns([2, 1])
 with col_l:
     # st.write("🏦 **各账户当前余额 (原币对账)**")
-    st.markdown("#### 🏦 **各账户当前余额 (原币对账)**")
+    st.markdown("##### 🏦 **各账户当前余额 (原币对账)**")
     if not df_main.empty:
         def calc_bank_balance(group):
             inc, exp, amt = group['收入(USD)'], group['支出(USD)'], group['实际金额']
@@ -410,6 +410,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

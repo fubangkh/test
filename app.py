@@ -320,7 +320,8 @@ if not df_this_month.empty:
 
     with title_col:
         # 动态标题：显示当前筛选的月份
-        st.subheader(f"📑 {sel_month}月流水明细")
+        # st.subheader(f"📑 {sel_month}月流水明细")
+        st.markdown(f"#### 📑 {sel_month}月流水明细")
 
     with btn_col:
         # 1. 初始化内存缓冲区
@@ -411,6 +412,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

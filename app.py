@@ -116,6 +116,18 @@ with st.sidebar:
         st.rerun()
         
     st.divider()
+    st.subheader("🤖 自动化助手")
+    
+    if st.button("🔄 同步企业微信数据", use_container_width=True):
+        with st.spinner("正在从企微抓取数据..."):
+            # 因为函数在 app.py 内部，直接调用即可
+            result = sync_wecom_to_sheets(conn)
+            
+            if "✅" in result:
+                st.success(result)
+                st.rerun() # 同步成功后自动刷新页面显示新数据
+            else:
+                st.info(result)
 
 # --- 4. 主页面数据加载 ---
 df_main = load_data(version=st.session_state.table_version)
@@ -409,4 +421,5 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 

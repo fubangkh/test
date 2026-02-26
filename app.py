@@ -191,7 +191,7 @@ month_list = list(range(1, 13))
 
 # --- 7. 时间维度看板 ---
 with st.container(border=True):
-    st.markdown("### 📅 时间维度看板") 
+    st.markdown("#### 📅 时间维度看板") 
     c1, c2, c3 = st.columns([2, 2, 5]) 
     with c1:
         sel_year = st.selectbox("年份", year_list, index=0, label_visibility="collapsed")
@@ -280,7 +280,7 @@ with col_l:
 
 with col_r:
     # st.write(f"🏷️ **{sel_month}月支出排行**")
-    st.markdown("##### 🏷️ **{sel_month}月支出排行**")
+    st.markdown(f" "##### 🏷️ **{sel_month}月支出排行**")
     exp_stats = df_this_month[df_this_month['支出(USD)'] > 0].groupby('资金性质')[['支出(USD)']].sum().sort_values(by='支出(USD)', ascending=False).reset_index()
     if not exp_stats.empty:
         # ✨ 统一格式：千分符 + 2位小数 (去掉了之前可能的$符号，保持纯净右对齐)
@@ -411,6 +411,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

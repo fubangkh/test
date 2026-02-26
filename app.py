@@ -91,6 +91,59 @@ if "current_active_id" not in st.session_state:
 # --- 2. 数据加载函数 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# --- 新增：企业微信同步函数 ---
+def sync_wecom_to_sheets(conn):
+    try:
+        CORPID = st.secrets["WECOM_CORPID"]
+        SECRET = st.secrets["WECOM_SECRET"]
+        TEMPLATE_ID = st.secrets["WECOM_TEMPLATE_ID"]
+        
+        # 1. 获取 Token
+        token_url = f"https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={CORPID}&corpsecret={SECRET}"
+        token = requests.get(token_url).json().get("access_token")
+        if not token: return "❌ Token获取失败"
+
+        # 2. 获取最近 7 天审批列表
+        import time
+        now = int(time.time())
+        list_url = f"https://qyapi.weixin.qq.com/cgi-bin/oa/getapprovalinfo?access_token={token}"
+        payload = {
+            "starttime": str(now - 604800), "endtime": str(now),
+            "cursor": 0, "size": 100,
+            "filters": [{"key": "template_id", "value": TEMPLATE_ID}, {"key": "sp_status", "value": "2"}]
+        }
+        res_list = requests.post(list_url, json=payload).json()
+        sp_nos = res_list.get("sp_no_list", [])
+        if not sp_nos: return "📭 没有待同步的单据"
+
+        # 3. 读取现有数据去重
+        df_existing = conn.read(worksheet="Summary", ttl=0) # 注意这里 worksheet 名要对
+        existing_ids = df_existing['录入编号'].astype(str).tolist() if '录入编号' in df_existing.columns else []
+
+        # 4. 抓取详情并解析 (这里逻辑简化，先跑通流程)
+        new_rows = []
+        detail_url = f"https://qyapi.weixin.qq.com/cgi-bin/oa/getapprovaldetail?access_token={token}"
+        for sp_no in sp_nos:
+            uid = f"WE-{sp_no[-8:]}"
+            if uid in existing_ids: continue
+            
+            det = requests.post(detail_url, json={"sp_no": sp_no}).json()
+            # 这里先做最基础的解析，后续根据你的表单顺序调 index
+            c = det.get("info", {}).get("apply_data", {}).get("contents", [])
+            new_rows.append({
+                "录入编号": uid,
+                "提交时间": datetime.fromtimestamp(det['info']['apply_time']).strftime('%Y-%m-%d %H:%M'),
+                "摘要": c[0]['value']['text'] if len(c)>0 else "企微同步",
+                "收入(USD)": 0, "支出(USD)": 0, "余额(USD)": 0 # 占位
+            })
+
+        if new_rows:
+            # 写入逻辑...
+            return f"✅ 成功抓取 {len(new_rows)} 条"
+        return "😴 无新数据"
+    except Exception as e:
+        return f"❌ 出错了: {str(e)}"
+
 @st.cache_data(ttl=300)
 def load_data(version=0):
     try:
@@ -421,5 +474,6 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 

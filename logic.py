@@ -1,7 +1,7 @@
-import pandas as pd
-from datetime import datetime
 import requests  # ✨ 必须加上这个，否则 get_live_rates 会报错
 import streamlit as st # ✨ 必须加上这个，否则 @st.cache_data 会报错
+import pandas as pd
+from datetime import datetime
 
 # =========================================================
 # 1. 核心业务常量 (新增币种定义)

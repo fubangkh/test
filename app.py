@@ -27,7 +27,6 @@ MAIN_LANG = {
         "title_main": "富邦日记账",
         "sidebar_title": "⚙️ 侧边栏",
         "month_sel": "选择月份",
-        "btn_add": "➕ 新增流水",
         "btn_export": "📥 导出 Excel",
         "table_title": "📊 财务流水明细",
         "stat_total_in": "总收入",
@@ -40,7 +39,6 @@ MAIN_LANG = {
         "title_main": "Fubang Journal",
         "sidebar_title": "Fubang Journal",
         "month_sel": "Select Month",
-        "btn_add": "➕ Add Record",
         "btn_export": "📥 Export Excel",
         "table_title": "📊 Financial Transactions",
         "stat_total_in": "Total Income",
@@ -53,7 +51,6 @@ MAIN_LANG = {
         "title_main": "ហ្វូបង់ សៀវភៅគណនេយ្យោះ",
         "sidebar_title": "ហ្វូបង់ សៀវភៅគណនេយ្យោះ",
         "month_sel": "ជ្រើសរើសខែ",
-        "btn_add": "➕ បញ្ចូលទិន្នន័យ",
         "btn_export": "📥 ទាញយក Excel",
         "table_title": "📊 ព័ត៌មានលម្អិតអំពីហិរញ្ញវត្ថុ",
         "stat_total_in": "ចំណូលសរុប",
@@ -66,7 +63,6 @@ MAIN_LANG = {
         "title_main": "Sổ Kế Toán Fubang",
         "sidebar_title": "Sổ Kế Toán Fubang",
         "month_sel": "Chọn tháng",
-        "btn_add": "➕ Thêm giao dịch",
         "btn_export": "📥 Xuất Excel",
         "table_title": "📊 Chi tiết giao dịch tài chính",
         "stat_total_in": "Tổng thu",
@@ -386,6 +382,7 @@ if not df_this_month.empty:
             data=excel_data.getvalue(),
             file_name=f"财务流水_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            use_container_width=True
         )
 
     # --- 11. 渲染表格 ---
@@ -412,6 +409,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

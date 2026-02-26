@@ -92,19 +92,20 @@ if "current_active_id" not in st.session_state:
 # --- 2. 数据加载函数 ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 新增：企业微信同步函数 ---
+# --- 升级版：企业微信同步函数 ---
 def sync_wecom_to_sheets(conn):
     try:
         CORPID = st.secrets["WECOM_CORPID"]
         SECRET = st.secrets["WECOM_SECRET"]
         TEMPLATE_ID = st.secrets["WECOM_TEMPLATE_ID"]
         
-        # 1. 获取 Token
+        # 1. 获取 Access Token
         token_url = f"https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={CORPID}&corpsecret={SECRET}"
-        token = requests.get(token_url).json().get("access_token")
-        if not token: return "❌ Token获取失败"
+        token_res = requests.get(token_url).json()
+        token = token_res.get("access_token")
+        if not token: return f"❌ Token获取失败: {token_res.get('errmsg')}"
 
-        # 2. 获取最近 7 天审批列表
+        # 2. 获取最近 7 天已通过审批列表 (sp_status=2)
         import time
         now = int(time.time())
         list_url = f"https://qyapi.weixin.qq.com/cgi-bin/oa/getapprovalinfo?access_token={token}"
@@ -115,36 +116,89 @@ def sync_wecom_to_sheets(conn):
         }
         res_list = requests.post(list_url, json=payload).json()
         sp_nos = res_list.get("sp_no_list", [])
-        if not sp_nos: return "📭 没有待同步的单据"
+        if not sp_nos: return "📭 最近 7 天没有待同步的已通过单据"
 
-        # 3. 读取现有数据去重
-        df_existing = conn.read(worksheet="Summary", ttl=0) # 注意这里 worksheet 名要对
+        # 3. 读取现有数据去重 (确保 worksheet 名字为 Summary)
+        df_existing = conn.read(worksheet="Summary", ttl=0)
         existing_ids = df_existing['录入编号'].astype(str).tolist() if '录入编号' in df_existing.columns else []
 
-        # 4. 抓取详情并解析 (这里逻辑简化，先跑通流程)
+        # 获取当前汇率
+        rates = get_live_rates()
+
         new_rows = []
         detail_url = f"https://qyapi.weixin.qq.com/cgi-bin/oa/getapprovaldetail?access_token={token}"
+        
         for sp_no in sp_nos:
+            # 使用 WE-加后8位 作为录入编号去重
             uid = f"WE-{sp_no[-8:]}"
             if uid in existing_ids: continue
             
-            det = requests.post(detail_url, json={"sp_no": sp_no}).json()
-            # 这里先做最基础的解析，后续根据你的表单顺序调 index
-            c = det.get("info", {}).get("apply_data", {}).get("contents", [])
-            new_rows.append({
-                "录入编号": uid,
-                "提交时间": datetime.fromtimestamp(det['info']['apply_time']).strftime('%Y-%m-%d %H:%M'),
-                "摘要": c[0]['value']['text'] if len(c)>0 else "企微同步",
-                "收入(USD)": 0, "支出(USD)": 0, "余额(USD)": 0 # 占位
-            })
+            det_res = requests.post(detail_url, json={"sp_no": sp_no}).json()
+            if det_res.get("errcode") != 0: continue
+            
+            info = det_res.get("info", {})
+            contents = info.get("apply_data", {}).get("contents", [])
+            
+            try:
+                # --- 核心字段映射 (根据 CSV 逻辑) ---
+                # contents[0]: 费用类型 (如 管理费)
+                # contents[1]: 申请事由
+                # contents[2]: 币种 (人民币/美元)
+                # contents[3]: 金额 (数字)
+                # contents[7]: 备注
+                
+                cat_type = contents[0]['value']['text']
+                reason   = contents[1]['value']['text']
+                currency = contents[2]['value']['text']
+                raw_amt  = float(contents[3]['value']['new_number'])
+                
+                # 币种对齐
+                final_curr = "CNY" if "人民币" in currency else "USD"
+                
+                # 计算折合美元
+                exp_usd = round(raw_amt / rates.get(final_curr, 1.0), 2)
+                
+                # 时间处理：使用完成时间 (sp_finish_time)
+                # 如果单据还没完成时间，用申请时间保底
+                finish_ts = info.get('sp_finish_time', info.get('apply_time'))
+                finish_dt = datetime.fromtimestamp(finish_ts).strftime('%Y-%m-%d %H:%M')
+
+                new_rows.append({
+                    "录入编号": uid,
+                    "提交时间": finish_dt,  # ✅ 完成时间 对应 提交时间
+                    "修改时间": "",
+                    "摘要": reason,
+                    "客户/项目信息": "企微同步",
+                    "结算账户": "待分类",
+                    "审批/发票单号": sp_no,  # ✅ 审批编号 对应 审批/发票单号
+                    "资金性质": cat_type,
+                    "实际金额": raw_amt,
+                    "实际币种": final_curr,
+                    "收入(USD)": 0.0,
+                    "支出(USD)": exp_usd,
+                    "余额(USD)": 0.0, # 稍后计算
+                    "经手人": info.get("applyer", {}).get("name"),
+                    "备注": contents[7]['value']['text'] if len(contents) > 7 else "来自企微同步"
+                })
+            except Exception:
+                continue
 
         if new_rows:
-            # 写入逻辑...
-            return f"✅ 成功抓取 {len(new_rows)} 条"
-        return "😴 无新数据"
+            df_new = pd.DataFrame(new_rows)
+            # 合并并重算余额
+            df_final = pd.concat([df_existing, df_new], ignore_index=True)
+            df_final = calculate_full_balance(df_final)
+            
+            # 更新云端
+            conn.update(worksheet="Summary", data=df_final)
+            # 更新版本号触发主界面刷新
+            st.session_state.table_version += 1
+            return f"✅ 成功从企微同步 {len(new_rows)} 条数据！"
+            
+        return "😴 云端已是最新，无新单据需要同步"
+        
     except Exception as e:
         return f"❌ 出错了: {str(e)}"
-
 @st.cache_data(ttl=300)
 def load_data(version=0):
     try:
@@ -475,6 +529,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

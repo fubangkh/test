@@ -228,7 +228,7 @@ with st.container(border=True):
 
 # st.divider()
 # 这里的 margin-top: -10px 会把分割线往上“提”，margin-bottom 控制下方间距
-st.markdown('<hr style="margin-top: 0px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
+# st.markdown('<hr style="margin-top: 0px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
 
 # --- 8. 各账户余额与支出排行 ---
 col_l, col_r = st.columns([2, 1])
@@ -292,7 +292,7 @@ with col_r:
 
 # st.divider()
 # 这里的 margin-top: -15px 会把分割线往上“提”，margin-bottom 控制下方间距
-st.markdown('<hr style="margin-top: 0px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
+# st.markdown('<hr style="margin-top: 0px; margin-bottom: 10px; border: 0; border-top: 1px solid #ddd;">', unsafe_allow_html=True)
 
 # --- 9. 流水明细表 ---
 if not df_this_month.empty:
@@ -409,6 +409,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

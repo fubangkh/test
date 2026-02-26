@@ -108,6 +108,7 @@ def sync_wecom_to_sheets(conn):
         # 2. 获取最近 7 天已通过审批列表 (sp_status=2)
         import time
         now = int(time.time())
+        start_time = str(now - (30 * 24 * 3600))
         list_url = f"https://qyapi.weixin.qq.com/cgi-bin/oa/getapprovalinfo?access_token={token}"
         payload = {
             "starttime": str(now - 604800), "endtime": str(now),
@@ -115,8 +116,12 @@ def sync_wecom_to_sheets(conn):
             "filters": [{"key": "template_id", "value": TEMPLATE_ID}, {"key": "sp_status", "value": "2"}]
         }
         res_list = requests.post(list_url, json=payload).json()
+        st.sidebar.write("调试信息:", res_list)
         sp_nos = res_list.get("sp_no_list", [])
-        if not sp_nos: return "📭 最近 7 天没有待同步的已通过单据"
+        if not sp_nos:
+            # 这里的报错信息会根据腾讯返回的内容自动变化
+            errmsg = res_list.get("errmsg", "无报错")
+            return f"📭 抓取失败。返回码: {res_list.get('errcode')}, 原因: {errmsg}。请确认单据是否在30天内且已完全审批通过。"
 
         # 3. 读取现有数据去重 (确保 worksheet 名字为 Summary)
         df_existing = conn.read(worksheet="Summary", ttl=0)
@@ -529,6 +534,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 

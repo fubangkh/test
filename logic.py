@@ -18,7 +18,6 @@ ISO_MAP = {
     "美元": "USD", "USD": "USD"
 }
 
-# --- 必须完全顶格 ---
 ALL_CURRENCIES = ["USD", "CNY", "KHR", "HKD", "VND", "IDR", "THB"]
 
 CORE_BIZ = ["工程收入", "施工收入", "产品销售收入", "服务收入", "预收款", "工程成本", "施工成本", "产品销售支出"]
@@ -27,13 +26,12 @@ EXP_OTHER = ["网络成本", "管理费用", "差旅费", "工资福利", "往�
 ALL_PROPS = CORE_BIZ[:5] + INC_OTHER + CORE_BIZ[5:] + EXP_OTHER + ["资金结转"]
 
 def get_dynamic_options():
-    # --- 必须向右缩进 ---
     return {
         "currencies": ALL_CURRENCIES,
         "properties": ALL_PROPS
     }
 
-# --- 实时汇率 (已修复版) ---
+# --- 实时汇率 ---
 @st.cache_data(ttl=3600)
 def get_live_rates():
     # 1. 预设完整的币种模板和默认汇率
@@ -138,3 +136,109 @@ def calculate_full_balance(df):
     temp_df = temp_df[[c for c in standard_columns if c in temp_df.columns]]
         
     return temp_df
+# =========================================================
+# 3. 企业微信自动化同步逻辑 (新增)
+# =========================================================
+
+def sync_wecom_to_sheets(conn):
+    """从企业微信抓取审批单并保存到 Google Sheets"""
+    # 1. 获取基础配置 (确保你在 Streamlit Secrets 已填好)
+    try:
+        CORPID = st.secrets["WECOM_CORPID"]
+        SECRET = st.secrets["WECOM_SECRET"]
+        TEMPLATE_ID = st.secrets["WECOM_TEMPLATE_ID"]
+    except Exception:
+        return "❌ 请先在 Streamlit 后台配置 Secrets (ID, Secret, TemplateID)"
+
+    # 2. 获取 Access Token
+    token_url = f"https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={CORPID}&corpsecret={SECRET}"
+    try:
+        token_res = requests.get(token_url).json()
+        token = token_res.get("access_token")
+        if not token:
+            return f"❌ Token获取失败: {token_res.get('errmsg')}"
+    except Exception as e:
+        return f"🌐 网络连接异常: {e}"
+
+    # 3. 获取最近 7 天已通过的审批单 (sp_status=2)
+    list_url = f"https://qyapi.weixin.qq.com/cgi-bin/oa/getapprovalinfo?access_token={token}"
+    import time
+    now = int(time.time())
+    payload = {
+        "starttime": str(now - 604800), 
+        "endtime": str(now),
+        "cursor": 0,
+        "size": 100,
+        "filters": [
+            {"key": "template_id", "value": TEMPLATE_ID},
+            {"key": "sp_status", "value": "2"}
+        ]
+    }
+    
+    res_list = requests.post(list_url, json=payload).json()
+    sp_nos = res_list.get("sp_no_list", [])
+    
+    if not sp_nos:
+        return "📭 最近 7 天没有发现新通过的审批单。"
+
+    # 4. 读取现有数据用于去重
+    df_existing = conn.read(worksheet="Transactions")
+    existing_ids = df_existing['录入编号'].astype(str).tolist() if '录入编号' in df_existing.columns else []
+
+    new_rows = []
+    detail_url = f"https://qyapi.weixin.qq.com/cgi-bin/oa/getapprovaldetail?access_token={token}"
+    
+    # 获取实时汇率用于转换
+    rates = get_live_rates()
+
+    for sp_no in sp_nos:
+        unique_id = f"WE-{sp_no[-8:]}" # 生成企微专属编号
+        if unique_id in existing_ids:
+            continue
+            
+        det = requests.post(detail_url, json={"sp_no": sp_no}).json()
+        info = det.get("info", {})
+        contents = info.get("apply_data", {}).get("contents", [])
+
+        try:
+            # 🌟 核心映射逻辑 (请根据你企微表单的顺序调整索引数字)
+            raw_amt = float(contents[1]['value']['new_number']) # 假设第二个框是金额
+            curr = "USD" # 假设默认是USD，如果是多币种需解析 contents
+            
+            # 计算美元价值
+            inc_usd = 0.0
+            exp_usd = raw_amt / rates.get(curr, 1.0) # 假设全是支出
+            
+            row_data = {
+                "录入编号": unique_id,
+                "提交时间": datetime.fromtimestamp(info.get("apply_time")).strftime('%Y-%m-%d %H:%M'),
+                "修改时间": "",
+                "摘要": contents[0]['value']['text'], # 假设第一个框是摘要
+                "客户/项目信息": "企微同步",
+                "结算账户": "待分类",
+                "审批/发票单号": sp_no,
+                "资金性质": "企微导入",
+                "实际金额": raw_amt,
+                "实际币种": curr,
+                "收入(USD)": inc_usd,
+                "支出(USD)": exp_usd,
+                "余额(USD)": 0, # 后面会重算
+                "经手人": info.get("applyer", {}).get("name"),
+                "备注": "来自企业微信自动化同步"
+            }
+            new_rows.append(row_data)
+        except Exception:
+            continue
+
+    # 5. 合并、重算并更新
+    if new_rows:
+        df_new = pd.DataFrame(new_rows)
+        # 合并后使用你现有的 calculate_full_balance 函数重新计算所有余额
+        full_df = pd.concat([df_existing, df_new], ignore_index=True)
+        final_df = calculate_full_balance(full_df)
+        
+        conn.update(worksheet="Transactions", data=final_df)
+        return f"✅ 成功从企微同步 {len(new_rows)} 条数据！"
+    
+    return "😴 所有单据已在账目中，无需更新。"
+    

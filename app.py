@@ -316,7 +316,7 @@ if not df_this_month.empty:
     
     # --- 10. 一键导出Excel ---
     # 使用两列布局，第一列放标题，第二列放按钮
-    title_col, btn_col = st.columns([3, 1])
+    title_col, btn_col = st.columns([2, 1])
 
     with title_col:
         # 动态标题：显示当前筛选的月份
@@ -412,6 +412,7 @@ if not df_this_month.empty:
 else:
     # 如果该月份没有数据，显示提示
     st.info(f"💡 {sel_year}年{sel_month}月暂无流水记录。")
+
 
 
 
